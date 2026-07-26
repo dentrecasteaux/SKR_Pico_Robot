@@ -5,8 +5,8 @@
 #include "Config.h"
 #include "Stepper.h"
 
-Stepper leftStepper(HW::LEFT_STEP, HW::LEFT_DIR, HW::LEFT_EN);
-Stepper rightStepper(HW::RIGHT_STEP, HW::RIGHT_DIR, HW::RIGHT_EN);
+Stepper leftStepper(HW::LEFT_STEP, HW::LEFT_DIR, HW::LEFT_EN, true);
+Stepper rightStepper(HW::RIGHT_STEP, HW::RIGHT_DIR, HW::RIGHT_EN, true);
 
 namespace
 {
@@ -24,7 +24,7 @@ void printStatus()
 
 void printHelp()
 {
-  Serial.println("Commands: left on, left off, right on, right off, off, status, help");
+  Serial.println("Commands: left on/off/test, right on/off/test, off, status, help");
 }
 
 void processCommand(const char* command)
@@ -33,10 +33,26 @@ void processCommand(const char* command)
     leftStepper.enable();
   } else if (std::strcmp(command, "left off") == 0) {
     leftStepper.disable();
+  } else if (std::strcmp(command, "left test") == 0) {
+    if (!leftStepper.startTest(Config::TEST_STEP_COUNT,
+                               Config::TEST_STEP_INTERVAL_US)) {
+      Serial.println("Left motor is already moving.");
+      return;
+    }
+    Serial.println("Left 10-pulse test started.");
+    return;
   } else if (std::strcmp(command, "right on") == 0) {
     rightStepper.enable();
   } else if (std::strcmp(command, "right off") == 0) {
     rightStepper.disable();
+  } else if (std::strcmp(command, "right test") == 0) {
+    if (!rightStepper.startTest(Config::TEST_STEP_COUNT,
+                                Config::TEST_STEP_INTERVAL_US)) {
+      Serial.println("Right motor is already moving.");
+      return;
+    }
+    Serial.println("Right 10-pulse test started.");
+    return;
   } else if (std::strcmp(command, "off") == 0) {
     leftStepper.disable();
     rightStepper.disable();
@@ -95,4 +111,6 @@ void setup()
 void loop()
 {
   processSerialCommands();
+  leftStepper.update(micros());
+  rightStepper.update(micros());
 }
