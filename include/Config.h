@@ -11,4 +11,5 @@ namespace Config {
   constexpr uint32_t TEST_STEP_INTERVAL_US = 2000;
   constexpr uint32_t MOTION_TEST_STEP_COUNT = 200;
   constexpr uint32_t MOTION_TEST_STEP_INTERVAL_US = 10000;
+  constexpr int32_t MAX_SPEED_STEPS_PER_SECOND = 400;
 }

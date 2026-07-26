@@ -2,8 +2,8 @@
 
 #include <Arduino.h>
 
-// A low-level stepper interface. This version configures STEP, DIR, and
-// enable pins but deliberately does not generate step pulses.
+// A low-level stepper interface. It owns only the physical STEP, DIR, and
+// enable pins. Pulse timing belongs to Motor.
 class Stepper
 {
 public:
@@ -14,23 +14,16 @@ public:
   void enable();
   void disable();
 
-  bool startTest(uint32_t steps, uint32_t stepIntervalUs);
-  bool startMove(uint32_t steps, bool forward, uint32_t stepIntervalUs);
-  void update(uint32_t nowUs);
+  void setDirection(bool forward);
+  void beginPulse();
+  void endPulse();
 
   bool isEnabled() const;
-  bool isBusy() const;
 
 private:
-  void setDirection(bool forward);
-
   uint8_t stepPin_;
   uint8_t directionPin_;
   uint8_t enablePin_;
   bool directionInverted_;
   bool enabled_ = false;
-  bool pulseHigh_ = false;
-  uint32_t remainingSteps_ = 0;
-  uint32_t stepIntervalUs_ = 0;
-  uint32_t lastTransitionUs_ = 0;
 };
