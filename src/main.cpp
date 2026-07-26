@@ -12,8 +12,8 @@
 arduino::UART stepperUart(HW::UART_TX, HW::UART_RX);
 Stepper leftStepper(HW::LEFT_STEP, HW::LEFT_DIR, HW::LEFT_EN, true);
 Stepper rightStepper(HW::RIGHT_STEP, HW::RIGHT_DIR, HW::RIGHT_EN, false);
-Motor leftMotor(leftStepper);
-Motor rightMotor(rightStepper);
+Motor leftMotor(leftStepper, Config::MAX_ACCELERATION_STEPS_PER_SECOND_SQUARED);
+Motor rightMotor(rightStepper, Config::MAX_ACCELERATION_STEPS_PER_SECOND_SQUARED);
 MotionController motionController(leftMotor, rightMotor);
 TMC2209 leftDriver(stepperUart, 0);
 TMC2209 rightDriver(stepperUart, 2);
