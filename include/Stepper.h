@@ -15,12 +15,15 @@ public:
   void disable();
 
   bool startTest(uint32_t steps, uint32_t stepIntervalUs);
+  bool startMove(uint32_t steps, bool forward, uint32_t stepIntervalUs);
   void update(uint32_t nowUs);
 
   bool isEnabled() const;
   bool isBusy() const;
 
 private:
+  void setDirection(bool forward);
+
   uint8_t stepPin_;
   uint8_t directionPin_;
   uint8_t enablePin_;

@@ -16,7 +16,7 @@ void Stepper::begin()
   pinMode(enablePin_, OUTPUT);
 
   digitalWrite(stepPin_, LOW);
-  digitalWrite(directionPin_, directionInverted_ ? HIGH : LOW);
+  setDirection(false);
   disable();
 }
 
@@ -38,15 +38,27 @@ void Stepper::disable()
 
 bool Stepper::startTest(uint32_t steps, uint32_t stepIntervalUs)
 {
+  return startMove(steps, true, stepIntervalUs);
+}
+
+bool Stepper::startMove(uint32_t steps, bool forward, uint32_t stepIntervalUs)
+{
   if (isBusy() || steps == 0 || stepIntervalUs == 0) {
     return false;
   }
 
+  setDirection(forward);
   enable();
   remainingSteps_ = steps;
   stepIntervalUs_ = stepIntervalUs;
   lastTransitionUs_ = micros();
   return true;
+}
+
+void Stepper::setDirection(bool forward)
+{
+  const bool level = forward ^ directionInverted_;
+  digitalWrite(directionPin_, level ? HIGH : LOW);
 }
 
 void Stepper::update(uint32_t nowUs)

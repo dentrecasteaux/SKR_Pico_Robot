@@ -4,9 +4,13 @@
 #include "Hardware.h"
 #include "Config.h"
 #include "Stepper.h"
+#include "TMC2209.h"
 
+arduino::UART stepperUart(HW::UART_TX, HW::UART_RX);
 Stepper leftStepper(HW::LEFT_STEP, HW::LEFT_DIR, HW::LEFT_EN, true);
-Stepper rightStepper(HW::RIGHT_STEP, HW::RIGHT_DIR, HW::RIGHT_EN, true);
+Stepper rightStepper(HW::RIGHT_STEP, HW::RIGHT_DIR, HW::RIGHT_EN, false);
+TMC2209 leftDriver(stepperUart, 0);
+TMC2209 rightDriver(stepperUart, 2);
 
 namespace
 {
@@ -24,7 +28,7 @@ void printStatus()
 
 void printHelp()
 {
-  Serial.println("Commands: left on/off/test, right on/off/test, off, status, help");
+  Serial.println("Commands: left or right on/off/test/forward/reverse, off, status, help");
 }
 
 void processCommand(const char* command)
@@ -41,6 +45,22 @@ void processCommand(const char* command)
     }
     Serial.println("Left 10-pulse test started.");
     return;
+  } else if (std::strcmp(command, "left forward") == 0) {
+    if (!leftStepper.startMove(Config::MOTION_TEST_STEP_COUNT, true,
+                               Config::MOTION_TEST_STEP_INTERVAL_US)) {
+      Serial.println("Left motor is already moving.");
+      return;
+    }
+    Serial.println("Left forward test started.");
+    return;
+  } else if (std::strcmp(command, "left reverse") == 0) {
+    if (!leftStepper.startMove(Config::MOTION_TEST_STEP_COUNT, false,
+                               Config::MOTION_TEST_STEP_INTERVAL_US)) {
+      Serial.println("Left motor is already moving.");
+      return;
+    }
+    Serial.println("Left reverse test started.");
+    return;
   } else if (std::strcmp(command, "right on") == 0) {
     rightStepper.enable();
   } else if (std::strcmp(command, "right off") == 0) {
@@ -52,6 +72,22 @@ void processCommand(const char* command)
       return;
     }
     Serial.println("Right 10-pulse test started.");
+    return;
+  } else if (std::strcmp(command, "right forward") == 0) {
+    if (!rightStepper.startMove(Config::MOTION_TEST_STEP_COUNT, true,
+                                Config::MOTION_TEST_STEP_INTERVAL_US)) {
+      Serial.println("Right motor is already moving.");
+      return;
+    }
+    Serial.println("Right forward test started.");
+    return;
+  } else if (std::strcmp(command, "right reverse") == 0) {
+    if (!rightStepper.startMove(Config::MOTION_TEST_STEP_COUNT, false,
+                                Config::MOTION_TEST_STEP_INTERVAL_US)) {
+      Serial.println("Right motor is already moving.");
+      return;
+    }
+    Serial.println("Right reverse test started.");
     return;
   } else if (std::strcmp(command, "off") == 0) {
     leftStepper.disable();
@@ -98,6 +134,10 @@ void setup()
   leftStepper.begin();
   rightStepper.begin();
 
+  stepperUart.begin(Config::TMC_UART_BAUD);
+  leftDriver.begin();
+  rightDriver.begin();
+
   Serial.begin(Config::SERIAL_BAUD);
   while (!Serial) {
     delay(10);
@@ -105,6 +145,10 @@ void setup()
 
   Serial.println("SKR Pico starting...");
   Serial.println("Stepper drivers initialised and disabled.");
+  Serial.print("X TMC2209 UART: ");
+  Serial.println(leftDriver.isConnected() ? "connected" : "not responding");
+  Serial.print("Y TMC2209 UART: ");
+  Serial.println(rightDriver.isConnected() ? "connected" : "not responding");
   printHelp();
 }
 
