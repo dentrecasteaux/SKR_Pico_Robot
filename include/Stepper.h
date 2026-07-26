@@ -2,12 +2,12 @@
 
 #include <Arduino.h>
 
-// A low-level stepper interface. This first version only controls the
-// TMC2209 enable input; it deliberately does not generate step pulses.
+// A low-level stepper interface. This version configures STEP, DIR, and
+// enable pins but deliberately does not generate step pulses.
 class Stepper
 {
 public:
-  explicit Stepper(uint8_t enablePin);
+  Stepper(uint8_t stepPin, uint8_t directionPin, uint8_t enablePin);
 
   void begin();
   void enable();
@@ -16,6 +16,8 @@ public:
   bool isEnabled() const;
 
 private:
+  uint8_t stepPin_;
+  uint8_t directionPin_;
   uint8_t enablePin_;
   bool enabled_ = false;
 };

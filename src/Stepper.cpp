@@ -1,13 +1,20 @@
 #include "Stepper.h"
 
-Stepper::Stepper(uint8_t enablePin)
-    : enablePin_(enablePin)
+Stepper::Stepper(uint8_t stepPin, uint8_t directionPin, uint8_t enablePin)
+    : stepPin_(stepPin),
+      directionPin_(directionPin),
+      enablePin_(enablePin)
 {
 }
 
 void Stepper::begin()
 {
+  pinMode(stepPin_, OUTPUT);
+  pinMode(directionPin_, OUTPUT);
   pinMode(enablePin_, OUTPUT);
+
+  digitalWrite(stepPin_, LOW);
+  digitalWrite(directionPin_, LOW);
   disable();
 }
 

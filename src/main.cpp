@@ -5,8 +5,8 @@
 #include "Config.h"
 #include "Stepper.h"
 
-Stepper leftStepper(HW::LEFT_EN);
-Stepper rightStepper(HW::RIGHT_EN);
+Stepper leftStepper(HW::LEFT_STEP, HW::LEFT_DIR, HW::LEFT_EN);
+Stepper rightStepper(HW::RIGHT_STEP, HW::RIGHT_DIR, HW::RIGHT_EN);
 
 namespace
 {
