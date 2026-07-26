@@ -5,6 +5,7 @@
 #include "Hardware.h"
 #include "Config.h"
 #include "Motor.h"
+#include "MotionController.h"
 #include "Stepper.h"
 #include "TMC2209.h"
 
@@ -13,6 +14,7 @@ Stepper leftStepper(HW::LEFT_STEP, HW::LEFT_DIR, HW::LEFT_EN, true);
 Stepper rightStepper(HW::RIGHT_STEP, HW::RIGHT_DIR, HW::RIGHT_EN, false);
 Motor leftMotor(leftStepper);
 Motor rightMotor(rightStepper);
+MotionController motionController(leftMotor, rightMotor);
 TMC2209 leftDriver(stepperUart, 0);
 TMC2209 rightDriver(stepperUart, 2);
 
@@ -36,7 +38,39 @@ void printStatus()
 
 void printHelp()
 {
-  Serial.println("Commands: left/right on/off/test/forward/reverse/speed N, off, status, help");
+  Serial.println("Commands: left/right on/off/test/forward/reverse/speed N, drive LINEAR TURN, off, status, help");
+}
+
+bool processDriveCommand(const char* command)
+{
+  constexpr const char* prefix = "drive ";
+  constexpr size_t prefixLength = 6;
+  if (std::strncmp(command, prefix, prefixLength) != 0) return false;
+
+  const char* linearText = command + prefixLength;
+  char* end = nullptr;
+  const long linear = std::strtol(linearText, &end, 10);
+  if (end == linearText || *end != ' ') {
+    Serial.println("Use: drive LINEAR TURN");
+    return true;
+  }
+
+  while (*end == ' ') ++end;
+  const char* turnText = end;
+  const long turn = std::strtol(turnText, &end, 10);
+  if (end == turnText || *end != '\0' ||
+      linear < -Config::MAX_SPEED_STEPS_PER_SECOND ||
+      linear > Config::MAX_SPEED_STEPS_PER_SECOND ||
+      turn < -Config::MAX_SPEED_STEPS_PER_SECOND ||
+      turn > Config::MAX_SPEED_STEPS_PER_SECOND) {
+    Serial.println("Linear and turn must each be between -400 and 400.");
+    return true;
+  }
+
+  motionController.setDrive(static_cast<int32_t>(linear),
+                            static_cast<int32_t>(turn));
+  printStatus();
+  return true;
 }
 
 bool processSpeedCommand(const char* command, const char* prefix, Motor& motor,
@@ -67,7 +101,9 @@ bool processSpeedCommand(const char* command, const char* prefix, Motor& motor,
 
 void processCommand(const char* command)
 {
-  if (processSpeedCommand(command, "left speed ", leftMotor, "Left")) {
+  if (processDriveCommand(command)) {
+    return;
+  } else if (processSpeedCommand(command, "left speed ", leftMotor, "Left")) {
     return;
   } else if (processSpeedCommand(command, "right speed ", rightMotor, "Right")) {
     return;
@@ -128,8 +164,7 @@ void processCommand(const char* command)
     Serial.println("Right reverse test started.");
     return;
   } else if (std::strcmp(command, "off") == 0) {
-    leftMotor.disable();
-    rightMotor.disable();
+    motionController.stop();
   } else if (std::strcmp(command, "status") == 0) {
     printStatus();
     return;
