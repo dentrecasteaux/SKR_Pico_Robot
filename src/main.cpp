@@ -38,7 +38,42 @@ void printStatus()
 
 void printHelp()
 {
-  Serial.println("Commands: left/right on/off/test/forward/reverse/speed N, drive LINEAR TURN, off, status, help");
+  Serial.println("Commands: left/right on/off/test/forward/reverse/speed N, drive LINEAR TURN, velocity MM_PER_S DEG_PER_S, off, status, help");
+}
+
+bool processVelocityCommand(const char* command)
+{
+  constexpr const char* prefix = "velocity ";
+  constexpr size_t prefixLength = 9;
+  if (std::strncmp(command, prefix, prefixLength) != 0) return false;
+
+  const char* linearText = command + prefixLength;
+  char* end = nullptr;
+  const float linearMmPerSecond = std::strtof(linearText, &end);
+  if (end == linearText || *end != ' ') {
+    Serial.println("Use: velocity MM_PER_S DEG_PER_S");
+    return true;
+  }
+
+  while (*end == ' ') ++end;
+  const char* turnText = end;
+  const float turnDegreesPerSecond = std::strtof(turnText, &end);
+  if (end == turnText || *end != '\0') {
+    Serial.println("Use: velocity MM_PER_S DEG_PER_S");
+    return true;
+  }
+
+  if (linearMmPerSecond < -Config::MAX_LINEAR_SPEED_MM_PER_SECOND ||
+      linearMmPerSecond > Config::MAX_LINEAR_SPEED_MM_PER_SECOND ||
+      turnDegreesPerSecond < -Config::MAX_TURN_SPEED_DEGREES_PER_SECOND ||
+      turnDegreesPerSecond > Config::MAX_TURN_SPEED_DEGREES_PER_SECOND) {
+    Serial.println("Velocity is outside the current safety limits.");
+    return true;
+  }
+
+  motionController.setVelocity(linearMmPerSecond, turnDegreesPerSecond);
+  printStatus();
+  return true;
 }
 
 bool processDriveCommand(const char* command)
@@ -101,7 +136,9 @@ bool processSpeedCommand(const char* command, const char* prefix, Motor& motor,
 
 void processCommand(const char* command)
 {
-  if (processDriveCommand(command)) {
+  if (processVelocityCommand(command)) {
+    return;
+  } else if (processDriveCommand(command)) {
     return;
   } else if (processSpeedCommand(command, "left speed ", leftMotor, "Left")) {
     return;
