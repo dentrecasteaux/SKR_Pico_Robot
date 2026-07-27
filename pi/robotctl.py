@@ -9,7 +9,7 @@ import os
 import sys
 import time
 from dataclasses import dataclass
-from typing import Optional
+from typing import Callable, Optional
 
 import serial
 
@@ -34,13 +34,19 @@ class Reply:
 
 
 class RobotClient:
-    def __init__(self, port: str, timeout: float = 2.0) -> None:
+    def __init__(
+        self,
+        port: str,
+        timeout: float = 2.0,
+        event_handler: Optional[Callable[[Reply], None]] = None,
+    ) -> None:
         self._serial = serial.Serial(
             port=port,
             baudrate=115200,
             timeout=timeout,
             write_timeout=timeout,
         )
+        self._event_handler = event_handler
         self._next_sequence = max(1, int(time.monotonic() * 1000) & 0xFFFFFFFF)
         time.sleep(0.2)
         self._serial.reset_input_buffer()
@@ -77,7 +83,10 @@ class RobotClient:
                         if reply.kind == "ERR":
                             raise RobotLinkError(reply.line)
                         return reply
-                    print(reply.line)
+                    if self._event_handler is None:
+                        print(reply.line)
+                    else:
+                        self._event_handler(reply)
             except RobotLinkError as error:
                 timed_out = str(error) == "Timed out waiting for the Pico"
                 if not timed_out or attempt == COMMAND_ATTEMPTS - 1:

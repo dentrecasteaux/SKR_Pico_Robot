@@ -1,0 +1,13 @@
+[Unit]
+Description=R2W robot control service
+After=default.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 %h/r2w/robotd.py
+Restart=on-failure
+RestartSec=2
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=default.target
