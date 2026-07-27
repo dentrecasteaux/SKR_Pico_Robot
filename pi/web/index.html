@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#111715">
+    <title>R2W Robot Control</title>
+    <link rel="stylesheet" href="/styles.css">
+  </head>
+  <body>
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">R2W / EXECUTIVE CONTROL</p>
+        <h1>Robot console</h1>
+      </div>
+      <div class="connection" id="connection">
+        <span class="connection-dot"></span>
+        <span id="connection-label">Connecting</span>
+      </div>
+    </header>
+
+    <main>
+      <section class="telemetry" aria-label="Robot telemetry">
+        <article class="metric metric-primary">
+          <span>Motion</span>
+          <strong id="mode">—</strong>
+        </article>
+        <article class="metric">
+          <span>Faults</span>
+          <strong id="faults">—</strong>
+        </article>
+        <article class="metric">
+          <span>X driver</span>
+          <strong id="x-driver">—</strong>
+        </article>
+        <article class="metric">
+          <span>Y driver</span>
+          <strong id="y-driver">—</strong>
+        </article>
+      </section>
+
+      <div class="layout">
+        <section class="panel drive-panel">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">PRESS AND HOLD</p>
+              <h2>Manual drive</h2>
+            </div>
+            <span class="lease-label">600 ms safety hold</span>
+          </div>
+
+          <div class="dpad" aria-label="Directional controls">
+            <button class="drive-button forward" data-drive="forward" disabled
+                    aria-label="Drive forwards">
+              <span class="arrow">↑</span><small>Forward</small>
+            </button>
+            <button class="drive-button left" data-drive="left" disabled
+                    aria-label="Turn left">
+              <span class="arrow">←</span><small>Left</small>
+            </button>
+            <button class="stop-button" id="stop" aria-label="Stop">
+              <span class="stop-square"></span><small>Stop</small>
+            </button>
+            <button class="drive-button right" data-drive="right" disabled
+                    aria-label="Turn right">
+              <span class="arrow">→</span><small>Right</small>
+            </button>
+            <button class="drive-button reverse" data-drive="reverse" disabled
+                    aria-label="Drive backwards">
+              <span class="arrow">↓</span><small>Reverse</small>
+            </button>
+          </div>
+
+          <div class="sliders">
+            <label>
+              <span>Drive speed <output id="speed-output">30 mm/s</output></span>
+              <input id="speed" type="range" min="10" max="80" value="30"
+                     step="5">
+            </label>
+            <label>
+              <span>Turn rate <output id="turn-output">45°/s</output></span>
+              <input id="turn-rate" type="range" min="15" max="120" value="45"
+                     step="5">
+            </label>
+          </div>
+        </section>
+
+        <div class="side-stack">
+          <section class="panel safety-panel">
+            <div class="panel-heading">
+              <div>
+                <p class="eyebrow">SAFETY</p>
+                <h2>Emergency control</h2>
+              </div>
+            </div>
+            <button class="estop-button" id="estop">
+              <span>Emergency stop</span>
+              <small>Immediate and latched</small>
+            </button>
+            <button class="clear-button" id="clear-estop" hidden>
+              Clear emergency stop
+            </button>
+          </section>
+
+          <section class="panel finite-panel">
+            <div class="panel-heading">
+              <div>
+                <p class="eyebrow">BOUNDED ACTIONS</p>
+                <h2>Move precisely</h2>
+              </div>
+              <span class="job-label" id="job-label">No active job</span>
+            </div>
+            <div class="finite-grid">
+              <label>
+                <span>Distance</span>
+                <div class="input-unit">
+                  <input id="distance" type="number" value="100" step="10">
+                  <span>mm</span>
+                </div>
+                <button class="action-button" id="move" disabled>Start move</button>
+              </label>
+              <label>
+                <span>Turn</span>
+                <div class="input-unit">
+                  <input id="angle" type="number" value="90" step="15">
+                  <span>deg</span>
+                </div>
+                <button class="action-button" id="turn" disabled>Start turn</button>
+              </label>
+            </div>
+          </section>
+        </div>
+      </div>
+
+      <footer>
+        <span id="last-update">Waiting for telemetry</span>
+        <span>Pi → robotd → SKR Pico</span>
+      </footer>
+    </main>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <script src="/app.js"></script>
+  </body>
+</html>

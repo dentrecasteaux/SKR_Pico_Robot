@@ -1,0 +1,14 @@
+[Unit]
+Description=R2W robot web interface
+After=robotd.service
+Wants=robotd.service
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 %h/r2w/robot_web.py
+Restart=on-failure
+RestartSec=2
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=default.target

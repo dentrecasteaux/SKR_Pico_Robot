@@ -120,3 +120,38 @@ journalctl --user -u robotd
 
 Do not start a second manual copy of `robotd.py` or use `robotctl.py` while the
 system service is active.
+
+## Web interface
+
+`robot_web.py` serves a phone-friendly control panel and proxies its API to the
+local `robotd` Unix socket. The browser never opens the Pico serial port.
+
+Install and start the supplied user service:
+
+```text
+cp ~/r2w/systemd/robot-web.service ~/.config/systemd/user/
+systemctl --user daemon-reload
+systemctl --user enable --now robot-web
+```
+
+Open this address from a phone or computer on the same Wi-Fi network:
+
+```text
+http://r2w-pi.local:8080
+```
+
+Manual drive buttons must be held. The page refreshes a 600 ms local control
+lease every 200 ms; releasing the button, hiding the page, losing Wi-Fi, or
+closing the browser stops those refreshes. `robotd` then sends `STOP`, while the
+independent Pico lease remains the final communications-loss safeguard.
+
+The initial web server has no user login or TLS. Use it only on a trusted local
+network and do not expose port 8080 to the internet.
+
+Useful commands:
+
+```text
+systemctl --user status robot-web
+systemctl --user restart robot-web
+journalctl --user -u robot-web
+```
