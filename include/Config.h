@@ -17,7 +17,7 @@ namespace Config {
   constexpr uint32_t MAX_ACCELERATION_STEPS_PER_SECOND_SQUARED = 200;
 
   constexpr float WHEEL_DIAMETER_MM = 61.0F;
-  constexpr float WHEEL_TRACK_MM = 194.0F;
+  constexpr float WHEEL_TRACK_MM = 188.0F;
   constexpr uint16_t MOTOR_FULL_STEPS_PER_REVOLUTION = 200;
   constexpr float MAX_LINEAR_SPEED_MM_PER_SECOND = 100.0F;
   constexpr float MAX_TURN_SPEED_DEGREES_PER_SECOND = 180.0F;

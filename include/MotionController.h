@@ -12,6 +12,7 @@ public:
   void setDrive(int32_t linearSpeed, int32_t turnSpeed);
   void setVelocity(float linearMmPerSecond, float turnDegreesPerSecond);
   bool moveDistance(float distanceMm);
+  bool turnAngle(float angleDegrees);
   void stop();
 
 private:

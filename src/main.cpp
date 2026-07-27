@@ -39,7 +39,29 @@ void printStatus()
 
 void printHelp()
 {
-  Serial.println("Commands: left/right on/off/test/forward/reverse/speed N, drive LINEAR TURN, velocity MM_PER_S DEG_PER_S, move DISTANCE_MM, off, status, help");
+  Serial.println("Commands: left/right on/off/test/forward/reverse/speed N, drive LINEAR TURN, velocity MM_PER_S DEG_PER_S, move DISTANCE_MM, turn ANGLE_DEGREES, off, status, help");
+}
+
+bool processTurnCommand(const char* command)
+{
+  constexpr const char* prefix = "turn ";
+  constexpr size_t prefixLength = 5;
+  if (std::strncmp(command, prefix, prefixLength) != 0) return false;
+
+  char* end = nullptr;
+  const float angleDegrees = std::strtof(command + prefixLength, &end);
+  if (end == command + prefixLength || *end != '\0' || angleDegrees == 0.0F) {
+    Serial.println("Use: turn ANGLE_DEGREES");
+    return true;
+  }
+
+  if (!motionController.turnAngle(angleDegrees)) {
+    Serial.println("Unable to start turn: motors are busy or angle is invalid.");
+    return true;
+  }
+
+  Serial.println("Angle turn started.");
+  return true;
 }
 
 bool processMoveCommand(const char* command)
@@ -159,7 +181,9 @@ bool processSpeedCommand(const char* command, const char* prefix, Motor& motor,
 
 void processCommand(const char* command)
 {
-  if (processMoveCommand(command)) {
+  if (processTurnCommand(command)) {
+    return;
+  } else if (processMoveCommand(command)) {
     return;
   } else if (processVelocityCommand(command)) {
     return;

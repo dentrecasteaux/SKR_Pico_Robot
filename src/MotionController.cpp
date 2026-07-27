@@ -85,6 +85,28 @@ bool MotionController::moveDistance(float distanceMm)
                                Config::CALIBRATION_MOVE_STEP_INTERVAL_US);
 }
 
+bool MotionController::turnAngle(float angleDegrees)
+{
+  if (leftMotor_.isBusy() || rightMotor_.isBusy() || angleDegrees == 0.0F) {
+    return false;
+  }
+
+  const float stepsPerMillimetre =
+      (Config::MOTOR_FULL_STEPS_PER_REVOLUTION * Config::TMC_MICROSTEPS) /
+      (PI_VALUE * Config::WHEEL_DIAMETER_MM);
+  const float wheelTravelMm = fabsf(angleDegrees) * PI_VALUE / 180.0F *
+                              Config::WHEEL_TRACK_MM / 2.0F;
+  const uint32_t steps =
+      static_cast<uint32_t>(lroundf(wheelTravelMm * stepsPerMillimetre));
+  if (steps == 0) return false;
+
+  const bool turnLeft = angleDegrees > 0.0F;
+  return leftMotor_.startMove(steps, !turnLeft,
+                              Config::CALIBRATION_MOVE_STEP_INTERVAL_US) &&
+         rightMotor_.startMove(steps, turnLeft,
+                               Config::CALIBRATION_MOVE_STEP_INTERVAL_US);
+}
+
 void MotionController::stop()
 {
   leftMotor_.disable();
