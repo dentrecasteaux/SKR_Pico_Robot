@@ -39,7 +39,41 @@ void printStatus()
 
 void printHelp()
 {
-  Serial.println("Commands: left/right on/off/test/forward/reverse/speed N, drive LINEAR TURN, velocity MM_PER_S DEG_PER_S, move DISTANCE_MM, turn ANGLE_DEGREES, off, status, help");
+  Serial.println("Commands: left/right on/off/test/forward/reverse/speed N, drive LINEAR TURN, velocity MM_PER_S DEG_PER_S, move DISTANCE_MM, turn ANGLE_DEGREES, drivers, off, status, help");
+}
+
+void printDriverHealth(const char* name, TMC2209& driver, const Motor& motor)
+{
+  Serial.print(name);
+  Serial.print(": ");
+  if (!driver.isConnected()) {
+    Serial.println("not responding");
+    return;
+  }
+
+  const uint32_t status = driver.status();
+  const bool fault = status & ((1UL << 25) | (1UL << 26) | (1UL << 27) |
+                               (1UL << 28));
+  if (!fault) {
+    if (!motor.isEnabled()) {
+      Serial.println("OK (idle)");
+    } else {
+      Serial.println("OK (active)");
+    }
+    return;
+  }
+
+  if (status & (1UL << 25)) Serial.print("over-temperature ");
+  if (status & (1UL << 26)) Serial.print("temperature-warning ");
+  if (status & (1UL << 27)) Serial.print("short-to-ground-A ");
+  if (status & (1UL << 28)) Serial.print("short-to-ground-B ");
+  Serial.println();
+}
+
+void printDriverHealth()
+{
+  printDriverHealth("X driver", leftDriver, leftMotor);
+  printDriverHealth("Y driver", rightDriver, rightMotor);
 }
 
 bool processTurnCommand(const char* command)
@@ -253,6 +287,9 @@ void processCommand(const char* command)
     motionController.stop();
   } else if (std::strcmp(command, "status") == 0) {
     printStatus();
+    return;
+  } else if (std::strcmp(command, "drivers") == 0) {
+    printDriverHealth();
     return;
   } else if (std::strcmp(command, "help") == 0) {
     printHelp();

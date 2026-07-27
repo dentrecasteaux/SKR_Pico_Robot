@@ -22,3 +22,8 @@ bool TMC2209::isConnected()
 {
   return driver_.test_connection() == 0;
 }
+
+uint32_t TMC2209::status()
+{
+  return driver_.DRV_STATUS();
+}

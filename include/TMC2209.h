@@ -10,6 +10,7 @@ public:
 
   void begin();
   bool isConnected();
+  uint32_t status();
 
 private:
   static constexpr float SENSE_RESISTOR_OHMS = 0.11F;
