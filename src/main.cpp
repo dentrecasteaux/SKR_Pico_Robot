@@ -39,7 +39,29 @@ void printStatus()
 
 void printHelp()
 {
-  Serial.println("Commands: left/right on/off/test/forward/reverse/speed N, drive LINEAR TURN, velocity MM_PER_S DEG_PER_S, off, status, help");
+  Serial.println("Commands: left/right on/off/test/forward/reverse/speed N, drive LINEAR TURN, velocity MM_PER_S DEG_PER_S, move DISTANCE_MM, off, status, help");
+}
+
+bool processMoveCommand(const char* command)
+{
+  constexpr const char* prefix = "move ";
+  constexpr size_t prefixLength = 5;
+  if (std::strncmp(command, prefix, prefixLength) != 0) return false;
+
+  char* end = nullptr;
+  const float distanceMm = std::strtof(command + prefixLength, &end);
+  if (end == command + prefixLength || *end != '\0' || distanceMm == 0.0F) {
+    Serial.println("Use: move DISTANCE_MM");
+    return true;
+  }
+
+  if (!motionController.moveDistance(distanceMm)) {
+    Serial.println("Unable to start move: motors are busy or distance is invalid.");
+    return true;
+  }
+
+  Serial.println("Distance move started.");
+  return true;
 }
 
 bool processVelocityCommand(const char* command)
@@ -137,7 +159,9 @@ bool processSpeedCommand(const char* command, const char* prefix, Motor& motor,
 
 void processCommand(const char* command)
 {
-  if (processVelocityCommand(command)) {
+  if (processMoveCommand(command)) {
+    return;
+  } else if (processVelocityCommand(command)) {
     return;
   } else if (processDriveCommand(command)) {
     return;

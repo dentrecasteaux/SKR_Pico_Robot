@@ -1,5 +1,7 @@
 #include "MotionController.h"
 
+#include <cmath>
+
 #include "Config.h"
 
 namespace
@@ -61,6 +63,26 @@ void MotionController::setVelocity(float linearMmPerSecond,
   const int32_t turnStepsPerSecond =
       (rightStepsPerSecond - leftStepsPerSecond) / 2;
   setDrive(linearStepsPerSecond, turnStepsPerSecond);
+}
+
+bool MotionController::moveDistance(float distanceMm)
+{
+  if (leftMotor_.isBusy() || rightMotor_.isBusy() || distanceMm == 0.0F) {
+    return false;
+  }
+
+  const float stepsPerMillimetre =
+      (Config::MOTOR_FULL_STEPS_PER_REVOLUTION * Config::TMC_MICROSTEPS) /
+      (PI_VALUE * Config::WHEEL_DIAMETER_MM);
+  const uint32_t steps = static_cast<uint32_t>(
+      lroundf(fabsf(distanceMm) * stepsPerMillimetre));
+  if (steps == 0) return false;
+
+  const bool forward = distanceMm > 0.0F;
+  return leftMotor_.startMove(steps, forward,
+                              Config::CALIBRATION_MOVE_STEP_INTERVAL_US) &&
+         rightMotor_.startMove(steps, forward,
+                               Config::CALIBRATION_MOVE_STEP_INTERVAL_US);
 }
 
 void MotionController::stop()
