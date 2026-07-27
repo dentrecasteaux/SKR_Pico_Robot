@@ -4,14 +4,10 @@
 
 #include "Protocol.h"
 
-RobotLink::RobotLink(Stream& stream, Motor& leftMotor, Motor& rightMotor,
-                     TMC2209& leftDriver, TMC2209& rightDriver,
+RobotLink::RobotLink(Stream& stream, Robot& robot,
                      LegacyCommandHandler legacyCommandHandler)
     : transport_(stream),
-      leftMotor_(leftMotor),
-      rightMotor_(rightMotor),
-      leftDriver_(leftDriver),
-      rightDriver_(rightDriver),
+      robot_(robot),
       legacyCommandHandler_(legacyCommandHandler)
 {
 }
@@ -90,39 +86,59 @@ void RobotLink::sendPong(uint32_t sequence)
 
 void RobotLink::sendStatus(uint32_t sequence)
 {
-  const bool motorsBusy = leftMotor_.isBusy() || rightMotor_.isBusy();
-  const bool motorsEnabled =
-      leftMotor_.isEnabled() || rightMotor_.isEnabled();
+  const Robot::Status status = robot_.status();
+  const char* mode = "IDLE";
+  switch (status.mode) {
+    case Robot::Mode::Idle:
+      mode = "IDLE";
+      break;
+    case Robot::Mode::Velocity:
+      mode = "VELOCITY";
+      break;
+    case Robot::Mode::Move:
+      mode = "MOVE";
+      break;
+    case Robot::Mode::Turn:
+      mode = "TURN";
+      break;
+  }
 
   Print& output = transport_.output();
   output.print(Protocol::VERSION);
   output.print(" STAT ");
   output.print(sequence);
   output.print(" MODE=");
-  output.print(motorsBusy ? "MOVE" : motorsEnabled ? "VELOCITY" : "IDLE");
-  output.print(" ESTOP=0 FAULTS=NONE JOB=0 V_SET=0 W_SET=0 X_DRIVER=");
-  printDriverStatus(leftDriver_, leftMotor_);
+  output.print(mode);
+  output.print(" ESTOP=");
+  output.print(status.estopLatched ? 1 : 0);
+  output.print(" FAULTS=NONE JOB=");
+  output.print(status.activeJob);
+  output.print(" V_SET=");
+  output.print(status.linearSetpointMmPerSecond);
+  output.print(" W_SET=");
+  output.print(status.turnSetpointDegreesPerSecond);
+  output.print(" X_DRIVER=");
+  printDriverStatus(status.leftDriver);
   output.print(" Y_DRIVER=");
-  printDriverStatus(rightDriver_, rightMotor_);
+  printDriverStatus(status.rightDriver);
   output.print(" UPTIME_MS=");
   output.print(millis());
   output.print(" RX_AGE_MS=");
   output.println(millis() - lastValidCommandMs_);
 }
 
-void RobotLink::printDriverStatus(TMC2209& driver, const Motor& motor)
+void RobotLink::printDriverStatus(const Robot::DriverStatus& status)
 {
   Print& output = transport_.output();
-  if (!driver.isConnected()) {
+  if (!status.connected) {
     output.print("NO_REPLY");
     return;
   }
 
-  const uint32_t status = driver.status();
   const uint32_t faultMask = (1UL << 25) | (1UL << 26) | (1UL << 27) |
                              (1UL << 28);
-  if ((status & faultMask) == 0) {
-    output.print(motor.isEnabled() ? "OK_ACTIVE" : "OK_IDLE");
+  if ((status.flags & faultMask) == 0) {
+    output.print(status.active ? "OK_ACTIVE" : "OK_IDLE");
     return;
   }
 
@@ -133,8 +149,8 @@ void RobotLink::printDriverStatus(TMC2209& driver, const Motor& motor)
     separatorRequired = true;
   };
 
-  if (status & (1UL << 25)) printFault("OT");
-  if (status & (1UL << 26)) printFault("OTPW");
-  if (status & (1UL << 27)) printFault("S2GA");
-  if (status & (1UL << 28)) printFault("S2GB");
+  if (status.flags & (1UL << 25)) printFault("OT");
+  if (status.flags & (1UL << 26)) printFault("OTPW");
+  if (status.flags & (1UL << 27)) printFault("S2GA");
+  if (status.flags & (1UL << 28)) printFault("S2GB");
 }

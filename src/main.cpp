@@ -19,6 +19,8 @@ Motor rightMotor(rightStepper, Config::MAX_ACCELERATION_STEPS_PER_SECOND_SQUARED
 MotionController motionController(leftMotor, rightMotor);
 TMC2209 leftDriver(stepperUart, 0);
 TMC2209 rightDriver(stepperUart, 2);
+Robot robot(leftMotor, rightMotor, motionController, leftDriver, rightDriver,
+            stepperUart);
 
 namespace
 {
@@ -86,7 +88,7 @@ bool processTurnCommand(const char* command)
     return true;
   }
 
-  if (!motionController.turnAngle(angleDegrees)) {
+  if (!robot.startTurn(angleDegrees)) {
     Serial.println("Unable to start turn: motors are busy or angle is invalid.");
     return true;
   }
@@ -108,7 +110,7 @@ bool processMoveCommand(const char* command)
     return true;
   }
 
-  if (!motionController.moveDistance(distanceMm)) {
+  if (!robot.startMove(distanceMm)) {
     Serial.println("Unable to start move: motors are busy or distance is invalid.");
     return true;
   }
@@ -147,7 +149,7 @@ bool processVelocityCommand(const char* command)
     return true;
   }
 
-  motionController.setVelocity(linearMmPerSecond, turnDegreesPerSecond);
+  robot.setVelocity(linearMmPerSecond, turnDegreesPerSecond);
   printStatus();
   return true;
 }
@@ -281,7 +283,7 @@ void processCommand(const char* command)
     Serial.println("Right reverse test started.");
     return;
   } else if (std::strcmp(command, "off") == 0) {
-    motionController.stop();
+    robot.stop();
   } else if (std::strcmp(command, "status") == 0) {
     printStatus();
     return;
@@ -301,22 +303,16 @@ void processCommand(const char* command)
 
 }  // namespace
 
-RobotLink robotLink(Serial, leftMotor, rightMotor, leftDriver, rightDriver,
-                    processCommand);
+RobotLink robotLink(Serial, robot, processCommand);
 
-void Robot::begin()
+void setup()
 {
-  leftMotor.begin();
-  rightMotor.begin();
-
-  stepperUart.begin(Config::TMC_UART_BAUD);
-  leftDriver.begin();
-  rightDriver.begin();
-
   Serial.begin(Config::SERIAL_BAUD);
   while (!Serial) {
     delay(10);
   }
+
+  robot.begin();
 
   Serial.println("SKR Pico starting...");
   Serial.println("Stepper drivers initialised and disabled.");
@@ -327,22 +323,8 @@ void Robot::begin()
   printHelp();
 }
 
-void Robot::update()
-{
-  robotLink.update();
-  const uint32_t nowUs = micros();
-  leftMotor.update(nowUs);
-  rightMotor.update(nowUs);
-}
-
-Robot robot;
-
-void setup()
-{
-  robot.begin();
-}
-
 void loop()
 {
+  robotLink.update();
   robot.update();
 }
