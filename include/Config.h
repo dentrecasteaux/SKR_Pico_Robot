@@ -21,5 +21,9 @@ namespace Config {
   constexpr uint16_t MOTOR_FULL_STEPS_PER_REVOLUTION = 200;
   constexpr float MAX_LINEAR_SPEED_MM_PER_SECOND = 100.0F;
   constexpr float MAX_TURN_SPEED_DEGREES_PER_SECOND = 180.0F;
+  constexpr float MAX_MOVE_DISTANCE_MM = 10000.0F;
+  constexpr float MAX_TURN_ANGLE_DEGREES = 3600.0F;
+  constexpr uint32_t MIN_VELOCITY_LEASE_MS = 100;
+  constexpr uint32_t MAX_VELOCITY_LEASE_MS = 2000;
   constexpr uint32_t CALIBRATION_MOVE_STEP_INTERVAL_US = 10000;
 }

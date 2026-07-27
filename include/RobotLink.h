@@ -17,11 +17,15 @@ public:
 
 private:
   void processLine(char* line);
-  void sendAck(uint32_t sequence);
+  void sendAck(uint32_t sequence, uint32_t jobId = 0);
   void sendError(uint32_t sequence, const char* code);
+  void sendCommandError(uint32_t sequence, Robot::CommandResult result);
+  void sendPendingCompletion();
+  void sendDone(const Robot::JobCompletion& completion);
   void sendPong(uint32_t sequence);
   void sendStatus(uint32_t sequence);
   void printDriverStatus(const Robot::DriverStatus& status);
+  const char* jobResultName(Robot::JobResult result) const;
 
   SerialTransport transport_;
   Robot& robot_;

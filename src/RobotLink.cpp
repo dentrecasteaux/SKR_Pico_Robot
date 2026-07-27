@@ -14,6 +14,8 @@ RobotLink::RobotLink(Stream& stream, Robot& robot,
 
 void RobotLink::update()
 {
+  sendPendingCompletion();
+
   const char* line = nullptr;
   while (true) {
     const SerialTransport::ReadResult result = transport_.readLine(line);
@@ -27,6 +29,7 @@ void RobotLink::update()
     }
 
     processLine(const_cast<char*>(line));
+    sendPendingCompletion();
   }
 }
 
@@ -52,6 +55,48 @@ void RobotLink::processLine(char* line)
     case Protocol::CommandType::Status:
       sendStatus(command.sequence);
       return;
+    case Protocol::CommandType::SetVelocity: {
+      const Robot::CommandResult commandResult = robot_.setVelocity(
+          command.linearMmPerSecond, command.turnDegreesPerSecond,
+          command.leaseMs);
+      if (commandResult == Robot::CommandResult::Accepted) {
+        sendAck(command.sequence);
+      } else {
+        sendCommandError(command.sequence, commandResult);
+      }
+      return;
+    }
+    case Protocol::CommandType::Move:
+    case Protocol::CommandType::Turn: {
+      uint32_t jobId = 0;
+      const Robot::CommandResult commandResult =
+          command.type == Protocol::CommandType::Move
+              ? robot_.startMove(command.distanceMm, command.sequence, jobId)
+              : robot_.startTurn(command.angleDegrees, command.sequence, jobId);
+      if (commandResult == Robot::CommandResult::Accepted) {
+        sendAck(command.sequence, jobId);
+      } else {
+        sendCommandError(command.sequence, commandResult);
+      }
+      return;
+    }
+    case Protocol::CommandType::Stop:
+      robot_.stop();
+      sendAck(command.sequence);
+      return;
+    case Protocol::CommandType::Estop:
+      robot_.estop();
+      sendAck(command.sequence);
+      return;
+    case Protocol::CommandType::ClearEstop: {
+      const Robot::CommandResult commandResult = robot_.clearEstop();
+      if (commandResult == Robot::CommandResult::Accepted) {
+        sendAck(command.sequence);
+      } else {
+        sendCommandError(command.sequence, commandResult);
+      }
+      return;
+    }
   }
 }
 
@@ -65,13 +110,61 @@ void RobotLink::sendError(uint32_t sequence, const char* code)
   output.println(code);
 }
 
-void RobotLink::sendAck(uint32_t sequence)
+void RobotLink::sendAck(uint32_t sequence, uint32_t jobId)
 {
   Print& output = transport_.output();
   output.print(Protocol::VERSION);
   output.print(" ACK ");
   output.print(sequence);
-  output.println(" OK");
+  output.print(" OK");
+  if (jobId != 0) {
+    output.print(" JOB=");
+    output.print(jobId);
+  }
+  output.println();
+}
+
+void RobotLink::sendCommandError(uint32_t sequence,
+                                 Robot::CommandResult result)
+{
+  const char* code = "INVALID_VALUE";
+  switch (result) {
+    case Robot::CommandResult::Accepted:
+      return;
+    case Robot::CommandResult::Busy:
+      code = "BUSY";
+      break;
+    case Robot::CommandResult::OutOfRange:
+      code = "OUT_OF_RANGE";
+      break;
+    case Robot::CommandResult::EstopLatched:
+      code = "ESTOP_LATCHED";
+      break;
+    case Robot::CommandResult::DriverFault:
+      code = "DRIVER_FAULT";
+      break;
+  }
+  sendError(sequence, code);
+}
+
+void RobotLink::sendPendingCompletion()
+{
+  Robot::JobCompletion completion;
+  if (robot_.takeJobCompletion(completion)) {
+    sendDone(completion);
+  }
+}
+
+void RobotLink::sendDone(const Robot::JobCompletion& completion)
+{
+  Print& output = transport_.output();
+  output.print(Protocol::VERSION);
+  output.print(" DONE JOB=");
+  output.print(completion.jobId);
+  output.print(" ORIGIN_SEQ=");
+  output.print(completion.originSequence);
+  output.print(" RESULT=");
+  output.println(jobResultName(completion.result));
 }
 
 void RobotLink::sendPong(uint32_t sequence)
@@ -101,6 +194,9 @@ void RobotLink::sendStatus(uint32_t sequence)
     case Robot::Mode::Turn:
       mode = "TURN";
       break;
+    case Robot::Mode::Estop:
+      mode = "ESTOP";
+      break;
   }
 
   Print& output = transport_.output();
@@ -111,12 +207,32 @@ void RobotLink::sendStatus(uint32_t sequence)
   output.print(mode);
   output.print(" ESTOP=");
   output.print(status.estopLatched ? 1 : 0);
-  output.print(" FAULTS=NONE JOB=");
+  output.print(" FAULTS=");
+  const uint32_t driverFaultMask = (1UL << 25) | (1UL << 26) | (1UL << 27) |
+                                   (1UL << 28);
+  const bool driverFault =
+      !status.leftDriver.connected || !status.rightDriver.connected ||
+      (status.leftDriver.flags & driverFaultMask) != 0 ||
+      (status.rightDriver.flags & driverFaultMask) != 0;
+  if (!status.leaseExpiredFault && !driverFault) {
+    output.print("NONE");
+  } else {
+    if (status.leaseExpiredFault) output.print("LEASE_EXPIRED");
+    if (status.leaseExpiredFault && driverFault) output.print(',');
+    if (driverFault) output.print("DRIVER");
+  }
+  output.print(" JOB=");
   output.print(status.activeJob);
   output.print(" V_SET=");
   output.print(status.linearSetpointMmPerSecond);
   output.print(" W_SET=");
   output.print(status.turnSetpointDegreesPerSecond);
+  output.print(" LEASE_LEFT_MS=");
+  output.print(status.leaseLeftMs);
+  output.print(" LAST_JOB=");
+  output.print(status.lastJob);
+  output.print(" LAST_RESULT=");
+  output.print(jobResultName(status.lastJobResult));
   output.print(" X_DRIVER=");
   printDriverStatus(status.leftDriver);
   output.print(" Y_DRIVER=");
@@ -153,4 +269,23 @@ void RobotLink::printDriverStatus(const Robot::DriverStatus& status)
   if (status.flags & (1UL << 26)) printFault("OTPW");
   if (status.flags & (1UL << 27)) printFault("S2GA");
   if (status.flags & (1UL << 28)) printFault("S2GB");
+}
+
+const char* RobotLink::jobResultName(Robot::JobResult result) const
+{
+  switch (result) {
+    case Robot::JobResult::None:
+      return "NONE";
+    case Robot::JobResult::Ok:
+      return "OK";
+    case Robot::JobResult::Stopped:
+      return "STOPPED";
+    case Robot::JobResult::Estopped:
+      return "ESTOPPED";
+    case Robot::JobResult::Fault:
+      return "FAULT";
+    case Robot::JobResult::Replaced:
+      return "REPLACED";
+  }
+  return "NONE";
 }
