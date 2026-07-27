@@ -6,6 +6,7 @@
 #include "Config.h"
 #include "Motor.h"
 #include "MotionController.h"
+#include "Robot.h"
 #include "Stepper.h"
 #include "TMC2209.h"
 
@@ -239,7 +240,7 @@ void processSerialCommands()
 }
 }  // namespace
 
-void setup()
+void Robot::begin()
 {
   leftMotor.begin();
   rightMotor.begin();
@@ -262,10 +263,22 @@ void setup()
   printHelp();
 }
 
-void loop()
+void Robot::update()
 {
   processSerialCommands();
   const uint32_t nowUs = micros();
   leftMotor.update(nowUs);
   rightMotor.update(nowUs);
+}
+
+Robot robot;
+
+void setup()
+{
+  robot.begin();
+}
+
+void loop()
+{
+  robot.update();
 }
