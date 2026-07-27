@@ -232,6 +232,10 @@ sequence number with different command text is rejected with
 This is especially important for `MOVE` and `TURN`, where a lost `ACK` must not
 start a second job.
 
+The current Pico implementation caches the single most recent motion-command
+reply. That is sufficient for the present client, which retries immediately
+with the same sequence. A future pipelined client would require a larger cache.
+
 ## Error handling
 
 Errors use stable machine-readable codes. `MSG`, when present, is a short

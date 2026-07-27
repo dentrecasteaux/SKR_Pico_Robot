@@ -1,5 +1,11 @@
 # Step 3: The Robot API and Architecture Boundary
 
+> **Historical design note:** this document records the state immediately after
+> Step 3. Features described below as “not implemented” were added in later
+> commits. For the present system, see
+> [Pico firmware architecture](firmware-architecture.md),
+> [Safety model](safety.md), and [R2W/1 protocol](protocol.md).
+
 ## Purpose of this step
 
 This step did not add new Pi motion commands. It reorganised the Pico firmware

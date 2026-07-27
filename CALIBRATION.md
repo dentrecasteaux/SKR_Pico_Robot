@@ -17,15 +17,20 @@ the configured diameter by `500 / 508` gives approximately 61 mm.
 
 - Physical wheel-centreline measurement: 194 mm
 - Timing-test effective range: 194–201 mm
-- Recommended working value: **194 mm**
+- Historical working estimate: **194 mm**
 
 The wider timing-derived value is likely affected by manual stopwatch timing
 and acceleration. The physical centreline measurement and later turn result
-both support 194 mm as the current baseline.
+both supported 194 mm as an intermediate baseline.
 
-## Current temporary configuration
+## Current configuration
 
-At the time this note was written, `Config.h` still contains the last
-experimental values: 62 mm wheel diameter and 201 mm track. Before the next
-physical test session, set it to the recommended 61 mm and 194 mm baseline if
-that remains the chosen calibration.
+Later finite distance and angle tests established the present firmware values:
+
+- effective wheel diameter: **61 mm**
+- effective wheel track: **188 mm**
+
+These are the values in `Config.h` and are the current source of truth. The
+194–201 mm figures above are retained as useful measurement history. Open-loop
+geometry remains provisional and should be rechecked with repeatable trials,
+then refined when encoders are installed.
