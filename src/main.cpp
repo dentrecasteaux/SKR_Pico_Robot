@@ -7,6 +7,7 @@
 #include "Motor.h"
 #include "MotionController.h"
 #include "Robot.h"
+#include "RobotLink.h"
 #include "Stepper.h"
 #include "TMC2209.h"
 
@@ -21,10 +22,6 @@ TMC2209 rightDriver(stepperUart, 2);
 
 namespace
 {
-constexpr size_t COMMAND_BUFFER_SIZE = 32;
-char commandBuffer[COMMAND_BUFFER_SIZE];
-size_t commandLength = 0;
-
 void printStatus()
 {
   Serial.print("Left driver: ");
@@ -302,28 +299,10 @@ void processCommand(const char* command)
   printStatus();
 }
 
-void processSerialCommands()
-{
-  while (Serial.available() > 0) {
-    const char received = static_cast<char>(Serial.read());
-
-    if (received == '\r') {
-      continue;
-    }
-
-    if (received == '\n') {
-      commandBuffer[commandLength] = '\0';
-      processCommand(commandBuffer);
-      commandLength = 0;
-      continue;
-    }
-
-    if (commandLength < COMMAND_BUFFER_SIZE - 1) {
-      commandBuffer[commandLength++] = received;
-    }
-  }
-}
 }  // namespace
+
+RobotLink robotLink(Serial, leftMotor, rightMotor, leftDriver, rightDriver,
+                    processCommand);
 
 void Robot::begin()
 {
@@ -350,7 +329,7 @@ void Robot::begin()
 
 void Robot::update()
 {
-  processSerialCommands();
+  robotLink.update();
   const uint32_t nowUs = micros();
   leftMotor.update(nowUs);
   rightMotor.update(nowUs);
