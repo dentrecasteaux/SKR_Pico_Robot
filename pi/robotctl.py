@@ -15,6 +15,7 @@ import serial
 
 
 PROTOCOL = "R2W/1"
+COMMAND_ATTEMPTS = 2
 DEFAULT_DEVICE_PATTERN = (
     "/dev/serial/by-id/usb-Arduino_RaspberryPi_Pico_*-if00"
 )
@@ -64,16 +65,25 @@ class RobotClient:
         sequence = self.next_sequence()
         parts = [PROTOCOL, "CMD", str(sequence), name, *fields]
         line = " ".join(parts)
-        self._serial.write((line + "\n").encode("ascii"))
-        self._serial.flush()
 
-        while True:
-            reply = self.read_reply()
-            if reply.sequence == sequence:
-                if reply.kind == "ERR":
-                    raise RobotLinkError(reply.line)
-                return reply
-            print(reply.line)
+        for attempt in range(COMMAND_ATTEMPTS):
+            self._serial.write((line + "\n").encode("ascii"))
+            self._serial.flush()
+
+            try:
+                while True:
+                    reply = self.read_reply()
+                    if reply.sequence == sequence:
+                        if reply.kind == "ERR":
+                            raise RobotLinkError(reply.line)
+                        return reply
+                    print(reply.line)
+            except RobotLinkError as error:
+                timed_out = str(error) == "Timed out waiting for the Pico"
+                if not timed_out or attempt == COMMAND_ATTEMPTS - 1:
+                    raise
+
+        raise RobotLinkError("Command retry failed")
 
     def read_reply(self) -> Reply:
         raw = self._serial.readline()

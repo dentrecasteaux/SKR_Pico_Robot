@@ -40,10 +40,19 @@ void RobotLink::processLine(char* line)
     return;
   }
 
+  char originalLine[CACHED_COMMAND_SIZE];
+  std::strncpy(originalLine, line, CACHED_COMMAND_SIZE);
+  originalLine[CACHED_COMMAND_SIZE - 1] = '\0';
+
   Protocol::Command command;
   const Protocol::ParseResult result = Protocol::parseCommand(line, command);
   if (!result.valid) {
     sendError(result.sequence, result.errorCode);
+    return;
+  }
+
+  if (cachedReplyValid_ && command.sequence == cachedSequence_) {
+    replayCachedReply(originalLine, command.sequence);
     return;
   }
 
@@ -60,8 +69,11 @@ void RobotLink::processLine(char* line)
           command.linearMmPerSecond, command.turnDegreesPerSecond,
           command.leaseMs);
       if (commandResult == Robot::CommandResult::Accepted) {
+        cacheReply(originalLine, command.sequence, true);
         sendAck(command.sequence);
       } else {
+        cacheReply(originalLine, command.sequence, false, 0,
+                   commandErrorCode(commandResult));
         sendCommandError(command.sequence, commandResult);
       }
       return;
@@ -74,25 +86,33 @@ void RobotLink::processLine(char* line)
               ? robot_.startMove(command.distanceMm, command.sequence, jobId)
               : robot_.startTurn(command.angleDegrees, command.sequence, jobId);
       if (commandResult == Robot::CommandResult::Accepted) {
+        cacheReply(originalLine, command.sequence, true, jobId);
         sendAck(command.sequence, jobId);
       } else {
+        cacheReply(originalLine, command.sequence, false, 0,
+                   commandErrorCode(commandResult));
         sendCommandError(command.sequence, commandResult);
       }
       return;
     }
     case Protocol::CommandType::Stop:
       robot_.stop();
+      cacheReply(originalLine, command.sequence, true);
       sendAck(command.sequence);
       return;
     case Protocol::CommandType::Estop:
       robot_.estop();
+      cacheReply(originalLine, command.sequence, true);
       sendAck(command.sequence);
       return;
     case Protocol::CommandType::ClearEstop: {
       const Robot::CommandResult commandResult = robot_.clearEstop();
       if (commandResult == Robot::CommandResult::Accepted) {
+        cacheReply(originalLine, command.sequence, true);
         sendAck(command.sequence);
       } else {
+        cacheReply(originalLine, command.sequence, false, 0,
+                   commandErrorCode(commandResult));
         sendCommandError(command.sequence, commandResult);
       }
       return;
@@ -127,24 +147,52 @@ void RobotLink::sendAck(uint32_t sequence, uint32_t jobId)
 void RobotLink::sendCommandError(uint32_t sequence,
                                  Robot::CommandResult result)
 {
-  const char* code = "INVALID_VALUE";
+  sendError(sequence, commandErrorCode(result));
+}
+
+const char* RobotLink::commandErrorCode(Robot::CommandResult result) const
+{
   switch (result) {
     case Robot::CommandResult::Accepted:
-      return;
+      return "INVALID_VALUE";
     case Robot::CommandResult::Busy:
-      code = "BUSY";
-      break;
+      return "BUSY";
     case Robot::CommandResult::OutOfRange:
-      code = "OUT_OF_RANGE";
-      break;
+      return "OUT_OF_RANGE";
     case Robot::CommandResult::EstopLatched:
-      code = "ESTOP_LATCHED";
-      break;
+      return "ESTOP_LATCHED";
     case Robot::CommandResult::DriverFault:
-      code = "DRIVER_FAULT";
-      break;
+      return "DRIVER_FAULT";
   }
-  sendError(sequence, code);
+  return "INVALID_VALUE";
+}
+
+void RobotLink::cacheReply(const char* commandLine, uint32_t sequence,
+                           bool accepted, uint32_t jobId,
+                           const char* errorCode)
+{
+  std::strncpy(cachedCommand_, commandLine, CACHED_COMMAND_SIZE);
+  cachedCommand_[CACHED_COMMAND_SIZE - 1] = '\0';
+  cachedSequence_ = sequence;
+  cachedReplyAccepted_ = accepted;
+  cachedJobId_ = jobId;
+  cachedErrorCode_ = errorCode;
+  cachedReplyValid_ = true;
+}
+
+bool RobotLink::replayCachedReply(const char* commandLine, uint32_t sequence)
+{
+  if (std::strcmp(commandLine, cachedCommand_) != 0) {
+    sendError(sequence, "SEQUENCE_CONFLICT");
+    return true;
+  }
+
+  if (cachedReplyAccepted_) {
+    sendAck(sequence, cachedJobId_);
+  } else {
+    sendError(sequence, cachedErrorCode_);
+  }
+  return true;
 }
 
 void RobotLink::sendPendingCompletion()

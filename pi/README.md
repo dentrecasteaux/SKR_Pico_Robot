@@ -4,6 +4,10 @@
 SKR Pico's stable USB serial identity, sends one `R2W/1` command at a time, and
 matches direct replies by sequence number.
 
+If a direct reply is lost, the client retries once with the same sequence
+number. Pico-side replay protection returns the cached acknowledgement without
+executing the command twice.
+
 ## Pi dependency
 
 Install pyserial from Raspberry Pi OS:
