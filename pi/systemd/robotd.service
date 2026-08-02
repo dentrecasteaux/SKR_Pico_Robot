@@ -1,6 +1,5 @@
 [Unit]
 Description=R2W robot control service
-After=default.target
 
 [Service]
 Type=simple
