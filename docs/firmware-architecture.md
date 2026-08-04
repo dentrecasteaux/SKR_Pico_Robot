@@ -26,7 +26,7 @@ RobotLink
    |
  Stepper
    |
- GPIO
+ RP2040 PIO -> STEP/DIR/ENABLE
 ```
 
 TMC2209 driver objects sit beside the motion chain. They configure current,
@@ -75,7 +75,9 @@ readings are diagnostic only and do not alter motion or driver settings.
 - stops both motors.
 
 The current geometry is 61 mm effective wheel diameter, 188 mm effective wheel
-track, 200 full steps per revolution and 1/4 microstepping.
+track and 200 full steps per revolution. The safe boot default is 1/4
+microstepping; an accepted idle-only configuration updates both the TMC setting
+and the motion conversion together.
 
 ### `Robot`
 
@@ -86,6 +88,7 @@ through its public API:
 setVelocity(...)
 startMove(...)
 startTurn(...)
+configure(...)
 stop()
 estop()
 clearEstop()
@@ -150,15 +153,19 @@ robot has no encoder feedback.
 
 | Setting | Value |
 |---|---:|
-| Maximum motor speed | 2,000 steps/s |
-| Acceleration | 200 steps/s² |
+| Maximum PIO STEP frequency | 50,000 Hz |
+| Boot acceleration | 48 mm/s² |
+| Runtime acceleration range | 10–500 mm/s² |
 | Maximum linear request | 500 mm/s |
 | Maximum angular request | 180 deg/s |
 | Maximum finite distance | 10,000 mm |
 | Maximum finite angle | 3,600 deg |
 | Velocity lease range | 100–2,000 ms |
-| TMC run current | 400 mA RMS |
-| Microstepping | 1/4 |
+| Boot TMC run current | 400 mA RMS |
+| Runtime current range | 100–400 mA RMS |
+| Boot microstepping | 1/4 |
+| Runtime microsteps | 1, 2, 4, 8, 16, 32 or 64 |
+| Chopper modes | StealthChop or SpreadCycle |
 
 These are firmware safety limits, not proof that every permitted request is
 safe for every payload and surface.
@@ -173,12 +180,23 @@ Normal Pi control should use `R2W/1`. Legacy motor-level commands bypass parts
 of the application protocol and should not become a second production control
 API.
 
+## Runtime motor configuration
+
+Motor configuration is accepted only while the robot is idle, the emergency
+stop is clear and both motors are disabled. Current, microsteps and chopper mode
+are applied to both TMC2209s, read back and rolled back on failure. Acceleration
+is applied to both motion channels. Settings are intentionally held in RAM and
+return to the safe boot defaults after reset.
+
+The 400 mA ceiling matches the installed Casun 42SHD0001-24B motors. Replacing
+the motors requires a reviewed motor profile before increasing this limit.
+
 ## Future real-time improvements
 
-The RP2040 supports PIO and DMA. Possible future uses include PIO/DMA step
-generation and DMA-assisted sensor sampling. DMA transfers data between memory
-and peripherals; it does not directly “drive a pin” without a suitable
-peripheral such as PIO.
+RP2040 PIO STEP generation is now in use. Possible future improvements include
+DMA-fed PIO command buffers and DMA-assisted sensor sampling. DMA transfers data
+between memory and peripherals; it does not directly “drive a pin” without a
+suitable peripheral such as PIO.
 
 The present software scheduler is adequate for the tested speeds. Optimisation
 should follow measurement of timing limits, not precede it.

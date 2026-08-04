@@ -133,8 +133,8 @@ R2W/1 CMD 8 CONFIGURE CURRENT_MA=400 MICROSTEPS=4 ACCEL_MM_S2=100 TMC_MODE=STEAL
 R2W/1 ACK 8 OK
 ```
 
-- `CURRENT_MA`: RMS run current. The present unknown-motor profile accepts
-  100-400 mA.
+- `CURRENT_MA`: RMS run current. The installed Casun 42SHD0001-24B profile
+  accepts 100-400 mA.
 - `MICROSTEPS`: `1`, `2`, `4`, `8`, `16`, `32`, or `64`.
 - `ACCEL_MM_S2`: physical acceleration from 10-500 mm/s².
 - `TMC_MODE`: `STEALTHCHOP` or `SPREADCYCLE`.

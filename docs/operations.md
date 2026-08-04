@@ -28,11 +28,18 @@ python3 robotdctl.py turn 90
 python3 robotdctl.py stop
 python3 robotdctl.py estop
 python3 robotdctl.py clear-estop
+python3 robotdctl.py configure 400 4 150 STEALTHCHOP
 ```
 
 `velocity 20 0 --hold 3000` asks for approximately 20 mm/s forwards for three
 seconds. `move 100` starts a 100 mm finite job. These values are commands, not
 encoder-confirmed measurements.
+
+Motor configuration is accepted only while idle, with the emergency stop clear
+and both motors disabled. The arguments are run current in mA, microsteps,
+acceleration in mm/s² and either `STEALTHCHOP` or `SPREADCYCLE`. Settings apply
+to both drivers and reset to 400 mA, 1/4 microsteps, 48 mm/s² and StealthChop
+when the Pico reboots.
 
 ## Checking service state
 
@@ -107,6 +114,11 @@ X_DRIVER=OK_IDLE Y_DRIVER=OK_IDLE
 | `LAST_RESULT` | Outcome of that job |
 | `X_DRIVER`, `Y_DRIVER` | Left and right TMC health/activity |
 
+Driver details also expose actual current scale, observed chopper mode,
+full-step state, commanded STEP frequency, telemetry source and snapshot age.
+During motion, status uses cached snapshots refreshed by alternating background
+polls so a status request does not pause STEP generation.
+
 ## Normal shutdown
 
 1. Issue `STOP`.
@@ -119,4 +131,3 @@ sudo poweroff
 
 4. Wait for shutdown, then remove system power according to the robot’s power
    arrangement.
-

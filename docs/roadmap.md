@@ -5,6 +5,8 @@ status and high-level behaviour without moving STEP generation to the Pi.
 
 ## Near-term documentation and reliability
 
+- investigate intermittent web manual-drive response delay across browser,
+  network, Pi lease renewal and Pico acceleration state;
 - keep hardware wiring and calibration records current;
 - add automated host-side parser tests;
 - add Pico unit or integration tests where practical;
@@ -100,9 +102,9 @@ milestone with its own safety analysis.
 
 ## RP2040 PIO and DMA
 
+PIO STEP generation is complete and tested with one state machine per motor.
 Possible future optimisation:
 
-- PIO state machines for precisely timed step generation;
 - DMA feeding PIO command buffers;
 - UART DMA for sustained communications;
 - ADC DMA for regular sensor sampling;
@@ -126,4 +128,3 @@ unknown reply fields. Likely future fields include:
 
 A breaking change to field meaning or framing requires a new major version,
 such as `R2W/2`.
-

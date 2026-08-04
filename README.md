@@ -30,7 +30,9 @@ The most useful operational pages are:
 - differential-drive velocity mixing;
 - finite distance and in-place turn commands;
 - acceleration limiting;
-- TMC2209 configuration and health reporting;
+- structured TMC2209 fault and operating telemetry;
+- idle-only runtime current, microstep, acceleration and chopper-mode tuning;
+- RP2040 PIO-generated STEP pulses, one state machine per wheel;
 - versioned `R2W/1` Pi-to-Pico protocol;
 - leased continuous velocity commands;
 - finite jobs with completion events;
@@ -46,6 +48,9 @@ The most useful operational pages are:
   load, surface and battery condition.
 - The software `ESTOP` is useful but is not a physical emergency-stop circuit.
 - Battery voltage is not yet monitored.
+- Motor tuning is held in RAM and returns to safe defaults after a Pico reboot.
+- Manual web driving can occasionally respond more slowly than expected; this
+  is recorded for timing and lease-path investigation.
 - The web interface has no authentication or TLS. It must remain on a trusted
   local network and must not be exposed to the internet.
 
@@ -63,4 +68,3 @@ TODO.md        Short development backlog
 
 The Git repository on the development computer is the source of truth. The
 copy under `~/r2w` on the Pi is a deployed runtime copy.
-

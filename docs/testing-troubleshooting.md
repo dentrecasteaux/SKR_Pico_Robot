@@ -12,7 +12,8 @@ After changing the STEP engine, first use the direct USB serial commands:
 2. Run `left forward`, `left reverse`, `right forward`, and `right reverse`.
 3. Run `move 500` and `turn 90`; confirm both finite moves stop normally.
 4. Start a low continuous speed, issue `drivers`, and confirm STEP remains
-   non-zero while driver polling remains zero during motion.
+   non-zero. The response should use cached telemetry with a recent age and
+   zero request-time polling; alternating background polls refresh the cache.
 5. Issue `off` during continuous motion and confirm both motors stop
    immediately.
 
@@ -76,6 +77,20 @@ python3 robotdctl.py status
 ```
 
 Expected: idle with `ESTOP=0`.
+
+### 6. Runtime motor configuration
+
+With the robot idle and its wheels raised:
+
+```text
+python3 robotdctl.py configure 400 4 150 STEALTHCHOP
+python3 robotdctl.py status
+```
+
+Confirm both drivers accept the settings and motion directions remain correct:
+forward and reverse use both wheels; left and right contra-rotate. Configuration
+must be rejected during motion. Rebooting the Pico must restore the safe boot
+defaults.
 
 ## Common problems
 

@@ -38,6 +38,8 @@ programmes must not open the same serial device.
 - records the latest status, event and error;
 - renews Pico velocity leases;
 - applies its own lease to external velocity control.
+- forwards idle-only motor-configuration requests and refreshes status after a
+  successful change.
 
 The default Unix socket is:
 
@@ -89,6 +91,17 @@ The browser uses press-and-hold drive controls. Pointer, touch, page visibility
 and window events are handled so that release or loss of page focus stops
 renewing motion. The Pi and Pico leases remain the authoritative fallback.
 
+The current development source adds a motor-tuning panel for current,
+microsteps, acceleration and requested TMC mode; it still requires deployment
+and Pi-side validation. Apply is disabled unless status reports `IDLE` with no
+emergency stop. The Pico remains authoritative and rejects unsafe state or
+range combinations.
+
+An intermittent delay in manual-drive response has been observed under some
+conditions. Direction mapping is correct and finite moves start promptly. A
+future investigation will compare browser/network timing, lease renewal, robot
+state and acceleration state between responsive and delayed cases.
+
 ## Services
 
 Both programmes run as user-level `systemd` services:
@@ -114,4 +127,3 @@ place the Pi in a router DMZ or otherwise expose it to the internet.
 
 If remote access is needed later, design authentication, encryption, command
 authorisation and network isolation before enabling it.
-

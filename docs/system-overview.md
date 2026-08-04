@@ -26,7 +26,7 @@ Pi robotd service
         v
 SKR Pico Robot API
         |
-        +--> MotionController --> Motor --> Stepper --> STEP/DIR/ENABLE
+        +--> MotionController --> Motor --> Stepper --> RP2040 PIO --> STEP
         |
         +--> TMC2209 configuration and health
 ```
@@ -51,7 +51,7 @@ The Pico is the real-time motor controller. It owns:
 
 - STEP, DIR and ENABLE signals;
 - motor enable state;
-- non-blocking pulse scheduling;
+- hardware-timed PIO pulse generation, one state machine per wheel;
 - acceleration limiting;
 - conversion from robot units to wheel movement;
 - finite-job completion;
@@ -107,4 +107,3 @@ identity.
   terminal.
 - Extensibility: sensors and autonomy should be added above or beside existing
   boundaries, not by bypassing them.
-
