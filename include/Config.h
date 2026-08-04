@@ -4,6 +4,7 @@
 namespace Config {
   constexpr uint32_t SERIAL_BAUD = 115200;
   constexpr uint32_t TMC_UART_BAUD = 115200;
+  constexpr uint32_t TMC_ACTIVE_POLL_INTERVAL_MS = 250;
   constexpr uint16_t TMC_RUN_CURRENT_MA = 400;
   // A simple, low-resolution setting for initial motion bring-up. This can
   // later become a runtime TMC2209 setting rather than a fixed constant.

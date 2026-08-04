@@ -59,6 +59,11 @@ Its `update()` method applies acceleration and sends changed pulse periods to
 PIO through the state-machine FIFO. Slow serial or UART work can delay motion
 planning updates, but it no longer stretches individual STEP periods.
 
+During motion, `Robot` polls one TMC2209 every 250 milliseconds and alternates
+drivers when both are active. Status commands return the latest cached
+snapshots immediately rather than adding UART transactions. These background
+readings are diagnostic only and do not alter motion or driver settings.
+
 ### `MotionController`
 
 `MotionController` coordinates the two motors. It:

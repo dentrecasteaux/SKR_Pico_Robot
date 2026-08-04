@@ -47,6 +47,43 @@ void Robot::update()
     leaseExpiredFault_ = true;
     mode_ = Mode::Idle;
   }
+
+  updateActiveDriverTelemetry();
+}
+
+void Robot::updateActiveDriverTelemetry()
+{
+  const bool leftBusy = leftMotor_.isBusy();
+  const bool rightBusy = rightMotor_.isBusy();
+  if (!leftBusy && !rightBusy) return;
+
+  const uint32_t nowMs = millis();
+  if (nowMs - lastActiveTelemetryPollMs_ <
+      Config::TMC_ACTIVE_POLL_INTERVAL_MS) {
+    return;
+  }
+
+  bool pollLeft = leftBusy;
+  if (leftBusy && rightBusy) pollLeft = pollLeftDriverNext_;
+  if (pollLeft) {
+    pollDriverTelemetry(leftDriver_, leftTelemetryCache_,
+                        leftTelemetryCachedAtMs_, leftTelemetryCacheValid_);
+  } else {
+    pollDriverTelemetry(rightDriver_, rightTelemetryCache_,
+                        rightTelemetryCachedAtMs_, rightTelemetryCacheValid_);
+  }
+
+  lastActiveTelemetryPollMs_ = millis();
+  if (leftBusy && rightBusy) pollLeftDriverNext_ = !pollLeftDriverNext_;
+}
+
+void Robot::pollDriverTelemetry(TMC2209& driver,
+                                TMC2209::Status& cachedTelemetry,
+                                uint32_t& cachedAtMs, bool& cacheValid)
+{
+  cachedTelemetry = driver.status();
+  cachedAtMs = millis();
+  cacheValid = true;
 }
 
 bool Robot::setVelocity(float linearMmPerSecond,

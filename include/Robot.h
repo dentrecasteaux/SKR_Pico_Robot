@@ -95,6 +95,9 @@ public:
 
 private:
   bool motionAllowed();
+  void updateActiveDriverTelemetry();
+  void pollDriverTelemetry(TMC2209& driver, TMC2209::Status& cachedTelemetry,
+                           uint32_t& cachedAtMs, bool& cacheValid);
   CommandResult startFiniteMotion(bool turn, float value,
                                   uint32_t originSequence, uint32_t& jobId,
                                   bool trackJob);
@@ -131,4 +134,6 @@ private:
   uint32_t rightTelemetryCachedAtMs_ = 0;
   bool leftTelemetryCacheValid_ = false;
   bool rightTelemetryCacheValid_ = false;
+  bool pollLeftDriverNext_ = true;
+  uint32_t lastActiveTelemetryPollMs_ = 0;
 };

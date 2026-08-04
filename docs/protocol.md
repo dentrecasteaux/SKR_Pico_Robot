@@ -290,8 +290,8 @@ Version 1 status contains:
 | `X_STEP_HZ`, `Y_STEP_HZ` | Firmware-commanded STEP pulse frequency in hertz |
 | `X_POLL_US`, `Y_POLL_US` | Time spent reading each driver's connection and `DRV_STATUS`, in microseconds |
 | `DRIVER_POLL_US` | Total time spent polling both drivers, in microseconds |
-| `X_TELEMETRY`, `Y_TELEMETRY` | `LIVE` when read while idle, or `CACHED` when UART polling is skipped during motion |
-| `X_TELEMETRY_AGE_MS`, `Y_TELEMETRY_AGE_MS` | Age of cached telemetry in milliseconds; zero for a live read |
+| `X_TELEMETRY`, `Y_TELEMETRY` | `LIVE` when read for this response while idle, or `CACHED` during motion |
+| `X_TELEMETRY_AGE_MS`, `Y_TELEMETRY_AGE_MS` | Age of the snapshot in milliseconds; moving snapshots are refreshed by alternating rate-limited background polls |
 | `UPTIME_MS` | Pico uptime from a monotonic clock |
 | `RX_AGE_MS` | Time since the last valid command |
 
