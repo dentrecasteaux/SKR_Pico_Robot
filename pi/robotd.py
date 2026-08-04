@@ -126,6 +126,23 @@ class RobotController:
                 reply = client.command("ESTOP")
             elif action == "clear_estop":
                 reply = client.command("CLEAR_ESTOP")
+            elif action == "configure":
+                current_ma = self._integer(request, "current_ma", 400)
+                microsteps = self._integer(request, "microsteps", 4)
+                acceleration = self._number(request, "acceleration_mm_s2")
+                mode = request.get("tmc_mode")
+                if mode not in {"STEALTHCHOP", "SPREADCYCLE"}:
+                    raise ValueError(
+                        "tmc_mode must be STEALTHCHOP or SPREADCYCLE"
+                    )
+                reply = client.command(
+                    "CONFIGURE",
+                    f"CURRENT_MA={current_ma}",
+                    f"MICROSTEPS={microsteps}",
+                    f"ACCEL_MM_S2={acceleration:g}",
+                    f"TMC_MODE={mode}",
+                )
+                self._record_status(client.command("STATUS"))
             else:
                 raise ValueError(f"unknown action: {action}")
 

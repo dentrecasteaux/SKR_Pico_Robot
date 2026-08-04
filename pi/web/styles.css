@@ -241,7 +241,8 @@ h2 {
 
 .drive-panel,
 .finite-panel,
-.safety-panel {
+.safety-panel,
+.settings-panel {
   padding: 22px;
 }
 
@@ -253,10 +254,47 @@ h2 {
 }
 
 .lease-label,
-.job-label {
+.job-label,
+.settings-state {
   color: var(--muted);
   font-size: 0.7rem;
   white-space: nowrap;
+}
+
+.settings-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px 12px;
+  margin-top: 20px;
+}
+
+.settings-grid label > span {
+  display: block;
+  margin-bottom: 8px;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.settings-grid select {
+  width: 100%;
+  padding: 11px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  outline: 0;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.settings-note {
+  margin-top: 14px;
+  color: var(--muted);
+  font-size: 0.68rem;
+  line-height: 1.5;
+}
+
+.settings-apply {
+  margin-top: 14px;
 }
 
 .dpad {
@@ -515,7 +553,8 @@ footer {
 
   .drive-panel,
   .finite-panel,
-  .safety-panel {
+  .safety-panel,
+  .settings-panel {
     padding: 18px;
   }
 
@@ -548,6 +587,10 @@ footer {
   }
 
   .finite-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .settings-grid {
     grid-template-columns: 1fr;
   }
 

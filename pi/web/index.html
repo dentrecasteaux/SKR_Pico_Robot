@@ -167,6 +167,55 @@
               </label>
             </div>
           </section>
+
+          <section class="panel settings-panel">
+            <div class="panel-heading">
+              <div>
+                <p class="eyebrow">IDLE ONLY</p>
+                <h2>Motor tuning</h2>
+              </div>
+              <span class="settings-state" id="settings-state">Waiting for status</span>
+            </div>
+            <div class="settings-grid">
+              <label>
+                <span>Run current</span>
+                <div class="input-unit">
+                  <input id="run-current" type="number" min="100" max="400"
+                         step="25" value="400">
+                  <span>mA</span>
+                </div>
+              </label>
+              <label>
+                <span>Microsteps</span>
+                <select id="microsteps">
+                  <option>1</option><option>2</option><option selected>4</option>
+                  <option>8</option><option>16</option><option>32</option>
+                  <option>64</option>
+                </select>
+              </label>
+              <label>
+                <span>Acceleration</span>
+                <div class="input-unit">
+                  <input id="acceleration" type="number" min="10" max="500"
+                         step="10" value="48">
+                  <span>mm/s²</span>
+                </div>
+              </label>
+              <label>
+                <span>Requested mode</span>
+                <select id="requested-mode">
+                  <option value="STEALTHCHOP">StealthChop</option>
+                  <option value="SPREADCYCLE">SpreadCycle</option>
+                </select>
+              </label>
+            </div>
+            <p class="settings-note">
+              Current is capped at 400 mA for the Casun 42SHD0001-24B motors.
+              Settings return to safe defaults after reboot.
+            </p>
+            <button class="action-button settings-apply" id="apply-settings"
+                    disabled>Apply to both motors</button>
+          </section>
         </div>
       </div>
 

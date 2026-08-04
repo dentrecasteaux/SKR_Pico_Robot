@@ -31,6 +31,14 @@ def build_parser() -> argparse.ArgumentParser:
     subparsers.add_parser("estop")
     subparsers.add_parser("clear-estop")
 
+    configure = subparsers.add_parser("configure")
+    configure.add_argument("current_ma", type=int)
+    configure.add_argument("microsteps", type=int)
+    configure.add_argument("acceleration_mm_s2", type=float)
+    configure.add_argument(
+        "tmc_mode", choices=("STEALTHCHOP", "SPREADCYCLE")
+    )
+
     velocity = subparsers.add_parser("velocity")
     velocity.add_argument("linear", type=float)
     velocity.add_argument("angular", type=float)
@@ -58,6 +66,13 @@ def payload(args: argparse.Namespace) -> dict[str, Any]:
         result["distance"] = args.distance
     elif args.action == "turn":
         result["angle"] = args.angle
+    elif args.action == "configure":
+        result.update(
+            current_ma=args.current_ma,
+            microsteps=args.microsteps,
+            acceleration_mm_s2=args.acceleration_mm_s2,
+            tmc_mode=args.tmc_mode,
+        )
     return result
 
 

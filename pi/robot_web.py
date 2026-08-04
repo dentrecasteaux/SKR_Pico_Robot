@@ -24,6 +24,7 @@ ALLOWED_ACTIONS = {
     "stop",
     "estop",
     "clear_estop",
+    "configure",
 }
 
 

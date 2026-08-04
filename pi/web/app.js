@@ -9,6 +9,7 @@ const turnRate = $("#turn-rate");
 let currentStatus = {};
 let driveSession = null;
 let toastTimer = null;
+let settingsDirty = false;
 
 const driveVectors = {
   forward: () => [Number(speed.value), 0],
@@ -95,6 +96,7 @@ function render(service) {
   const connected = Boolean(service.connected);
   const estopped = status.ESTOP === "1";
   const controlsDisabled = !connected || estopped;
+  const settingsAvailable = connected && !estopped && status.MODE === "IDLE";
 
   setConnected(connected);
   $("#mode").textContent = status.MODE || "—";
@@ -103,6 +105,22 @@ function render(service) {
   $("#y-driver").textContent = status.Y_DRIVER || "—";
   renderDriver("x", status);
   renderDriver("y", status);
+  if (!settingsDirty) {
+    if (status.RUN_CURRENT_MA) $("#run-current").value = status.RUN_CURRENT_MA;
+    if (status.MICROSTEPS) $("#microsteps").value = status.MICROSTEPS;
+    if (status.ACCEL_MM_S2) $("#acceleration").value = status.ACCEL_MM_S2;
+    if (status.REQUESTED_TMC_MODE) {
+      $("#requested-mode").value = status.REQUESTED_TMC_MODE;
+    }
+  }
+  $("#settings-state").textContent = settingsAvailable
+    ? "Ready to apply"
+    : estopped
+      ? "Emergency stop latched"
+      : status.MODE && status.MODE !== "IDLE"
+        ? "Available when idle"
+        : "Unavailable";
+  $("#apply-settings").disabled = !settingsAvailable || !settingsDirty;
   $("#clear-estop").hidden = !estopped;
 
   const job = status.JOB && status.JOB !== "0" ? `Job ${status.JOB}` : null;
@@ -251,6 +269,31 @@ speed.addEventListener("input", () => {
 });
 turnRate.addEventListener("input", () => {
   $("#turn-output").textContent = `${turnRate.value}°/s`;
+});
+
+document
+  .querySelectorAll("#run-current, #microsteps, #acceleration, #requested-mode")
+  .forEach((input) => {
+    input.addEventListener("input", () => {
+      settingsDirty = true;
+      render({connected: true, status: currentStatus});
+    });
+  });
+
+$("#apply-settings").addEventListener("click", () => {
+  api({
+    action: "configure",
+    current_ma: Number($("#run-current").value),
+    microsteps: Number($("#microsteps").value),
+    acceleration_mm_s2: Number($("#acceleration").value),
+    tmc_mode: $("#requested-mode").value,
+  })
+    .then(() => {
+      settingsDirty = false;
+      showToast("Motor settings applied");
+      updateStatus();
+    })
+    .catch((error) => showToast(error.message, true));
 });
 
 updateStatus();

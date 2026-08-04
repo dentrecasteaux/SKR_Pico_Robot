@@ -82,12 +82,17 @@ python3 robotdctl.py turn 90
 python3 robotdctl.py stop
 python3 robotdctl.py estop
 python3 robotdctl.py clear-estop
+python3 robotdctl.py configure 400 4 150 SPREADCYCLE
 ```
 
 The service maintains a second, local control lease for velocity requests. A
 caller must refresh its request before `hold_ms` expires. Until then, `robotd`
 renews the shorter Pico lease. If the caller disappears, `robotd` sends `STOP`;
 if the service or USB link also fails, the Pico lease expires independently.
+
+Motor configuration is accepted only while the robot is idle and the motors
+are disabled. The installed Casun 42SHD0001-24B motor profile is capped at
+400 mA. Runtime settings reset to firmware defaults when the Pico reboots.
 
 `robotdctl.py` is only a local service test client. The future web interface
 will use the same Unix-socket API.
