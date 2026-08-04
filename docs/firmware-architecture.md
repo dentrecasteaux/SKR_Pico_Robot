@@ -141,9 +141,9 @@ robot has no encoder feedback.
 
 | Setting | Value |
 |---|---:|
-| Maximum motor speed | 400 steps/s |
+| Maximum motor speed | 2,000 steps/s |
 | Acceleration | 200 steps/s² |
-| Maximum linear request | 100 mm/s |
+| Maximum linear request | 500 mm/s |
 | Maximum angular request | 180 deg/s |
 | Maximum finite distance | 10,000 mm |
 | Maximum finite angle | 3,600 deg |
@@ -173,4 +173,3 @@ peripheral such as PIO.
 
 The present software scheduler is adequate for the tested speeds. Optimisation
 should follow measurement of timing limits, not precede it.
-

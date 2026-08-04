@@ -176,7 +176,11 @@ bool processDriveCommand(const char* command)
       linear > Config::MAX_SPEED_STEPS_PER_SECOND ||
       turn < -Config::MAX_SPEED_STEPS_PER_SECOND ||
       turn > Config::MAX_SPEED_STEPS_PER_SECOND) {
-    Serial.println("Linear and turn must each be between -400 and 400.");
+    Serial.print("Linear and turn must each be between -");
+    Serial.print(Config::MAX_SPEED_STEPS_PER_SECOND);
+    Serial.print(" and ");
+    Serial.print(Config::MAX_SPEED_STEPS_PER_SECOND);
+    Serial.println('.');
     return true;
   }
 
