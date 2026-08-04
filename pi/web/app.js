@@ -45,6 +45,50 @@ function setConnected(connected) {
   connectionLabel.textContent = connected ? "Robot online" : "Robot offline";
 }
 
+function telemetryLabel(source, age) {
+  if (!source) return "—";
+  if (source === "LIVE") return "Live now";
+  if (source === "CACHED") {
+    return age !== undefined ? `Background · ${age} ms old` : "Background";
+  }
+  return source;
+}
+
+function renderDriver(axis, status) {
+  const key = axis.toUpperCase();
+  const prefix = axis.toLowerCase();
+  const health = status[`${key}_DRIVER`] || "—";
+  const connected = health !== "NO_REPLY" && health !== "—";
+  const healthy = health.startsWith("OK_");
+  const card = $(`#${prefix}-driver-card`);
+
+  card.classList.toggle("healthy", healthy);
+  card.classList.toggle("fault", connected && !healthy);
+  card.classList.toggle("offline", !connected);
+  $(`#${prefix}-driver-health`).textContent = health;
+
+  const currentScale = status[`${key}_CS`];
+  $(`#${prefix}-current-scale`).textContent =
+    currentScale && currentScale !== "NA" ? `${currentScale} / 31` : "—";
+  $(`#${prefix}-tmc-mode`).textContent =
+    status[`${key}_TMC_MODE`] || "—";
+
+  const stepFrequency = status[`${key}_STEP_HZ`];
+  $(`#${prefix}-step-frequency`).textContent =
+    stepFrequency !== undefined ? `${stepFrequency} Hz` : "—";
+  const fullStep = status[`${key}_FULLSTEP`];
+  $(`#${prefix}-fullstep`).textContent =
+    fullStep === "1" ? "Yes" : fullStep === "0" ? "No" : "—";
+
+  $(`#${prefix}-telemetry`).textContent = telemetryLabel(
+    status[`${key}_TELEMETRY`],
+    status[`${key}_TELEMETRY_AGE_MS`],
+  );
+  const pollTime = status[`${key}_POLL_US`];
+  $(`#${prefix}-poll-time`).textContent =
+    pollTime !== undefined ? `${pollTime} µs` : "—";
+}
+
 function render(service) {
   const status = service.status || {};
   currentStatus = status;
@@ -57,6 +101,8 @@ function render(service) {
   $("#faults").textContent = status.FAULTS || "—";
   $("#x-driver").textContent = status.X_DRIVER || "—";
   $("#y-driver").textContent = status.Y_DRIVER || "—";
+  renderDriver("x", status);
+  renderDriver("y", status);
   $("#clear-estop").hidden = !estopped;
 
   const job = status.JOB && status.JOB !== "0" ? `Job ${status.JOB}` : null;

@@ -139,6 +139,89 @@ h2 {
   color: var(--green);
 }
 
+.driver-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.driver-card {
+  padding: 18px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.driver-card.healthy {
+  border-color: rgb(98 227 157 / 32%);
+}
+
+.driver-card.fault,
+.driver-card.offline {
+  border-color: rgb(255 95 103 / 55%);
+}
+
+.driver-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.driver-health {
+  padding: 6px 9px;
+  border-radius: 999px;
+  background: var(--surface-raised);
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.driver-card.healthy .driver-health {
+  background: var(--green-dark);
+  color: var(--green);
+}
+
+.driver-card.fault .driver-health,
+.driver-card.offline .driver-health {
+  background: var(--red-dark);
+  color: var(--red);
+}
+
+.driver-details {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1px;
+  margin: 16px 0 0;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  background: var(--border);
+}
+
+.driver-details div {
+  min-width: 0;
+  padding: 11px 12px;
+  background: var(--bg);
+}
+
+.driver-details dt {
+  margin-bottom: 5px;
+  color: var(--muted);
+  font-size: 0.65rem;
+}
+
+.driver-details dd {
+  margin: 0;
+  overflow: hidden;
+  font-size: 0.78rem;
+  font-weight: 750;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .layout {
   display: grid;
   grid-template-columns: minmax(0, 1.15fr) minmax(340px, 0.85fr);
@@ -426,6 +509,10 @@ footer {
     grid-template-columns: 1fr;
   }
 
+  .driver-grid {
+    grid-template-columns: 1fr;
+  }
+
   .drive-panel,
   .finite-panel,
   .safety-panel {
@@ -462,6 +549,10 @@ footer {
 
   .finite-grid {
     grid-template-columns: 1fr;
+  }
+
+  .driver-details {
+    grid-template-columns: 1fr 1fr;
   }
 
   .estop-button {
