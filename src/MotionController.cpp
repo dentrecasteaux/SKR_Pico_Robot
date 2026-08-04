@@ -70,11 +70,7 @@ void MotionController::setVelocity(float linearMmPerSecond,
   const int32_t rightStepsPerSecond =
       static_cast<int32_t>(rightMmPerSecond * stepsPerMm);
 
-  const int32_t linearStepsPerSecond =
-      (leftStepsPerSecond + rightStepsPerSecond) / 2;
-  const int32_t turnStepsPerSecond =
-      (rightStepsPerSecond - leftStepsPerSecond) / 2;
-  setWheelSpeeds(linearStepsPerSecond, turnStepsPerSecond,
+  setWheelSpeeds(leftStepsPerSecond, rightStepsPerSecond,
                  Config::MAX_PIO_STEP_FREQUENCY_HZ);
 }
 
