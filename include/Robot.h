@@ -2,6 +2,7 @@
 
 #include <Arduino.h>
 
+#include "Config.h"
 #include "MotionController.h"
 #include "Motor.h"
 #include "TMC2209.h"
@@ -59,6 +60,12 @@ public:
     uint32_t lastJob = 0;
     JobResult lastJobResult = JobResult::None;
     uint32_t driverPollTotalUs = 0;
+    uint16_t configuredCurrentMa = Config::TMC_RUN_CURRENT_MA;
+    uint16_t configuredMicrosteps = Config::TMC_MICROSTEPS;
+    float configuredAccelerationMmPerSecondSquared =
+        Config::DEFAULT_ACCELERATION_MM_PER_SECOND_SQUARED;
+    TMC2209::ChopperMode configuredChopperMode =
+        TMC2209::ChopperMode::StealthChop;
     DriverStatus leftDriver;
     DriverStatus rightDriver;
   };
@@ -90,6 +97,9 @@ public:
   void stop();
   void estop();
   CommandResult clearEstop();
+  CommandResult configure(uint32_t currentMa, uint32_t microsteps,
+                          float accelerationMmPerSecondSquared,
+                          TMC2209::ChopperMode chopperMode);
   Status status();
   bool takeJobCompletion(JobCompletion& completion);
 
@@ -128,6 +138,9 @@ private:
   uint32_t lastJobId_ = 0;
   JobResult lastJobResult_ = JobResult::None;
   bool leaseExpiredFault_ = false;
+  TMC2209::Settings driverSettings_ = {
+      Config::TMC_RUN_CURRENT_MA, Config::TMC_MICROSTEPS,
+      TMC2209::ChopperMode::StealthChop};
   TMC2209::Status leftTelemetryCache_;
   TMC2209::Status rightTelemetryCache_;
   uint32_t leftTelemetryCachedAtMs_ = 0;

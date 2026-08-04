@@ -123,6 +123,26 @@ R2W/1 ACK 4 OK JOB=17
 `DIST` is in millimetres. Positive is forwards and negative is backwards. Zero
 and values outside configured limits are rejected.
 
+### `CONFIGURE`
+
+Applies runtime motor and driver settings to both axes. It is accepted only
+while the robot is idle and the emergency stop is clear.
+
+```text
+R2W/1 CMD 8 CONFIGURE CURRENT_MA=400 MICROSTEPS=4 ACCEL_MM_S2=100 TMC_MODE=STEALTHCHOP
+R2W/1 ACK 8 OK
+```
+
+- `CURRENT_MA`: RMS run current. The present unknown-motor profile accepts
+  100-400 mA.
+- `MICROSTEPS`: `1`, `2`, `4`, `8`, `16`, `32`, or `64`.
+- `ACCEL_MM_S2`: physical acceleration from 10-500 mm/s².
+- `TMC_MODE`: `STEALTHCHOP` or `SPREADCYCLE`.
+
+Both TMC2209 writes are read back. A failure rolls both drivers back and
+returns `DRIVER_FAULT`. Settings are held in RAM and return to safe defaults
+after reboot.
+
 ### `TURN`
 
 Starts a finite in-place turn.
@@ -292,6 +312,10 @@ Version 1 status contains:
 | `DRIVER_POLL_US` | Total time spent polling both drivers, in microseconds |
 | `X_TELEMETRY`, `Y_TELEMETRY` | `LIVE` when read for this response while idle, or `CACHED` during motion |
 | `X_TELEMETRY_AGE_MS`, `Y_TELEMETRY_AGE_MS` | Age of the snapshot in milliseconds; moving snapshots are refreshed by alternating rate-limited background polls |
+| `RUN_CURRENT_MA` | Configured RMS run current for both drivers |
+| `MICROSTEPS` | Configured hardware microstep divisor used by motion geometry |
+| `ACCEL_MM_S2` | Configured physical acceleration in mm/s² |
+| `REQUESTED_TMC_MODE` | Requested `STEALTHCHOP` or `SPREADCYCLE` mode |
 | `UPTIME_MS` | Pico uptime from a monotonic clock |
 | `RX_AGE_MS` | Time since the last valid command |
 

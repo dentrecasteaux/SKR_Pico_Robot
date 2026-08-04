@@ -15,8 +15,11 @@ enum class CommandType
   Turn,
   Stop,
   Estop,
-  ClearEstop
+  ClearEstop,
+  Configure
 };
+
+enum class ChopperMode { StealthChop, SpreadCycle };
 
 struct Command
 {
@@ -27,6 +30,10 @@ struct Command
   uint32_t leaseMs = 0;
   float distanceMm = 0.0F;
   float angleDegrees = 0.0F;
+  uint32_t currentMa = 0;
+  uint32_t microsteps = 0;
+  float accelerationMmPerSecondSquared = 0.0F;
+  ChopperMode chopperMode = ChopperMode::StealthChop;
 };
 
 struct ParseResult

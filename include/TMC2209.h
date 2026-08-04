@@ -6,6 +6,15 @@
 class TMC2209
 {
 public:
+  enum class ChopperMode { StealthChop, SpreadCycle };
+
+  struct Settings
+  {
+    uint16_t currentMa = 0;
+    uint16_t microsteps = 0;
+    ChopperMode mode = ChopperMode::StealthChop;
+  };
+
   struct Status
   {
     bool connected = false;
@@ -33,8 +42,11 @@ public:
   void begin();
   bool isConnected();
   Status status();
+  bool applySettings(const Settings& settings);
+  Settings settings();
 
   static Status decodeStatus(uint32_t raw, bool connected = true);
+  static bool validMicrosteps(uint16_t microsteps);
 
 private:
   static constexpr float SENSE_RESISTOR_OHMS = 0.11F;

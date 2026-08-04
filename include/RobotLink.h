@@ -30,6 +30,7 @@ private:
   void sendStatus(uint32_t sequence);
   void printDriverStatus(const Robot::DriverStatus& status);
   const char* jobResultName(Robot::JobResult result) const;
+  const char* chopperModeName(TMC2209::ChopperMode mode) const;
 
   SerialTransport transport_;
   Robot& robot_;

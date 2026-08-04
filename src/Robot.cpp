@@ -236,6 +236,50 @@ Robot::CommandResult Robot::clearEstop()
   return CommandResult::Accepted;
 }
 
+Robot::CommandResult Robot::configure(
+    uint32_t currentMa, uint32_t microsteps,
+    float accelerationMmPerSecondSquared,
+    TMC2209::ChopperMode chopperMode)
+{
+  if (mode_ != Mode::Idle || leftMotor_.isBusy() || rightMotor_.isBusy() ||
+      leftMotor_.isEnabled() || rightMotor_.isEnabled()) {
+    return CommandResult::Busy;
+  }
+  if (estopLatched_) return CommandResult::EstopLatched;
+  if (currentMa < 100 || currentMa > Config::TMC_MAX_CURRENT_MA ||
+      !TMC2209::validMicrosteps(microsteps) ||
+      accelerationMmPerSecondSquared <
+          Config::MIN_ACCELERATION_MM_PER_SECOND_SQUARED ||
+      accelerationMmPerSecondSquared >
+          Config::MAX_ACCELERATION_MM_PER_SECOND_SQUARED) {
+    return CommandResult::OutOfRange;
+  }
+
+  if (!leftDriver_.isConnected() || !rightDriver_.isConnected()) {
+    return CommandResult::DriverFault;
+  }
+
+  const TMC2209::Settings previousLeft = leftDriver_.settings();
+  const TMC2209::Settings previousRight = rightDriver_.settings();
+  const TMC2209::Settings requested = {
+      static_cast<uint16_t>(currentMa), static_cast<uint16_t>(microsteps),
+      chopperMode};
+  const bool leftApplied = leftDriver_.applySettings(requested);
+  const bool rightApplied = leftApplied && rightDriver_.applySettings(requested);
+  if (!leftApplied || !rightApplied) {
+    leftDriver_.applySettings(previousLeft);
+    rightDriver_.applySettings(previousRight);
+    return CommandResult::DriverFault;
+  }
+
+  driverSettings_ = requested;
+  motionController_.configureMotion(static_cast<uint16_t>(microsteps),
+                                    accelerationMmPerSecondSquared);
+  leftTelemetryCacheValid_ = false;
+  rightTelemetryCacheValid_ = false;
+  return CommandResult::Accepted;
+}
+
 Robot::Status Robot::status()
 {
   Status result;
@@ -253,6 +297,11 @@ Robot::Status Robot::status()
   }
   result.lastJob = lastJobId_;
   result.lastJobResult = lastJobResult_;
+  result.configuredCurrentMa = driverSettings_.currentMa;
+  result.configuredMicrosteps = motionController_.microsteps();
+  result.configuredAccelerationMmPerSecondSquared =
+      motionController_.accelerationMmPerSecondSquared();
+  result.configuredChopperMode = driverSettings_.mode;
   result.leftDriver =
       driverStatus(leftDriver_, leftMotor_, leftTelemetryCache_,
                    leftTelemetryCachedAtMs_, leftTelemetryCacheValid_);

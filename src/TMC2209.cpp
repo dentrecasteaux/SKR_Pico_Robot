@@ -23,6 +23,44 @@ bool TMC2209::isConnected()
   return driver_.test_connection() == 0;
 }
 
+bool TMC2209::applySettings(const Settings& requested)
+{
+  if (!isConnected() || requested.currentMa == 0 ||
+      !validMicrosteps(requested.microsteps)) {
+    return false;
+  }
+
+  driver_.rms_current(requested.currentMa);
+  driver_.microsteps(requested.microsteps == 1 ? 0 : requested.microsteps);
+  driver_.en_spreadCycle(requested.mode == ChopperMode::SpreadCycle);
+
+  const Settings actual = settings();
+  const uint16_t currentDifference =
+      actual.currentMa > requested.currentMa
+          ? actual.currentMa - requested.currentMa
+          : requested.currentMa - actual.currentMa;
+  return currentDifference <= 25 && actual.microsteps == requested.microsteps &&
+         actual.mode == requested.mode;
+}
+
+TMC2209::Settings TMC2209::settings()
+{
+  Settings result;
+  result.currentMa = driver_.rms_current();
+  result.microsteps = driver_.microsteps();
+  if (result.microsteps == 0) result.microsteps = 1;
+  result.mode = driver_.en_spreadCycle() ? ChopperMode::SpreadCycle
+                                         : ChopperMode::StealthChop;
+  return result;
+}
+
+bool TMC2209::validMicrosteps(uint16_t microsteps)
+{
+  return microsteps == 1 || microsteps == 2 || microsteps == 4 ||
+         microsteps == 8 || microsteps == 16 || microsteps == 32 ||
+         microsteps == 64;
+}
+
 TMC2209::Status TMC2209::status()
 {
   if (!isConnected()) return Status{};

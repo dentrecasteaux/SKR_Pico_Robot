@@ -117,6 +117,24 @@ void RobotLink::processLine(char* line)
       }
       return;
     }
+    case Protocol::CommandType::Configure: {
+      const TMC2209::ChopperMode mode =
+          command.chopperMode == Protocol::ChopperMode::SpreadCycle
+              ? TMC2209::ChopperMode::SpreadCycle
+              : TMC2209::ChopperMode::StealthChop;
+      const Robot::CommandResult commandResult = robot_.configure(
+          command.currentMa, command.microsteps,
+          command.accelerationMmPerSecondSquared, mode);
+      if (commandResult == Robot::CommandResult::Accepted) {
+        cacheReply(originalLine, command.sequence, true);
+        sendAck(command.sequence);
+      } else {
+        cacheReply(originalLine, command.sequence, false, 0,
+                   commandErrorCode(commandResult));
+        sendCommandError(command.sequence, commandResult);
+      }
+      return;
+    }
   }
 }
 
@@ -326,6 +344,14 @@ void RobotLink::sendStatus(uint32_t sequence)
   output.print(status.leftDriver.telemetryAgeMs);
   output.print(" Y_TELEMETRY_AGE_MS=");
   output.print(status.rightDriver.telemetryAgeMs);
+  output.print(" RUN_CURRENT_MA=");
+  output.print(status.configuredCurrentMa);
+  output.print(" MICROSTEPS=");
+  output.print(status.configuredMicrosteps);
+  output.print(" ACCEL_MM_S2=");
+  output.print(status.configuredAccelerationMmPerSecondSquared);
+  output.print(" REQUESTED_TMC_MODE=");
+  output.print(chopperModeName(status.configuredChopperMode));
   output.print(" UPTIME_MS=");
   output.print(millis());
   output.print(" RX_AGE_MS=");
@@ -378,4 +404,10 @@ const char* RobotLink::jobResultName(Robot::JobResult result) const
       return "REPLACED";
   }
   return "NONE";
+}
+
+const char* RobotLink::chopperModeName(TMC2209::ChopperMode mode) const
+{
+  return mode == TMC2209::ChopperMode::SpreadCycle ? "SPREADCYCLE" :
+                                                     "STEALTHCHOP";
 }

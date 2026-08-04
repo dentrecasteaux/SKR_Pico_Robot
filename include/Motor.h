@@ -16,6 +16,7 @@ public:
   bool startTest(uint32_t steps, uint32_t stepIntervalUs);
   bool startMove(uint32_t steps, bool forward, uint32_t stepIntervalUs);
   void setSpeed(int32_t stepsPerSecond);
+  void setAcceleration(uint32_t stepsPerSecondSquared);
   void update(uint32_t nowUs);
 
   bool isEnabled() const;

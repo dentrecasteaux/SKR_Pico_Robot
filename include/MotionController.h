@@ -14,8 +14,17 @@ public:
   bool moveDistance(float distanceMm);
   bool turnAngle(float angleDegrees);
   void stop();
+  void configureMotion(uint16_t microsteps,
+                       float accelerationMmPerSecondSquared);
+  uint16_t microsteps() const;
+  float accelerationMmPerSecondSquared() const;
 
 private:
+  float stepsPerMillimetre() const;
+  void setWheelSpeeds(int32_t left, int32_t right, int32_t maximumMagnitude);
+
   Motor& leftMotor_;
   Motor& rightMotor_;
+  uint16_t microsteps_;
+  float accelerationMmPerSecondSquared_;
 };

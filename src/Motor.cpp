@@ -56,6 +56,13 @@ void Motor::setSpeed(int32_t stepsPerSecond)
   }
 }
 
+void Motor::setAcceleration(uint32_t stepsPerSecondSquared)
+{
+  if (stepsPerSecondSquared != 0) {
+    accelerationStepsPerSecondSquared_ = stepsPerSecondSquared;
+  }
+}
+
 void Motor::update(uint32_t nowUs)
 {
   if (!isBusy()) return;

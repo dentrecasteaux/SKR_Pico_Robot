@@ -6,6 +6,7 @@ namespace Config {
   constexpr uint32_t TMC_UART_BAUD = 115200;
   constexpr uint32_t TMC_ACTIVE_POLL_INTERVAL_MS = 250;
   constexpr uint16_t TMC_RUN_CURRENT_MA = 400;
+  constexpr uint16_t TMC_MAX_CURRENT_MA = 400;
   // A simple, low-resolution setting for initial motion bring-up. This can
   // later become a runtime TMC2209 setting rather than a fixed constant.
   constexpr uint16_t TMC_MICROSTEPS = 4;
@@ -15,7 +16,11 @@ namespace Config {
   constexpr uint32_t MOTION_TEST_STEP_COUNT = 200;
   constexpr uint32_t MOTION_TEST_STEP_INTERVAL_US = 10000;
   constexpr int32_t MAX_SPEED_STEPS_PER_SECOND = 2000;
+  constexpr int32_t MAX_PIO_STEP_FREQUENCY_HZ = 50000;
   constexpr uint32_t MAX_ACCELERATION_STEPS_PER_SECOND_SQUARED = 200;
+  constexpr float DEFAULT_ACCELERATION_MM_PER_SECOND_SQUARED = 48.0F;
+  constexpr float MIN_ACCELERATION_MM_PER_SECOND_SQUARED = 10.0F;
+  constexpr float MAX_ACCELERATION_MM_PER_SECOND_SQUARED = 500.0F;
 
   constexpr float WHEEL_DIAMETER_MM = 61.0F;
   constexpr float WHEEL_TRACK_MM = 188.0F;

@@ -56,6 +56,9 @@ Protocol::CommandType commandType(const char* name, bool& recognised)
   if (std::strcmp(name, "CLEAR_ESTOP") == 0) {
     return Protocol::CommandType::ClearEstop;
   }
+  if (std::strcmp(name, "CONFIGURE") == 0) {
+    return Protocol::CommandType::Configure;
+  }
 
   recognised = false;
   return Protocol::CommandType::Ping;
@@ -104,6 +107,10 @@ Protocol::ParseResult Protocol::parseCommand(char* line, Command& command)
   bool hasLease = false;
   bool hasDistance = false;
   bool hasAngle = false;
+  bool hasCurrent = false;
+  bool hasMicrosteps = false;
+  bool hasAcceleration = false;
+  bool hasMode = false;
 
   while ((token = ::strtok_r(nullptr, " ", &savePosition)) != nullptr) {
     char* equals = std::strchr(token, '=');
@@ -164,6 +171,41 @@ Protocol::ParseResult Protocol::parseCommand(char* line, Command& command)
         result.errorCode = "INVALID_VALUE";
         return result;
       }
+    } else if (std::strcmp(token, "CURRENT_MA") == 0) {
+      if (hasCurrent || !parseUnsigned(value, command.currentMa)) {
+        result.errorCode = hasCurrent ? "DUPLICATE_FIELD" : "INVALID_VALUE";
+        return result;
+      }
+      hasCurrent = true;
+    } else if (std::strcmp(token, "MICROSTEPS") == 0) {
+      if (hasMicrosteps || !parseUnsigned(value, command.microsteps)) {
+        result.errorCode =
+            hasMicrosteps ? "DUPLICATE_FIELD" : "INVALID_VALUE";
+        return result;
+      }
+      hasMicrosteps = true;
+    } else if (std::strcmp(token, "ACCEL_MM_S2") == 0) {
+      if (hasAcceleration ||
+          !parseFloat(value, command.accelerationMmPerSecondSquared)) {
+        result.errorCode =
+            hasAcceleration ? "DUPLICATE_FIELD" : "INVALID_VALUE";
+        return result;
+      }
+      hasAcceleration = true;
+    } else if (std::strcmp(token, "TMC_MODE") == 0) {
+      if (hasMode) {
+        result.errorCode = "DUPLICATE_FIELD";
+        return result;
+      }
+      hasMode = true;
+      if (std::strcmp(value, "STEALTHCHOP") == 0) {
+        command.chopperMode = ChopperMode::StealthChop;
+      } else if (std::strcmp(value, "SPREADCYCLE") == 0) {
+        command.chopperMode = ChopperMode::SpreadCycle;
+      } else {
+        result.errorCode = "INVALID_VALUE";
+        return result;
+      }
     } else {
       result.errorCode = "UNKNOWN_FIELD";
       return result;
@@ -171,7 +213,10 @@ Protocol::ParseResult Protocol::parseCommand(char* line, Command& command)
   }
 
   const bool noFields =
-      !hasLinear && !hasTurn && !hasLease && !hasDistance && !hasAngle;
+      !hasLinear && !hasTurn && !hasLease && !hasDistance && !hasAngle &&
+      !hasCurrent && !hasMicrosteps && !hasAcceleration && !hasMode;
+  const bool hasConfiguration =
+      hasCurrent || hasMicrosteps || hasAcceleration || hasMode;
   switch (command.type) {
     case CommandType::Ping:
     case CommandType::Status:
@@ -188,7 +233,7 @@ Protocol::ParseResult Protocol::parseCommand(char* line, Command& command)
         result.errorCode = "MISSING_FIELD";
         return result;
       }
-      if (hasDistance || hasAngle) {
+      if (hasDistance || hasAngle || hasConfiguration) {
         result.errorCode = "UNKNOWN_FIELD";
         return result;
       }
@@ -198,7 +243,7 @@ Protocol::ParseResult Protocol::parseCommand(char* line, Command& command)
         result.errorCode = "MISSING_FIELD";
         return result;
       }
-      if (hasLinear || hasTurn || hasLease || hasAngle) {
+      if (hasLinear || hasTurn || hasLease || hasAngle || hasConfiguration) {
         result.errorCode = "UNKNOWN_FIELD";
         return result;
       }
@@ -208,7 +253,18 @@ Protocol::ParseResult Protocol::parseCommand(char* line, Command& command)
         result.errorCode = "MISSING_FIELD";
         return result;
       }
-      if (hasLinear || hasTurn || hasLease || hasDistance) {
+      if (hasLinear || hasTurn || hasLease || hasDistance ||
+          hasConfiguration) {
+        result.errorCode = "UNKNOWN_FIELD";
+        return result;
+      }
+      break;
+    case CommandType::Configure:
+      if (!hasCurrent || !hasMicrosteps || !hasAcceleration || !hasMode) {
+        result.errorCode = "MISSING_FIELD";
+        return result;
+      }
+      if (hasLinear || hasTurn || hasLease || hasDistance || hasAngle) {
         result.errorCode = "UNKNOWN_FIELD";
         return result;
       }

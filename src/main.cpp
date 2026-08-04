@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include <cstdlib>
 #include <cstring>
+#include <cctype>
 
 #include "Hardware.h"
 #include "Config.h"
@@ -24,6 +25,18 @@ Robot robot(leftMotor, rightMotor, motionController, leftDriver, rightDriver,
 
 namespace
 {
+bool equalsIgnoreCase(const char* left, const char* right)
+{
+  while (*left != '\0' && *right != '\0') {
+    const unsigned char leftCharacter = static_cast<unsigned char>(*left++);
+    const unsigned char rightCharacter = static_cast<unsigned char>(*right++);
+    if (std::tolower(leftCharacter) != std::tolower(rightCharacter)) {
+      return false;
+    }
+  }
+  return *left == '\0' && *right == '\0';
+}
+
 void printStatus()
 {
   Serial.print("Left driver: ");
@@ -38,7 +51,97 @@ void printStatus()
 
 void printHelp()
 {
-  Serial.println("Commands: left/right on/off/test/forward/reverse/speed N, drive LINEAR TURN, velocity MM_PER_S DEG_PER_S, move DISTANCE_MM, turn ANGLE_DEGREES, drivers, off, status, help");
+  Serial.println("Commands: left/right on/off/test/forward/reverse/speed N, drive LINEAR TURN, velocity MM_PER_S DEG_PER_S, move DISTANCE_MM, turn ANGLE_DEGREES, drivers, configuration, configure CURRENT_MA MICROSTEPS ACCEL_MM_S2 MODE, off, status, help");
+}
+
+void printConfiguration()
+{
+  const Robot::Status status = robot.status();
+  Serial.print("Configuration: current=");
+  Serial.print(status.configuredCurrentMa);
+  Serial.print(" mA, microsteps=");
+  Serial.print(status.configuredMicrosteps);
+  Serial.print(", acceleration=");
+  Serial.print(status.configuredAccelerationMmPerSecondSquared);
+  Serial.print(" mm/s^2, mode=");
+  Serial.println(status.configuredChopperMode ==
+                         TMC2209::ChopperMode::SpreadCycle
+                     ? "spreadCycle"
+                     : "stealthChop");
+}
+
+bool processConfigureCommand(const char* command)
+{
+  constexpr const char* prefix = "configure ";
+  if (std::strncmp(command, prefix, std::strlen(prefix)) != 0) return false;
+
+  unsigned int currentMa = 0;
+  unsigned int microsteps = 0;
+  float acceleration = 0.0F;
+  char arguments[96];
+  std::strncpy(arguments, command + std::strlen(prefix), sizeof(arguments));
+  arguments[sizeof(arguments) - 1] = '\0';
+  char* savePosition = nullptr;
+  char* currentText = ::strtok_r(arguments, " ", &savePosition);
+  char* microstepsText = ::strtok_r(nullptr, " ", &savePosition);
+  char* accelerationText = ::strtok_r(nullptr, " ", &savePosition);
+  char* modeText = ::strtok_r(nullptr, " ", &savePosition);
+  char* extraText = ::strtok_r(nullptr, " ", &savePosition);
+  if (currentText == nullptr || microstepsText == nullptr ||
+      accelerationText == nullptr || modeText == nullptr ||
+      extraText != nullptr) {
+    Serial.println("Use: configure CURRENT_MA MICROSTEPS ACCEL_MM_S2 stealthchop|spreadcycle");
+    return true;
+  }
+
+  char* end = nullptr;
+  const unsigned long parsedCurrent = std::strtoul(currentText, &end, 10);
+  if (end == currentText || *end != '\0') {
+    Serial.println("Current and microsteps must be whole numbers.");
+    return true;
+  }
+  currentMa = static_cast<unsigned int>(parsedCurrent);
+  const unsigned long parsedMicrosteps =
+      std::strtoul(microstepsText, &end, 10);
+  if (end == microstepsText || *end != '\0') {
+    Serial.println("Current and microsteps must be whole numbers.");
+    return true;
+  }
+  microsteps = static_cast<unsigned int>(parsedMicrosteps);
+  acceleration = std::strtof(accelerationText, &end);
+  if (end == accelerationText || *end != '\0') {
+    Serial.println("Acceleration must be a number.");
+    return true;
+  }
+
+  TMC2209::ChopperMode mode;
+  if (equalsIgnoreCase(modeText, "stealthchop") ||
+      equalsIgnoreCase(modeText, "stealth")) {
+    mode = TMC2209::ChopperMode::StealthChop;
+  } else if (equalsIgnoreCase(modeText, "spreadcycle") ||
+             equalsIgnoreCase(modeText, "spread")) {
+    mode = TMC2209::ChopperMode::SpreadCycle;
+  } else {
+    Serial.print("Mode token received: '");
+    Serial.print(modeText);
+    Serial.println("' (configuration parser v2)");
+    Serial.println("Mode must be stealthchop or spreadcycle.");
+    return true;
+  }
+
+  const Robot::CommandResult result =
+      robot.configure(currentMa, microsteps, acceleration, mode);
+  if (result == Robot::CommandResult::Accepted) {
+    Serial.println("Configuration applied to both drivers.");
+    printConfiguration();
+  } else if (result == Robot::CommandResult::Busy) {
+    Serial.println("Configuration rejected: robot must be idle.");
+  } else if (result == Robot::CommandResult::OutOfRange) {
+    Serial.println("Configuration rejected: value outside the safe range.");
+  } else {
+    Serial.println("Configuration rejected: driver write/readback failed.");
+  }
+  return true;
 }
 
 void printDriverHealth(const char* name, const Robot::DriverStatus& driver)
@@ -246,7 +349,9 @@ bool processSpeedCommand(const char* command, const char* prefix, Motor& motor,
 
 void processCommand(const char* command)
 {
-  if (processTurnCommand(command)) {
+  if (processConfigureCommand(command)) {
+    return;
+  } else if (processTurnCommand(command)) {
     return;
   } else if (processMoveCommand(command)) {
     return;
@@ -322,6 +427,9 @@ void processCommand(const char* command)
   } else if (std::strcmp(command, "drivers") == 0) {
     printDriverHealth();
     return;
+  } else if (std::strcmp(command, "configuration") == 0) {
+    printConfiguration();
+    return;
   } else if (std::strcmp(command, "help") == 0) {
     printHelp();
     return;
@@ -347,6 +455,7 @@ void setup()
   robot.begin();
 
   Serial.println("SKR Pico starting...");
+  Serial.println("Control build: configuration-parser-v2");
   Serial.println("STEP engine: RP2040 PIO (one state machine per motor).");
   Serial.println("Stepper drivers initialised and disabled.");
   Serial.print("X TMC2209 UART: ");
