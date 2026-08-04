@@ -40,7 +40,10 @@ microstepping and operating mode, and report driver health.
 - direction inversion for physical motor mounting;
 - step pulse edges.
 
-It does not understand millimetres, turning or acceleration.
+Each `Stepper` owns an RP2040 PIO state machine. PIO generates 5 microsecond
+STEP pulses, maintains pulse timing independently of the main loop, counts
+finite moves, and signals completion. It does not understand millimetres,
+turning or acceleration.
 
 ### `Motor`
 
@@ -52,8 +55,9 @@ It does not understand millimetres, turning or acceleration.
 - finite step counts;
 - busy and enabled state.
 
-Its `update()` method uses the Pico’s monotonic microsecond clock. The firmware
-does not use `delay()` to create a complete move.
+Its `update()` method applies acceleration and sends changed pulse periods to
+PIO through the state-machine FIFO. Slow serial or UART work can delay motion
+planning updates, but it no longer stretches individual STEP periods.
 
 ### `MotionController`
 

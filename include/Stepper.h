@@ -15,8 +15,10 @@ public:
   void disable();
 
   void setDirection(bool forward);
-  void beginPulse();
-  void endPulse();
+  bool startPulses(uint32_t steps, uint32_t stepIntervalUs);
+  bool updatePulseInterval(uint32_t stepIntervalUs);
+  void stopPulses();
+  bool pulsesComplete();
 
   bool isEnabled() const;
 
@@ -26,4 +28,5 @@ private:
   uint8_t enablePin_;
   bool directionInverted_;
   bool enabled_ = false;
+  int stateMachine_ = -1;
 };

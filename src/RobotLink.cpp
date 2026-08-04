@@ -256,12 +256,9 @@ void RobotLink::sendStatus(uint32_t sequence)
   output.print(" ESTOP=");
   output.print(status.estopLatched ? 1 : 0);
   output.print(" FAULTS=");
-  const uint32_t driverFaultMask = (1UL << 25) | (1UL << 26) | (1UL << 27) |
-                                   (1UL << 28);
   const bool driverFault =
-      !status.leftDriver.connected || !status.rightDriver.connected ||
-      (status.leftDriver.flags & driverFaultMask) != 0 ||
-      (status.rightDriver.flags & driverFaultMask) != 0;
+      status.leftDriver.telemetry.hasFault() ||
+      status.rightDriver.telemetry.hasFault();
   if (!status.leaseExpiredFault && !driverFault) {
     output.print("NONE");
   } else {
@@ -285,6 +282,50 @@ void RobotLink::sendStatus(uint32_t sequence)
   printDriverStatus(status.leftDriver);
   output.print(" Y_DRIVER=");
   printDriverStatus(status.rightDriver);
+  output.print(" X_CS=");
+  if (status.leftDriver.telemetry.connected)
+    output.print(status.leftDriver.telemetry.currentScale);
+  else
+    output.print("NA");
+  output.print(" Y_CS=");
+  if (status.rightDriver.telemetry.connected)
+    output.print(status.rightDriver.telemetry.currentScale);
+  else
+    output.print("NA");
+  output.print(" X_TMC_MODE=");
+  if (!status.leftDriver.telemetry.connected)
+    output.print("UNKNOWN");
+  else
+    output.print(status.leftDriver.telemetry.stealthChop ? "STEALTHCHOP" :
+                                                         "SPREADCYCLE");
+  output.print(" Y_TMC_MODE=");
+  if (!status.rightDriver.telemetry.connected)
+    output.print("UNKNOWN");
+  else
+    output.print(status.rightDriver.telemetry.stealthChop ? "STEALTHCHOP" :
+                                                          "SPREADCYCLE");
+  output.print(" X_FULLSTEP=");
+  output.print(status.leftDriver.telemetry.fullStepActive ? 1 : 0);
+  output.print(" Y_FULLSTEP=");
+  output.print(status.rightDriver.telemetry.fullStepActive ? 1 : 0);
+  output.print(" X_STEP_HZ=");
+  output.print(status.leftDriver.stepFrequencyHz);
+  output.print(" Y_STEP_HZ=");
+  output.print(status.rightDriver.stepFrequencyHz);
+  output.print(" X_POLL_US=");
+  output.print(status.leftDriver.pollDurationUs);
+  output.print(" Y_POLL_US=");
+  output.print(status.rightDriver.pollDurationUs);
+  output.print(" DRIVER_POLL_US=");
+  output.print(status.driverPollTotalUs);
+  output.print(" X_TELEMETRY=");
+  output.print(status.leftDriver.telemetryCached ? "CACHED" : "LIVE");
+  output.print(" Y_TELEMETRY=");
+  output.print(status.rightDriver.telemetryCached ? "CACHED" : "LIVE");
+  output.print(" X_TELEMETRY_AGE_MS=");
+  output.print(status.leftDriver.telemetryAgeMs);
+  output.print(" Y_TELEMETRY_AGE_MS=");
+  output.print(status.rightDriver.telemetryAgeMs);
   output.print(" UPTIME_MS=");
   output.print(millis());
   output.print(" RX_AGE_MS=");
@@ -294,14 +335,13 @@ void RobotLink::sendStatus(uint32_t sequence)
 void RobotLink::printDriverStatus(const Robot::DriverStatus& status)
 {
   Print& output = transport_.output();
-  if (!status.connected) {
+  const TMC2209::Status& telemetry = status.telemetry;
+  if (!telemetry.connected) {
     output.print("NO_REPLY");
     return;
   }
 
-  const uint32_t faultMask = (1UL << 25) | (1UL << 26) | (1UL << 27) |
-                             (1UL << 28);
-  if ((status.flags & faultMask) == 0) {
+  if (!telemetry.hasFault()) {
     output.print(status.active ? "OK_ACTIVE" : "OK_IDLE");
     return;
   }
@@ -313,10 +353,12 @@ void RobotLink::printDriverStatus(const Robot::DriverStatus& status)
     separatorRequired = true;
   };
 
-  if (status.flags & (1UL << 25)) printFault("OT");
-  if (status.flags & (1UL << 26)) printFault("OTPW");
-  if (status.flags & (1UL << 27)) printFault("S2GA");
-  if (status.flags & (1UL << 28)) printFault("S2GB");
+  if (telemetry.overTemperature) printFault("OT");
+  if (telemetry.overTemperaturePreWarning) printFault("OTPW");
+  if (telemetry.shortToGroundA) printFault("S2GA");
+  if (telemetry.shortToGroundB) printFault("S2GB");
+  if (telemetry.shortToSupplyA) printFault("S2VSA");
+  if (telemetry.shortToSupplyB) printFault("S2VSB");
 }
 
 const char* RobotLink::jobResultName(Robot::JobResult result) const

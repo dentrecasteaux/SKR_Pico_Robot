@@ -282,8 +282,16 @@ Version 1 status contains:
 | `JOB` | Active job ID, or `0` |
 | `V_SET` | Requested linear velocity in mm/s |
 | `W_SET` | Requested angular velocity in deg/s |
-| `X_DRIVER` | `OK_IDLE`, `OK_ACTIVE`, `NO_REPLY`, `OT`, `OTPW`, `S2GA`, `S2GB`, or comma-separated faults |
+| `X_DRIVER` | `OK_IDLE`, `OK_ACTIVE`, `NO_REPLY`, `OT`, `OTPW`, `S2GA`, `S2GB`, `S2VSA`, `S2VSB`, or comma-separated faults |
 | `Y_DRIVER` | Same values as `X_DRIVER` |
+| `X_CS`, `Y_CS` | Read-only `CS_ACTUAL` current-scale value from `DRV_STATUS` (0-31), or `NA` |
+| `X_TMC_MODE`, `Y_TMC_MODE` | Read-only chopper mode: `STEALTHCHOP`, `SPREADCYCLE`, or `UNKNOWN` |
+| `X_FULLSTEP`, `Y_FULLSTEP` | Whether full-step mode is active according to `DRV_STATUS` |
+| `X_STEP_HZ`, `Y_STEP_HZ` | Firmware-commanded STEP pulse frequency in hertz |
+| `X_POLL_US`, `Y_POLL_US` | Time spent reading each driver's connection and `DRV_STATUS`, in microseconds |
+| `DRIVER_POLL_US` | Total time spent polling both drivers, in microseconds |
+| `X_TELEMETRY`, `Y_TELEMETRY` | `LIVE` when read while idle, or `CACHED` when UART polling is skipped during motion |
+| `X_TELEMETRY_AGE_MS`, `Y_TELEMETRY_AGE_MS` | Age of cached telemetry in milliseconds; zero for a live read |
 | `UPTIME_MS` | Pico uptime from a monotonic clock |
 | `RX_AGE_MS` | Time since the last valid command |
 

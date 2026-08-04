@@ -39,9 +39,12 @@ public:
 
   struct DriverStatus
   {
-    bool connected = false;
     bool active = false;
-    uint32_t flags = 0;
+    uint32_t stepFrequencyHz = 0;
+    uint32_t pollDurationUs = 0;
+    bool telemetryCached = false;
+    uint32_t telemetryAgeMs = 0;
+    TMC2209::Status telemetry;
   };
 
   struct Status
@@ -55,6 +58,7 @@ public:
     uint32_t leaseLeftMs = 0;
     uint32_t lastJob = 0;
     JobResult lastJobResult = JobResult::None;
+    uint32_t driverPollTotalUs = 0;
     DriverStatus leftDriver;
     DriverStatus rightDriver;
   };
@@ -96,7 +100,9 @@ private:
                                   bool trackJob);
   void cancelActiveJob(JobResult result);
   void completeActiveJob(JobResult result);
-  DriverStatus driverStatus(TMC2209& driver, const Motor& motor);
+  DriverStatus driverStatus(TMC2209& driver, const Motor& motor,
+                            TMC2209::Status& cachedTelemetry,
+                            uint32_t& cachedAtMs, bool& cacheValid);
 
   Motor& leftMotor_;
   Motor& rightMotor_;
@@ -119,4 +125,10 @@ private:
   uint32_t lastJobId_ = 0;
   JobResult lastJobResult_ = JobResult::None;
   bool leaseExpiredFault_ = false;
+  TMC2209::Status leftTelemetryCache_;
+  TMC2209::Status rightTelemetryCache_;
+  uint32_t leftTelemetryCachedAtMs_ = 0;
+  uint32_t rightTelemetryCachedAtMs_ = 0;
+  bool leftTelemetryCacheValid_ = false;
+  bool rightTelemetryCacheValid_ = false;
 };

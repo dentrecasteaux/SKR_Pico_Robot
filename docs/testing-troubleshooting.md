@@ -4,6 +4,21 @@
 
 Perform initial tests with the driven wheels raised.
 
+### PIO STEP engine bring-up
+
+After changing the STEP engine, first use the direct USB serial commands:
+
+1. Run `left test` and `right test`; each motor must produce exactly ten steps.
+2. Run `left forward`, `left reverse`, `right forward`, and `right reverse`.
+3. Run `move 500` and `turn 90`; confirm both finite moves stop normally.
+4. Start a low continuous speed, issue `drivers`, and confirm STEP remains
+   non-zero while driver polling remains zero during motion.
+5. Issue `off` during continuous motion and confirm both motors stop
+   immediately.
+
+Do not place the wheels on the ground until direction, stopping, and finite
+step counts pass with the chassis safely supported.
+
 ### 1. USB enumeration
 
 ```text
@@ -185,4 +200,3 @@ adjusts effective wheel track after distance is satisfactory.
 The older `CALIBRATION.md` records an intermediate 194 mm track estimate.
 The firmware’s current tested project baseline is 188 mm. Keep historical data,
 but use `Config.h` as the authoritative configured value.
-

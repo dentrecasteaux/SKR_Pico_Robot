@@ -2,11 +2,6 @@
 
 #include <cmath>
 
-namespace
-{
-constexpr uint32_t PULSE_WIDTH_US = 5;
-}
-
 Motor::Motor(Stepper& stepper, uint32_t accelerationStepsPerSecondSquared)
     : stepper_(stepper),
       accelerationStepsPerSecondSquared_(accelerationStepsPerSecondSquared)
@@ -19,10 +14,10 @@ void Motor::enable() { stepper_.enable(); }
 void Motor::disable()
 {
   mode_ = Mode::Idle;
-  pulseHigh_ = false;
-  remainingSteps_ = 0;
+  stepper_.stopPulses();
   targetSpeed_ = 0;
   currentSpeed_ = 0.0F;
+  programmedFrequencyHz_ = 0;
   stepper_.disable();
 }
 
@@ -36,10 +31,13 @@ bool Motor::startMove(uint32_t steps, bool forward, uint32_t stepIntervalUs)
   if (isBusy() || steps == 0 || stepIntervalUs == 0) return false;
   stepper_.setDirection(forward);
   stepper_.enable();
+  if (!stepper_.startPulses(steps, stepIntervalUs)) {
+    stepper_.disable();
+    return false;
+  }
   mode_ = Mode::PulseTrain;
-  remainingSteps_ = steps;
   stepIntervalUs_ = stepIntervalUs;
-  lastTransitionUs_ = micros();
+  programmedFrequencyHz_ = 1000000UL / stepIntervalUs;
   return true;
 }
 
@@ -54,34 +52,40 @@ void Motor::setSpeed(int32_t stepsPerSecond)
     mode_ = Mode::Continuous;
     stepper_.setDirection(stepsPerSecond > 0);
     stepper_.enable();
-    lastTransitionUs_ = micros();
-    lastSpeedUpdateUs_ = lastTransitionUs_;
+    lastSpeedUpdateUs_ = micros();
   }
 }
 
 void Motor::update(uint32_t nowUs)
 {
   if (!isBusy()) return;
-  updateSpeed(nowUs);
-  if (mode_ == Mode::Idle) return;
-
-  if (mode_ == Mode::Continuous) {
-    const uint32_t magnitude = static_cast<uint32_t>(fabsf(currentSpeed_));
-    if (magnitude == 0) return;
-    stepIntervalUs_ = 1000000UL / magnitude;
+  if (mode_ == Mode::PulseTrain) {
+    if (stepper_.pulsesComplete()) disable();
+    return;
   }
 
-  const uint32_t elapsedUs = nowUs - lastTransitionUs_;
+  updateSpeed(nowUs);
+  if (mode_ == Mode::Continuous) updatePulseFrequency();
+}
 
-  if (!pulseHigh_ && elapsedUs >= stepIntervalUs_) {
-    stepper_.beginPulse();
-    pulseHigh_ = true;
-    lastTransitionUs_ = nowUs;
-  } else if (pulseHigh_ && elapsedUs >= PULSE_WIDTH_US) {
-    stepper_.endPulse();
-    pulseHigh_ = false;
-    lastTransitionUs_ = nowUs;
-    if (mode_ == Mode::PulseTrain && --remainingSteps_ == 0) disable();
+void Motor::updatePulseFrequency()
+{
+  const uint32_t magnitude = static_cast<uint32_t>(fabsf(currentSpeed_));
+  if (magnitude == programmedFrequencyHz_) return;
+
+  if (magnitude == 0) {
+    stepper_.stopPulses();
+    programmedFrequencyHz_ = 0;
+    return;
+  }
+
+  const uint32_t intervalUs = 1000000UL / magnitude;
+  const bool updated = programmedFrequencyHz_ == 0
+                           ? stepper_.startPulses(UINT32_MAX, intervalUs)
+                           : stepper_.updatePulseInterval(intervalUs);
+  if (updated) {
+    stepIntervalUs_ = intervalUs;
+    programmedFrequencyHz_ = magnitude;
   }
 }
 
@@ -107,6 +111,8 @@ void Motor::updateSpeed(uint32_t nowUs)
     if (targetSpeed_ == 0) {
       disable();
     } else {
+      stepper_.stopPulses();
+      programmedFrequencyHz_ = 0;
       stepper_.setDirection(targetSpeed_ > 0);
       stepper_.enable();
     }
@@ -116,3 +122,8 @@ void Motor::updateSpeed(uint32_t nowUs)
 bool Motor::isEnabled() const { return stepper_.isEnabled(); }
 bool Motor::isBusy() const { return mode_ != Mode::Idle; }
 int32_t Motor::speed() const { return static_cast<int32_t>(currentSpeed_); }
+
+uint32_t Motor::stepFrequencyHz() const
+{
+  return programmedFrequencyHz_;
+}

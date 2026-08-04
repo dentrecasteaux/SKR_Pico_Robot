@@ -4,12 +4,6 @@
 
 #include "Config.h"
 
-namespace
-{
-constexpr uint32_t DRIVER_FAULT_MASK =
-    (1UL << 25) | (1UL << 26) | (1UL << 27) | (1UL << 28);
-}
-
 Robot::Robot(Motor& leftMotor, Motor& rightMotor,
              MotionController& motionController, TMC2209& leftDriver,
              TMC2209& rightDriver, arduino::UART& stepperUart)
@@ -222,8 +216,14 @@ Robot::Status Robot::status()
   }
   result.lastJob = lastJobId_;
   result.lastJobResult = lastJobResult_;
-  result.leftDriver = driverStatus(leftDriver_, leftMotor_);
-  result.rightDriver = driverStatus(rightDriver_, rightMotor_);
+  result.leftDriver =
+      driverStatus(leftDriver_, leftMotor_, leftTelemetryCache_,
+                   leftTelemetryCachedAtMs_, leftTelemetryCacheValid_);
+  result.rightDriver =
+      driverStatus(rightDriver_, rightMotor_, rightTelemetryCache_,
+                   rightTelemetryCachedAtMs_, rightTelemetryCacheValid_);
+  result.driverPollTotalUs = result.leftDriver.pollDurationUs +
+                             result.rightDriver.pollDurationUs;
   return result;
 }
 
@@ -237,11 +237,13 @@ bool Robot::takeJobCompletion(JobCompletion& completion)
 
 bool Robot::motionAllowed()
 {
-  const DriverStatus left = driverStatus(leftDriver_, leftMotor_);
-  const DriverStatus right = driverStatus(rightDriver_, rightMotor_);
-  return left.connected && right.connected &&
-         (left.flags & DRIVER_FAULT_MASK) == 0 &&
-         (right.flags & DRIVER_FAULT_MASK) == 0;
+  const DriverStatus left =
+      driverStatus(leftDriver_, leftMotor_, leftTelemetryCache_,
+                   leftTelemetryCachedAtMs_, leftTelemetryCacheValid_);
+  const DriverStatus right =
+      driverStatus(rightDriver_, rightMotor_, rightTelemetryCache_,
+                   rightTelemetryCachedAtMs_, rightTelemetryCacheValid_);
+  return !left.telemetry.hasFault() && !right.telemetry.hasFault();
 }
 
 void Robot::cancelActiveJob(JobResult result)
@@ -263,13 +265,31 @@ void Robot::completeActiveJob(JobResult result)
   activeJobOriginSequence_ = 0;
 }
 
-Robot::DriverStatus Robot::driverStatus(TMC2209& driver, const Motor& motor)
+Robot::DriverStatus Robot::driverStatus(TMC2209& driver, const Motor& motor,
+                                        TMC2209::Status& cachedTelemetry,
+                                        uint32_t& cachedAtMs,
+                                        bool& cacheValid)
 {
   DriverStatus result;
-  result.connected = driver.isConnected();
   result.active = motor.isEnabled();
-  if (result.connected) {
-    result.flags = driver.status();
+  result.stepFrequencyHz = motor.stepFrequencyHz();
+
+  if (motor.isBusy()) {
+    result.telemetryCached = true;
+    if (cacheValid) {
+      result.telemetry = cachedTelemetry;
+      result.telemetryAgeMs = millis() - cachedAtMs;
+    }
+    return result;
+  }
+
+  const uint32_t pollStartedUs = micros();
+  result.telemetry = driver.status();
+  result.pollDurationUs = micros() - pollStartedUs;
+  if (result.telemetry.connected) {
+    cachedTelemetry = result.telemetry;
+    cachedAtMs = millis();
+    cacheValid = true;
   }
   return result;
 }

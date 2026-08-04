@@ -41,38 +41,66 @@ void printHelp()
   Serial.println("Commands: left/right on/off/test/forward/reverse/speed N, drive LINEAR TURN, velocity MM_PER_S DEG_PER_S, move DISTANCE_MM, turn ANGLE_DEGREES, drivers, off, status, help");
 }
 
-void printDriverHealth(const char* name, TMC2209& driver, const Motor& motor)
+void printDriverHealth(const char* name, const Robot::DriverStatus& driver)
 {
   Serial.print(name);
   Serial.print(": ");
-  if (!driver.isConnected()) {
-    Serial.println("not responding");
+  const TMC2209::Status& status = driver.telemetry;
+  if (!status.connected) {
+    Serial.print(driver.telemetryCached ? "no cached telemetry" :
+                                          "not responding");
+    Serial.print(", poll=");
+    Serial.print(driver.pollDurationUs);
+    Serial.println(" us");
     return;
   }
 
-  const uint32_t status = driver.status();
-  const bool fault = status & ((1UL << 25) | (1UL << 26) | (1UL << 27) |
-                               (1UL << 28));
-  if (!fault) {
-    if (!motor.isEnabled()) {
-      Serial.println("OK (idle)");
+  if (!status.hasFault()) {
+    if (!driver.active) {
+      Serial.print("OK (idle)");
     } else {
-      Serial.println("OK (active)");
+      Serial.print("OK (active)");
     }
+    Serial.print(", CS=");
+    Serial.print(status.currentScale);
+    Serial.print(", mode=");
+    Serial.print(status.stealthChop ? "stealthChop" : "spreadCycle");
+    Serial.print(", fullstep=");
+    Serial.print(status.fullStepActive ? 1 : 0);
+    Serial.print(", STEP=");
+    Serial.print(driver.stepFrequencyHz);
+    Serial.print(" Hz, poll=");
+    Serial.print(driver.pollDurationUs);
+    Serial.print(" us, telemetry=");
+    Serial.print(driver.telemetryCached ? "cached" : "live");
+    if (driver.telemetryCached) {
+      Serial.print(", age=");
+      Serial.print(driver.telemetryAgeMs);
+      Serial.print(" ms");
+    }
+    Serial.println();
     return;
   }
 
-  if (status & (1UL << 25)) Serial.print("over-temperature ");
-  if (status & (1UL << 26)) Serial.print("temperature-warning ");
-  if (status & (1UL << 27)) Serial.print("short-to-ground-A ");
-  if (status & (1UL << 28)) Serial.print("short-to-ground-B ");
-  Serial.println();
+  if (status.overTemperature) Serial.print("over-temperature ");
+  if (status.overTemperaturePreWarning) Serial.print("temperature-warning ");
+  if (status.shortToGroundA) Serial.print("short-to-ground-A ");
+  if (status.shortToGroundB) Serial.print("short-to-ground-B ");
+  if (status.shortToSupplyA) Serial.print("low-side-short-A ");
+  if (status.shortToSupplyB) Serial.print("low-side-short-B ");
+  Serial.print("poll=");
+  Serial.print(driver.pollDurationUs);
+  Serial.println(" us");
 }
 
 void printDriverHealth()
 {
-  printDriverHealth("X driver", leftDriver, leftMotor);
-  printDriverHealth("Y driver", rightDriver, rightMotor);
+  const Robot::Status status = robot.status();
+  printDriverHealth("X driver", status.leftDriver);
+  printDriverHealth("Y driver", status.rightDriver);
+  Serial.print("Both drivers: poll=");
+  Serial.print(status.driverPollTotalUs);
+  Serial.println(" us total");
 }
 
 bool processTurnCommand(const char* command)
@@ -319,6 +347,7 @@ void setup()
   robot.begin();
 
   Serial.println("SKR Pico starting...");
+  Serial.println("STEP engine: RP2040 PIO (one state machine per motor).");
   Serial.println("Stepper drivers initialised and disabled.");
   Serial.print("X TMC2209 UART: ");
   Serial.println(leftDriver.isConnected() ? "connected" : "not responding");

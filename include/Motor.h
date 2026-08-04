@@ -21,20 +21,20 @@ public:
   bool isEnabled() const;
   bool isBusy() const;
   int32_t speed() const;
+  uint32_t stepFrequencyHz() const;
 
 private:
   enum class Mode { Idle, PulseTrain, Continuous };
 
   void updateSpeed(uint32_t nowUs);
+  void updatePulseFrequency();
 
   Stepper& stepper_;
   uint32_t accelerationStepsPerSecondSquared_;
   Mode mode_ = Mode::Idle;
-  bool pulseHigh_ = false;
-  uint32_t remainingSteps_ = 0;
   uint32_t stepIntervalUs_ = 0;
-  uint32_t lastTransitionUs_ = 0;
   uint32_t lastSpeedUpdateUs_ = 0;
+  uint32_t programmedFrequencyHz_ = 0;
   int32_t targetSpeed_ = 0;
   float currentSpeed_ = 0.0F;
 };
