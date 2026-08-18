@@ -305,8 +305,8 @@ Version 1 status contains:
 | `X_DRIVER` | `OK_IDLE`, `OK_ACTIVE`, `NO_REPLY`, `OT`, `OTPW`, `S2GA`, `S2GB`, `S2VSA`, `S2VSB`, or comma-separated faults |
 | `Y_DRIVER` | Same values as `X_DRIVER` |
 | `X_CS`, `Y_CS` | Read-only `CS_ACTUAL` current-scale value from `DRV_STATUS` (0-31), or `NA` |
-| `X_TMC_MODE`, `Y_TMC_MODE` | Read-only chopper mode: `STEALTHCHOP`, `SPREADCYCLE`, or `UNKNOWN` |
-| `X_FULLSTEP`, `Y_FULLSTEP` | Whether full-step mode is active according to `DRV_STATUS` |
+| `X_TMC_MODE`, `Y_TMC_MODE` | Read-only active chopper mode from the TMC2209 `DRV_STATUS.stealth` bit: `STEALTHCHOP`, `SPREADCYCLE`, or `UNKNOWN` |
+| `X_FULLSTEP`, `Y_FULLSTEP` | Legacy compatibility fields; always `0` because TMC2209 `DRV_STATUS` does not expose full-step activity |
 | `X_STEP_HZ`, `Y_STEP_HZ` | Firmware-commanded STEP pulse frequency in hertz |
 | `X_POLL_US`, `Y_POLL_US` | Time spent reading each driver's connection and `DRV_STATUS`, in microseconds |
 | `DRIVER_POLL_US` | Total time spent polling both drivers, in microseconds |
