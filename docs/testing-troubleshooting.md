@@ -14,7 +14,9 @@ After changing the STEP engine, first use the direct USB serial commands:
 4. Start a low continuous speed, issue `drivers`, and confirm STEP remains
    non-zero. The response should use cached telemetry with a recent age and
    zero request-time polling; alternating background polls refresh the cache.
-5. Issue `off` during continuous motion and confirm both motors stop
+5. Set acceleration to 10 mm/s² and start continuous motion. Confirm the first
+   movement is a smooth ramp without an immediate twitch and long pause.
+6. Issue `off` during continuous motion and confirm both motors stop
    immediately.
 
 Do not place the wheels on the ground until direction, stopping, and finite
@@ -91,6 +93,11 @@ Confirm both drivers accept the settings and motion directions remain correct:
 forward and reverse use both wheels; left and right contra-rotate. Configuration
 must be rejected during motion. Rebooting the Pico must restore the safe boot
 defaults.
+
+Drive briefly after selecting each chopper mode. Both driver cards should show
+`STEALTHCHOP` after selecting StealthChop and `SPREADCYCLE` after selecting
+SpreadCycle. The displayed value is the active TMC2209 `DRV_STATUS.stealth`
+bit, independently of the requested setting.
 
 ## Common problems
 

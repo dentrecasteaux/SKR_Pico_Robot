@@ -91,16 +91,21 @@ The browser uses press-and-hold drive controls. Pointer, touch, page visibility
 and window events are handled so that release or loss of page focus stops
 renewing motion. The Pi and Pico leases remain the authoritative fallback.
 
-The current development source adds a motor-tuning panel for current,
-microsteps, acceleration and requested TMC mode; it still requires deployment
-and Pi-side validation. Apply is disabled unless status reports `IDLE` with no
+The deployed motor-tuning panel controls current, microsteps, acceleration and
+requested TMC mode. Apply is disabled unless status reports `IDLE` with no
 emergency stop. The Pico remains authoritative and rejects unsafe state or
-range combinations.
+range combinations. Active StealthChop or SpreadCycle mode is read independently
+from each TMC2209 and displayed in its driver card.
 
-An intermittent delay in manual-drive response has been observed under some
-conditions. Direction mapping is correct and finite moves start promptly. A
-future investigation will compare browser/network timing, lease renewal, robot
-state and acceleration state between responsive and delayed cases.
+Manual-drive commands are sent immediately on pointer-down and renewed every
+200 milliseconds. A previously observed twitch and startup pause at very low
+acceleration was traced to the Pico's initial STEP frequency, not browser or
+network delay. Fractional-step startup in `Motor` now avoids that artefact.
+
+The safety panel also provides a confirmed Pi shutdown action. The browser
+sends a confirmed request, but only `robot_web.py` executes the privileged
+`shutdown -h now` command. The narrowly scoped sudo rule is documented in
+`pi/README.md`.
 
 ## Services
 

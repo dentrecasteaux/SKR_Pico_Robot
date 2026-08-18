@@ -83,7 +83,9 @@ reply and that selected serious driver flags are clear:
 - over-temperature shutdown (`OT`);
 - over-temperature pre-warning (`OTPW`);
 - short to ground on phase A (`S2GA`);
-- short to ground on phase B (`S2GB`).
+- short to ground on phase B (`S2GB`);
+- low-side short to supply on phase A (`S2VSA`);
+- low-side short to supply on phase B (`S2VSB`).
 
 Status reports `NO_REPLY`, `OK_IDLE`, `OK_ACTIVE` or fault tokens. Driver
 protection supplements but does not replace correct current setting, cooling,
@@ -109,9 +111,8 @@ The Pi client retries with the same sequence specifically to use this property.
 - no web authentication;
 - finite jobs continue after ordinary communication loss;
 - legacy serial commands remain available for bench testing;
-- step timing is software scheduled and has not been characterised under every
-  possible diagnostic workload.
+- motion is open loop and maximum reliable STEP rate has not been characterised
+  under every payload, supply-voltage and surface condition.
 
 These limitations should be reconsidered before increasing speed, payload,
 voltage or operating near people.
-

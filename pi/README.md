@@ -94,8 +94,8 @@ Motor configuration is accepted only while the robot is idle and the motors
 are disabled. The installed Casun 42SHD0001-24B motor profile is capped at
 400 mA. Runtime settings reset to firmware defaults when the Pico reboots.
 
-`robotdctl.py` is only a local service test client. The future web interface
-will use the same Unix-socket API.
+`robotdctl.py` is only a local service test client. The deployed web interface
+uses the same Unix-socket API through `robot_web.py`.
 
 ## Start robotd automatically
 

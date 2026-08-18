@@ -45,6 +45,9 @@ STEP pulses, maintains pulse timing independently of the main loop, counts
 finite moves, and signals completion. It does not understand millimetres,
 turning or acceleration.
 
+The instruction-level implementation is documented in
+[RP2040 PIO STEP generation](pio-step-generation.md).
+
 ### `Motor`
 
 `Motor` owns non-blocking movement for one wheel:

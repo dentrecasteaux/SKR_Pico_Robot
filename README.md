@@ -49,8 +49,8 @@ The most useful operational pages are:
 - The software `ESTOP` is useful but is not a physical emergency-stop circuit.
 - Battery voltage is not yet monitored.
 - Motor tuning is held in RAM and returns to safe defaults after a Pico reboot.
-- Manual web driving can occasionally respond more slowly than expected; this
-  is recorded for timing and lease-path investigation.
+- The configured velocity limits are request limits, not proof that the motors
+  can reliably produce those speeds under every load or battery condition.
 - The web interface has no authentication or TLS. It must remain on a trusted
   local network and must not be exposed to the internet.
 

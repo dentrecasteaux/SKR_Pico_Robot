@@ -5,8 +5,6 @@ status and high-level behaviour without moving STEP generation to the Pi.
 
 ## Near-term documentation and reliability
 
-- investigate intermittent web manual-drive response delay across browser,
-  network, Pi lease renewal and Pico acceleration state;
 - keep hardware wiring and calibration records current;
 - add automated host-side parser tests;
 - add Pico unit or integration tests where practical;

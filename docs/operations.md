@@ -115,7 +115,7 @@ X_DRIVER=OK_IDLE Y_DRIVER=OK_IDLE
 | `X_DRIVER`, `Y_DRIVER` | Left and right TMC health/activity |
 
 Driver details also expose actual current scale, observed chopper mode,
-full-step state, commanded STEP frequency, telemetry source and snapshot age.
+commanded STEP frequency, telemetry source and snapshot age.
 During motion, status uses cached snapshots refreshed by alternating background
 polls so a status request does not pause STEP generation.
 
@@ -123,11 +123,12 @@ polls so a status request does not pause STEP generation.
 
 1. Issue `STOP`.
 2. Confirm `MODE=IDLE`, `JOB=0` and both drivers report `OK_IDLE`.
-3. Shut down the Pi cleanly if Pi power will be removed:
+3. Use **Shut down Raspberry Pi** in the webpage safety panel and confirm the
+   prompt. Alternatively, from a Pi shell:
 
 ```text
 sudo poweroff
 ```
 
-4. Wait for shutdown, then remove system power according to the robot’s power
-   arrangement.
+4. Wait until the Pi activity light goes out before removing system power
+   according to the robot’s power arrangement.

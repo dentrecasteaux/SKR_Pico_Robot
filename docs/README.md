@@ -12,16 +12,18 @@ design ideas, not completed features.
    present electrical assumptions.
 3. [Firmware architecture](firmware-architecture.md) — the Pico classes and
    why their responsibilities are separated.
-4. [Protocol reference](protocol.md) — complete `R2W/1` wire protocol.
-5. [Pi executive controller](pi-controller.md) — client, service and web
+4. [RP2040 PIO STEP generation](pio-step-generation.md) — detailed state-machine
+   program, FIFO protocol, timing and motor-ramp integration.
+5. [Protocol reference](protocol.md) — complete `R2W/1` wire protocol.
+6. [Pi executive controller](pi-controller.md) — client, service and web
    interface.
-6. [Safety model](safety.md) — leases, stops, faults and residual risks.
-7. [Operating the robot](operations.md) — everyday commands and service use.
-8. [Testing and troubleshooting](testing-troubleshooting.md) — test procedures
+7. [Safety model](safety.md) — leases, stops, faults and residual risks.
+8. [Operating the robot](operations.md) — everyday commands and service use.
+9. [Testing and troubleshooting](testing-troubleshooting.md) — test procedures
    and fault diagnosis.
-9. [Backup, deployment and recovery](backup-recovery.md) — source control,
+10. [Backup, deployment and recovery](backup-recovery.md) — source control,
    Pi deployment and rebuilding.
-10. [Roadmap](roadmap.md) — encoders, IMU, telemetry and autonomy.
+11. [Roadmap](roadmap.md) — encoders, IMU, telemetry and autonomy.
 
 ## Design history
 
@@ -44,4 +46,3 @@ marked for verification.
 - Positive angular velocity or angle: left turn
 - X motor channel: left wheel
 - Y motor channel: right wheel
-
