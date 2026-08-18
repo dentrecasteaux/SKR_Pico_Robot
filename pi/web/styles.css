@@ -297,6 +297,22 @@ h2 {
   margin-top: 14px;
 }
 
+.shutdown-button {
+  width: 100%;
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-raised);
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.shutdown-button:hover {
+  border-color: var(--red);
+  color: var(--red);
+}
+
 .dpad {
   display: grid;
   grid-template-columns: repeat(3, 94px);

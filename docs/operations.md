@@ -38,7 +38,7 @@ encoder-confirmed measurements.
 Motor configuration is accepted only while idle, with the emergency stop clear
 and both motors disabled. The arguments are run current in mA, microsteps,
 acceleration in mm/s² and either `STEALTHCHOP` or `SPREADCYCLE`. Settings apply
-to both drivers and reset to 400 mA, 1/4 microsteps, 48 mm/s² and StealthChop
+to both drivers and reset to 400 mA, 1/4 microsteps, 150 mm/s² and StealthChop
 when the Pico reboots.
 
 ## Checking service state

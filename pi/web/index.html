@@ -111,13 +111,13 @@
 
           <div class="sliders">
             <label>
-              <span>Drive speed <output id="speed-output">30 mm/s</output></span>
-              <input id="speed" type="range" min="10" max="400" value="30"
+              <span>Drive speed <output id="speed-output">400 mm/s</output></span>
+              <input id="speed" type="range" min="10" max="1000" value="400"
                      step="5">
             </label>
             <label>
-              <span>Turn rate <output id="turn-output">45°/s</output></span>
-              <input id="turn-rate" type="range" min="15" max="120" value="45"
+              <span>Turn rate <output id="turn-output">120°/s</output></span>
+              <input id="turn-rate" type="range" min="15" max="360" value="120"
                      step="5">
             </label>
           </div>
@@ -137,6 +137,9 @@
             </button>
             <button class="clear-button" id="clear-estop" hidden>
               Clear emergency stop
+            </button>
+            <button class="shutdown-button" id="shutdown">
+              Shut down Raspberry Pi
             </button>
           </section>
 
@@ -197,7 +200,7 @@
                 <span>Acceleration</span>
                 <div class="input-unit">
                   <input id="acceleration" type="number" min="10" max="500"
-                         step="10" value="48">
+                         step="10" value="150">
                   <span>mm/s²</span>
                 </div>
               </label>

@@ -154,10 +154,10 @@ robot has no encoder feedback.
 | Setting | Value |
 |---|---:|
 | Maximum PIO STEP frequency | 50,000 Hz |
-| Boot acceleration | 48 mm/s² |
+| Boot acceleration | 150 mm/s² |
 | Runtime acceleration range | 10–500 mm/s² |
-| Maximum linear request | 500 mm/s |
-| Maximum angular request | 180 deg/s |
+| Maximum linear request | 1,000 mm/s |
+| Maximum angular request | 360 deg/s |
 | Maximum finite distance | 10,000 mm |
 | Maximum finite angle | 3,600 deg |
 | Velocity lease range | 100–2,000 ms |

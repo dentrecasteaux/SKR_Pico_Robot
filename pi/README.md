@@ -153,6 +153,14 @@ independent Pico lease remains the final communications-loss safeguard.
 The initial web server has no user login or TLS. Use it only on a trusted local
 network and do not expose port 8080 to the internet.
 
+The webpage shutdown button asks for confirmation, then requests a clean Pi
+shutdown from the server. Allow the `robot` user to run only that command
+without a password by creating `/etc/sudoers.d/r2w-shutdown` with `visudo`:
+
+```text
+robot ALL=(root) NOPASSWD: /sbin/shutdown -h now
+```
+
 Useful commands:
 
 ```text

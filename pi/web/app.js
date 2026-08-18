@@ -252,6 +252,24 @@ $("#clear-estop").addEventListener("click", () => {
     .catch((error) => showToast(error.message, true));
 });
 
+$("#shutdown").addEventListener("click", async () => {
+  if (!window.confirm("Shut down the Raspberry Pi? The robot controls will go offline.")) {
+    return;
+  }
+  try {
+    const response = await fetch("/api/shutdown", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({confirm: "shutdown"}),
+    });
+    const data = await response.json();
+    if (!response.ok || !data.ok) throw new Error(data.error || "Shutdown failed");
+    showToast("Raspberry Pi is shutting down");
+  } catch (error) {
+    showToast(error.message, true);
+  }
+});
+
 $("#move").addEventListener("click", () => {
   api({action: "move", distance: Number($("#distance").value)})
     .then((data) => showToast(data.reply))

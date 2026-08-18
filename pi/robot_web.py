@@ -8,6 +8,7 @@ import json
 import mimetypes
 import os
 import socket
+import subprocess
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
@@ -15,6 +16,7 @@ from typing import Any
 
 WEB_ROOT = Path(__file__).parent / "web"
 MAX_REQUEST_BYTES = 4096
+SHUTDOWN_COMMAND = ("sudo", "/sbin/shutdown", "-h", "now")
 ALLOWED_ACTIONS = {
     "service_status",
     "status",
@@ -69,6 +71,9 @@ class WebHandler(BaseHTTPRequestHandler):
         self._serve_file(WEB_ROOT / filename)
 
     def do_POST(self) -> None:
+        if self.path == "/api/shutdown":
+            self._shutdown()
+            return
         if self.path != "/api/command":
             self.send_error(404)
             return
@@ -90,6 +95,26 @@ class WebHandler(BaseHTTPRequestHandler):
             return
 
         self._proxy(payload)
+
+    def _shutdown(self) -> None:
+        try:
+            length = int(self.headers.get("Content-Length", "0"))
+            if length <= 0 or length > MAX_REQUEST_BYTES:
+                raise ValueError("invalid request size")
+            payload = json.loads(self.rfile.read(length).decode("utf-8"))
+            if payload != {"confirm": "shutdown"}:
+                raise ValueError("shutdown confirmation required")
+        except (UnicodeDecodeError, ValueError, json.JSONDecodeError) as error:
+            self._send_json({"ok": False, "error": str(error)}, 400)
+            return
+        try:
+            subprocess.run(SHUTDOWN_COMMAND, check=True, timeout=5)
+        except (OSError, subprocess.SubprocessError) as error:
+            self._send_json(
+                {"ok": False, "error": f"shutdown failed: {error}"}, 500
+            )
+            return
+        self._send_json({"ok": True}, 200)
 
     def log_message(self, format: str, *args: object) -> None:
         if self.path == "/api/status":
