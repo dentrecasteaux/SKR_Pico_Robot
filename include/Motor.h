@@ -38,4 +38,5 @@ private:
   uint32_t programmedFrequencyHz_ = 0;
   int32_t targetSpeed_ = 0;
   float currentSpeed_ = 0.0F;
+  float startupStepProgress_ = 0.0F;
 };

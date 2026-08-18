@@ -79,6 +79,10 @@ track and 200 full steps per revolution. The safe boot default is 1/4
 microstepping; an accepted idle-only configuration updates both the TMC setting
 and the motion conversion together.
 
+When continuous motion accelerates from rest, the motor ramp accumulates
+fractional step travel and starts PIO output only when the first complete step
+is due. This avoids an immediate 1 Hz pulse followed by a long low-speed pause.
+
 ### `Robot`
 
 `Robot` is the application boundary. External controllers request actions only

@@ -18,6 +18,7 @@ void Motor::disable()
   targetSpeed_ = 0;
   currentSpeed_ = 0.0F;
   programmedFrequencyHz_ = 0;
+  startupStepProgress_ = 0.0F;
   stepper_.disable();
 }
 
@@ -77,14 +78,11 @@ void Motor::update(uint32_t nowUs)
 
 void Motor::updatePulseFrequency()
 {
-  const uint32_t magnitude = static_cast<uint32_t>(fabsf(currentSpeed_));
-  if (magnitude == programmedFrequencyHz_) return;
+  if (programmedFrequencyHz_ == 0 && startupStepProgress_ < 1.0F) return;
 
-  if (magnitude == 0) {
-    stepper_.stopPulses();
-    programmedFrequencyHz_ = 0;
-    return;
-  }
+  const uint32_t magnitude =
+      static_cast<uint32_t>(fmaxf(1.0F, fabsf(currentSpeed_)));
+  if (magnitude == programmedFrequencyHz_) return;
 
   const uint32_t intervalUs = 1000000UL / magnitude;
   const bool updated = programmedFrequencyHz_ == 0
@@ -93,6 +91,7 @@ void Motor::updatePulseFrequency()
   if (updated) {
     stepIntervalUs_ = intervalUs;
     programmedFrequencyHz_ = magnitude;
+    startupStepProgress_ = 0.0F;
   }
 }
 
@@ -102,6 +101,7 @@ void Motor::updateSpeed(uint32_t nowUs)
 
   const uint32_t elapsedUs = nowUs - lastSpeedUpdateUs_;
   lastSpeedUpdateUs_ = nowUs;
+  const float previousSpeed = currentSpeed_;
   const float change = accelerationStepsPerSecondSquared_ * elapsedUs / 1000000.0F;
 
   if (currentSpeed_ < 0.0F && targetSpeed_ > 0) {
@@ -114,12 +114,20 @@ void Motor::updateSpeed(uint32_t nowUs)
     currentSpeed_ = fmaxf(static_cast<float>(targetSpeed_), currentSpeed_ - change);
   }
 
+  if (programmedFrequencyHz_ == 0 &&
+      previousSpeed * currentSpeed_ >= 0.0F) {
+    const float elapsedSeconds = elapsedUs / 1000000.0F;
+    startupStepProgress_ +=
+        0.5F * (fabsf(previousSpeed) + fabsf(currentSpeed_)) * elapsedSeconds;
+  }
+
   if (currentSpeed_ == 0.0F) {
     if (targetSpeed_ == 0) {
       disable();
     } else {
       stepper_.stopPulses();
       programmedFrequencyHz_ = 0;
+      startupStepProgress_ = 0.0F;
       stepper_.setDirection(targetSpeed_ > 0);
       stepper_.enable();
     }
