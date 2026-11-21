@@ -27,6 +27,13 @@ ALLOWED_ACTIONS = {
     "estop",
     "clear_estop",
     "configure",
+    "imu",
+    "imu_history",
+    "imu_cal",
+    "imu_zero_yaw",
+    "imu_set",
+    "imu_window_start",
+    "imu_window",
 }
 
 

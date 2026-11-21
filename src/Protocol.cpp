@@ -59,6 +59,20 @@ Protocol::CommandType commandType(const char* name, bool& recognised)
   if (std::strcmp(name, "CONFIGURE") == 0) {
     return Protocol::CommandType::Configure;
   }
+  if (std::strcmp(name, "IMU") == 0) return Protocol::CommandType::Imu;
+  if (std::strcmp(name, "IMU_CAL") == 0) {
+    return Protocol::CommandType::ImuCalibrate;
+  }
+  if (std::strcmp(name, "IMU_ZERO_YAW") == 0) {
+    return Protocol::CommandType::ImuZeroYaw;
+  }
+  if (std::strcmp(name, "IMU_SET") == 0) return Protocol::CommandType::ImuSet;
+  if (std::strcmp(name, "IMU_WINDOW_START") == 0) {
+    return Protocol::CommandType::ImuWindowStart;
+  }
+  if (std::strcmp(name, "IMU_WINDOW") == 0) {
+    return Protocol::CommandType::ImuWindow;
+  }
 
   recognised = false;
   return Protocol::CommandType::Ping;
@@ -111,6 +125,8 @@ Protocol::ParseResult Protocol::parseCommand(char* line, Command& command)
   bool hasMicrosteps = false;
   bool hasAcceleration = false;
   bool hasMode = false;
+  bool hasTau = false;
+  bool hasAutoBias = false;
 
   while ((token = ::strtok_r(nullptr, " ", &savePosition)) != nullptr) {
     char* equals = std::strchr(token, '=');
@@ -206,23 +222,47 @@ Protocol::ParseResult Protocol::parseCommand(char* line, Command& command)
         result.errorCode = "INVALID_VALUE";
         return result;
       }
+    } else if (std::strcmp(token, "TAU") == 0) {
+      if (hasTau || !parseFloat(value, command.tauSeconds)) {
+        result.errorCode = hasTau ? "DUPLICATE_FIELD" : "INVALID_VALUE";
+        return result;
+      }
+      hasTau = true;
+    } else if (std::strcmp(token, "AUTO_BIAS") == 0) {
+      uint32_t flag = 0;
+      if (hasAutoBias || !parseUnsigned(value, flag) || flag > 1) {
+        result.errorCode = hasAutoBias ? "DUPLICATE_FIELD" : "INVALID_VALUE";
+        return result;
+      }
+      hasAutoBias = true;
+      command.autoBias = flag == 1;
     } else {
       result.errorCode = "UNKNOWN_FIELD";
       return result;
     }
   }
+  command.hasTau = hasTau;
+  command.hasAutoBias = hasAutoBias;
 
+  const bool hasImuFields = hasTau || hasAutoBias;
   const bool noFields =
       !hasLinear && !hasTurn && !hasLease && !hasDistance && !hasAngle &&
-      !hasCurrent && !hasMicrosteps && !hasAcceleration && !hasMode;
+      !hasCurrent && !hasMicrosteps && !hasAcceleration && !hasMode &&
+      !hasImuFields;
   const bool hasConfiguration =
-      hasCurrent || hasMicrosteps || hasAcceleration || hasMode;
+      hasCurrent || hasMicrosteps || hasAcceleration || hasMode ||
+      hasImuFields;
   switch (command.type) {
     case CommandType::Ping:
     case CommandType::Status:
     case CommandType::Stop:
     case CommandType::Estop:
     case CommandType::ClearEstop:
+    case CommandType::Imu:
+    case CommandType::ImuCalibrate:
+    case CommandType::ImuZeroYaw:
+    case CommandType::ImuWindowStart:
+    case CommandType::ImuWindow:
       if (!noFields) {
         result.errorCode = "UNKNOWN_FIELD";
         return result;
@@ -264,7 +304,19 @@ Protocol::ParseResult Protocol::parseCommand(char* line, Command& command)
         result.errorCode = "MISSING_FIELD";
         return result;
       }
-      if (hasLinear || hasTurn || hasLease || hasDistance || hasAngle) {
+      if (hasLinear || hasTurn || hasLease || hasDistance || hasAngle ||
+          hasImuFields) {
+        result.errorCode = "UNKNOWN_FIELD";
+        return result;
+      }
+      break;
+    case CommandType::ImuSet:
+      if (!hasImuFields) {
+        result.errorCode = "MISSING_FIELD";
+        return result;
+      }
+      if (hasLinear || hasTurn || hasLease || hasDistance || hasAngle ||
+          hasCurrent || hasMicrosteps || hasAcceleration || hasMode) {
         result.errorCode = "UNKNOWN_FIELD";
         return result;
       }

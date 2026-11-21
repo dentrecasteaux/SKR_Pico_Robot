@@ -10,6 +10,7 @@ import signal
 import socketserver
 import threading
 import time
+from collections import deque
 from pathlib import Path
 from typing import Any, Optional
 
@@ -22,6 +23,10 @@ DEFAULT_PICO_LEASE_MS = 1000
 DEFAULT_CONTROL_LEASE_MS = 1000
 STATUS_PERIOD_SECONDS = 1.0
 RECONNECT_PERIOD_SECONDS = 1.0
+WORKER_TICK_SECONDS = 0.025
+IMU_PERIOD_SECONDS = 0.1
+IMU_HISTORY_POINTS = 600  # 60 s at 10 Hz
+IMU_HISTORY_FIELDS = ("ROLL", "PITCH", "YAW", "P", "Q", "R", "AX", "AY", "AZ")
 
 
 def default_socket_path() -> Path:
@@ -53,6 +58,15 @@ class RobotController:
         self._latest_status_line = ""
         self._last_event = ""
         self._last_error = ""
+        # IMU: None = not yet known, False = firmware has no IMU commands.
+        self._imu_supported: Optional[bool] = None
+        self._latest_imu: dict[str, str] = {}
+        self._imu_history: deque[dict[str, Any]] = deque(
+            maxlen=IMU_HISTORY_POINTS
+        )
+        self._imu_point = 0
+        self._imu_epoch = time.monotonic()
+        self._next_imu_poll = 0.0
         self._worker = threading.Thread(
             target=self._run_worker, name="robotd-link", daemon=True
         )
@@ -79,6 +93,8 @@ class RobotController:
         with self._lock:
             if action == "service_status":
                 return {"ok": True, "service": self.snapshot()}
+            if action == "imu_history":
+                return {"ok": True, **self._history_since(request)}
 
             client = self._require_client()
 
@@ -143,6 +159,35 @@ class RobotController:
                     f"TMC_MODE={mode}",
                 )
                 self._record_status(client.command("STATUS"))
+            elif action == "imu":
+                reply = client.command("IMU")
+                self._record_imu(reply)
+            elif action == "imu_cal":
+                reply = client.command("IMU_CAL")
+            elif action == "imu_zero_yaw":
+                reply = client.command("IMU_ZERO_YAW")
+            elif action == "imu_set":
+                fields = []
+                if "tau" in request:
+                    fields.append(f"TAU={self._number(request, 'tau'):g}")
+                if "auto_bias" in request:
+                    auto_bias = request.get("auto_bias")
+                    if not isinstance(auto_bias, bool):
+                        raise ValueError("auto_bias must be true or false")
+                    fields.append(f"AUTO_BIAS={1 if auto_bias else 0}")
+                if not fields:
+                    raise ValueError("imu_set needs tau and/or auto_bias")
+                reply = client.command("IMU_SET", *fields)
+            elif action == "imu_window_start":
+                reply = client.command("IMU_WINDOW_START")
+            elif action == "imu_window":
+                reply = client.command("IMU_WINDOW")
+                return {
+                    "ok": True,
+                    "reply": reply.line,
+                    "window": reply_fields(reply),
+                    "service": self.snapshot(),
+                }
             else:
                 raise ValueError(f"unknown action: {action}")
 
@@ -160,10 +205,13 @@ class RobotController:
             "status_line": self._latest_status_line,
             "last_event": self._last_event,
             "last_error": self._last_error,
+            "imu_supported": self._imu_supported,
+            "imu": dict(self._latest_imu),
+            "imu_point": self._imu_point,
         }
 
     def _run_worker(self) -> None:
-        while not self._stop_event.wait(0.05):
+        while not self._stop_event.wait(WORKER_TICK_SECONDS):
             with self._lock:
                 try:
                     self._worker_step()
@@ -203,6 +251,22 @@ class RobotController:
             reply = self._client.command("STATUS")
             self._record_status(reply)
             self._next_status_poll = now + STATUS_PERIOD_SECONDS
+            return
+
+        if self._imu_supported is not False and now >= self._next_imu_poll:
+            self._next_imu_poll = now + IMU_PERIOD_SECONDS
+            try:
+                self._record_imu(self._client.command("IMU"))
+                self._imu_supported = True
+            except RobotLinkError as error:
+                text = str(error)
+                # Firmware without the IMU rejects the command: stop polling
+                # until the next reconnect. Other errors propagate.
+                if "UNKNOWN_COMMAND" in text or "UNSUPPORTED_COMMAND" in text:
+                    self._imu_supported = False
+                    self._latest_imu = {}
+                else:
+                    raise
 
     def _connect(self) -> None:
         port = resolve_port(self._requested_port)
@@ -211,6 +275,8 @@ class RobotController:
         )
         self._last_error = ""
         self._next_status_poll = 0.0
+        self._imu_supported = None
+        self._next_imu_poll = 0.0
 
     def _require_client(self) -> RobotClient:
         if self._client is None:
@@ -236,6 +302,30 @@ class RobotController:
 
     def _record_event(self, reply: Reply) -> None:
         self._last_event = reply.line
+
+    def _record_imu(self, reply: Reply) -> None:
+        fields = reply_fields(reply)
+        self._latest_imu = fields
+        if fields.get("STATE") not in {"OK", "CALIBRATING"}:
+            return
+        point: dict[str, Any] = {
+            "n": self._imu_point + 1,
+            "t": round(time.monotonic() - self._imu_epoch, 3),
+        }
+        for key in IMU_HISTORY_FIELDS:
+            try:
+                point[key.lower()] = float(fields[key])
+            except (KeyError, ValueError):
+                return
+        self._imu_point += 1
+        self._imu_history.append(point)
+
+    def _history_since(self, request: dict[str, Any]) -> dict[str, Any]:
+        since = request.get("since", 0)
+        if isinstance(since, bool) or not isinstance(since, int):
+            raise ValueError("since must be an integer")
+        points = [p for p in self._imu_history if p["n"] > since]
+        return {"points": points, "latest": self._imu_point}
 
     @staticmethod
     def _number(request: dict[str, Any], name: str) -> float:

@@ -545,6 +545,362 @@ footer {
   border-color: var(--red);
 }
 
+/* ---- IMU panel ---- */
+.imu-panel {
+  margin-top: 12px;
+  padding: 22px;
+}
+
+.drive-heading-side {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.drive-record {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 11px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface-raised);
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 0.72rem;
+  font-weight: 750;
+  white-space: nowrap;
+}
+
+.drive-record:hover:not(:disabled) {
+  border-color: var(--red);
+  color: var(--text);
+}
+
+.drive-record:disabled {
+  cursor: not-allowed;
+  opacity: 0.38;
+}
+
+.record-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--red);
+}
+
+.drive-record.recording {
+  border-color: var(--red);
+  background: var(--red-dark);
+  color: var(--text);
+}
+
+.drive-record.recording .record-dot {
+  border-radius: 2px;
+  animation: record-pulse 1s ease-in-out infinite;
+}
+
+@keyframes record-pulse {
+  50% { opacity: 0.35; }
+}
+
+.imu-state {
+  padding: 6px 9px;
+  border-radius: 999px;
+  background: var(--surface-raised);
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.imu-state.ok {
+  background: var(--green-dark);
+  color: var(--green);
+}
+
+.imu-state.busy {
+  background: #3d321c;
+  color: var(--amber);
+}
+
+.imu-state.fault {
+  background: var(--red-dark);
+  color: var(--red);
+}
+
+.imu-metrics {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.imu-metrics .metric {
+  background: var(--bg);
+}
+
+.imu-metrics strong {
+  font-variant-numeric: tabular-nums;
+}
+
+.imu-chart-wrap {
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 13px;
+  background: var(--bg);
+}
+
+.imu-chart-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+  color: var(--muted);
+  font-size: 0.7rem;
+}
+
+.imu-chart-bar select,
+.imu-inline select,
+.imu-field select,
+.imu-field input[type="text"] {
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  outline: 0;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.78rem;
+}
+
+.imu-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.imu-legend i {
+  display: inline-block;
+  width: 10px;
+  height: 3px;
+  margin-right: 5px;
+  border-radius: 2px;
+  vertical-align: middle;
+}
+
+.imu-legend .c0 { background: var(--green); }
+.imu-legend .c1 { background: var(--amber); }
+.imu-legend .c2 { background: #7cc4ff; }
+
+.imu-chart-note {
+  margin-left: auto;
+}
+
+.imu-chart {
+  display: block;
+  width: 100%;
+  height: 180px;
+}
+
+.imu-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+  margin-top: 14px;
+}
+
+.imu-button {
+  width: auto;
+  margin-top: 0;
+  padding: 10px 14px;
+  font-size: 0.82rem;
+}
+
+.imu-inline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.imu-check input {
+  width: 17px;
+  height: 17px;
+  accent-color: var(--green);
+}
+
+.imu-health {
+  margin-top: 10px;
+  color: var(--muted);
+  font-size: 0.7rem;
+  line-height: 1.5;
+}
+
+.imu-tests {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.imu-test-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 13px;
+  background: var(--bg);
+}
+
+.imu-test-card .imu-button {
+  width: 100%;
+  margin-top: auto;
+}
+
+.imu-field > span {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.imu-field select,
+.imu-field input[type="text"] {
+  width: 100%;
+}
+
+.imu-test-buttons {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: auto;
+}
+
+.imu-test-buttons .imu-button {
+  padding-inline: 8px;
+}
+
+.imu-progress {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 12px;
+  padding: 12px 14px;
+  border: 1px solid rgb(255 197 110 / 45%);
+  border-radius: 11px;
+  background: #241f15;
+  color: var(--amber);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.imu-progress[hidden] {
+  display: none;
+}
+
+.imu-cancel {
+  width: auto;
+  margin-top: 0;
+  padding: 8px 14px;
+}
+
+.imu-results {
+  margin-top: 18px;
+}
+
+.imu-results-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.imu-small {
+  width: auto;
+  margin-top: 0;
+  padding: 7px 11px;
+  font-size: 0.72rem;
+}
+
+.imu-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: 11px;
+}
+
+.imu-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.74rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.imu-table th,
+.imu-table td {
+  padding: 9px 11px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+}
+
+.imu-table th {
+  background: var(--surface-raised);
+  color: var(--muted);
+  font-size: 0.66rem;
+  font-weight: 800;
+}
+
+.imu-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.imu-table td.warn {
+  color: var(--amber);
+}
+
+.imu-table td.bad {
+  color: var(--red);
+}
+
+.imu-empty td {
+  color: var(--muted);
+  text-align: center;
+}
+
+.imu-details {
+  margin-top: 10px;
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+
+.imu-details summary {
+  cursor: pointer;
+}
+
+.imu-details pre {
+  max-height: 260px;
+  margin: 8px 0 0;
+  padding: 10px;
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 0.68rem;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
 @media (max-width: 800px) {
   .topbar,
   main {
@@ -565,6 +921,18 @@ footer {
 
   .driver-grid {
     grid-template-columns: 1fr;
+  }
+
+  .imu-metrics {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .imu-tests {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .imu-panel {
+    padding: 18px;
   }
 
   .drive-panel,
@@ -612,6 +980,14 @@ footer {
 
   .driver-details {
     grid-template-columns: 1fr 1fr;
+  }
+
+  .imu-metrics {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .imu-tests {
+    grid-template-columns: 1fr;
   }
 
   .estop-button {

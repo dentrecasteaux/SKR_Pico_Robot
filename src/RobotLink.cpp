@@ -2,6 +2,7 @@
 
 #include <cstring>
 
+#include "Imu.h"
 #include "Protocol.h"
 
 RobotLink::RobotLink(Stream& stream, Robot& robot,
@@ -135,7 +136,193 @@ void RobotLink::processLine(char* line)
       }
       return;
     }
+    case Protocol::CommandType::Imu:
+    case Protocol::CommandType::ImuCalibrate:
+    case Protocol::CommandType::ImuZeroYaw:
+    case Protocol::CommandType::ImuSet:
+    case Protocol::CommandType::ImuWindowStart:
+    case Protocol::CommandType::ImuWindow:
+      processImuCommand(command);
+      return;
   }
+}
+
+// IMU commands never move the motors, so they are accepted in every mode
+// (including ESTOP) and are not part of the motion-reply replay cache.
+void RobotLink::processImuCommand(const Protocol::Command& command)
+{
+  const uint32_t sequence = command.sequence;
+  if (!Imu::enabled()) {
+    sendError(sequence, "UNSUPPORTED_COMMAND");
+    return;
+  }
+
+  switch (command.type) {
+    case Protocol::CommandType::Imu:
+      sendImu(sequence);
+      return;
+    case Protocol::CommandType::ImuCalibrate:
+      // Calibration needs the robot still.
+      if (robot_.motorsBusy()) {
+        sendError(sequence, "BUSY");
+        return;
+      }
+      if (!Imu::requestCalibration()) {
+        sendError(sequence, "IMU_UNAVAILABLE");
+        return;
+      }
+      sendAck(sequence);
+      return;
+    case Protocol::CommandType::ImuZeroYaw:
+      Imu::zeroYaw();
+      sendAck(sequence);
+      return;
+    case Protocol::CommandType::ImuSet:
+      if (command.hasTau && !Imu::setTau(command.tauSeconds)) {
+        sendError(sequence, "OUT_OF_RANGE");
+        return;
+      }
+      if (command.hasAutoBias) Imu::setAutoBias(command.autoBias);
+      sendAck(sequence);
+      return;
+    case Protocol::CommandType::ImuWindowStart:
+      sendAckField(sequence, "WINDOW", Imu::startWindow());
+      return;
+    case Protocol::CommandType::ImuWindow:
+      sendImuWindow(sequence);
+      return;
+    default:
+      sendError(sequence, "UNKNOWN_COMMAND");
+      return;
+  }
+}
+
+void RobotLink::sendAckField(uint32_t sequence, const char* key,
+                             uint32_t value)
+{
+  Print& output = transport_.output();
+  output.print(Protocol::VERSION);
+  output.print(" ACK ");
+  output.print(sequence);
+  output.print(" OK ");
+  output.print(key);
+  output.print('=');
+  output.println(value);
+}
+
+void RobotLink::sendImu(uint32_t sequence)
+{
+  Imu::Snapshot s;
+  Imu::snapshot(s);
+  Print& output = transport_.output();
+  const auto field = [&output](const char* key, float value, int digits) {
+    output.print(' ');
+    output.print(key);
+    output.print('=');
+    output.print(value, digits);
+  };
+  const auto count = [&output](const char* key, uint32_t value) {
+    output.print(' ');
+    output.print(key);
+    output.print('=');
+    output.print(value);
+  };
+
+  output.print(Protocol::VERSION);
+  output.print(" IMU ");
+  output.print(sequence);
+  output.print(" STATE=");
+  output.print(Imu::stateName(s.state));
+  output.print(" CAL=");
+  output.print(Imu::calName(s.cal));
+  count("CAL_ATTEMPTS", s.calAttempts);
+  output.print(" WHO_AM_I=0x");
+  output.print(s.whoAmI, HEX);
+  field("ROLL", s.roll, 2);
+  field("PITCH", s.pitch, 2);
+  field("YAW", s.yaw, 2);
+  field("P", s.p, 2);
+  field("Q", s.q, 2);
+  field("R", s.r, 2);
+  field("AX", s.ax, 3);
+  field("AY", s.ay, 3);
+  field("AZ", s.az, 3);
+  field("TEMP_C", s.tempC, 1);
+  field("TAU", s.tau, 2);
+  count("AUTO_BIAS", s.autoBias ? 1 : 0);
+  count("MOTORS_STOPPED", s.motorsStopped ? 1 : 0);
+  count("AUTO_UPDATES", s.autoUpdates);
+  field("BIAS_X", s.bias[0], 3);
+  field("BIAS_Y", s.bias[1], 3);
+  field("BIAS_Z", s.bias[2], 3);
+  count("SAMPLE_HZ", s.sampleHz);
+  count("SAMPLES", s.samples);
+  count("ERRORS", s.errors);
+  count("STALLS", s.stalls);
+  count("LATE", s.late);
+  count("ACC_REJECTS", s.accRejects);
+  count("AGE_MS", s.ageMs);
+  count("WINDOW", s.windowId);
+  output.println();
+}
+
+void RobotLink::sendImuWindow(uint32_t sequence)
+{
+  Imu::WindowStats w;
+  Imu::windowStats(w);
+  Print& output = transport_.output();
+  const auto field = [&output](const char* key, float value, int digits) {
+    output.print(' ');
+    output.print(key);
+    output.print('=');
+    output.print(value, digits);
+  };
+  const auto count = [&output](const char* key, uint32_t value) {
+    output.print(' ');
+    output.print(key);
+    output.print('=');
+    output.print(value);
+  };
+  static const char* const NAMES[Imu::CHANNELS] = {"GX", "GY", "GZ",
+                                                   "AX", "AY", "AZ"};
+
+  output.print(Protocol::VERSION);
+  output.print(" IMUW ");
+  output.print(sequence);
+  count("WINDOW", w.id);
+  count("SAMPLES", w.samples);
+  count("DURATION_MS", w.durationMs);
+  count("MOVING_SAMPLES", w.movingSamples);
+  char key[12];
+  for (int i = 0; i < Imu::CHANNELS; ++i) {
+    snprintf(key, sizeof(key), "%s_MEAN", NAMES[i]);
+    field(key, w.mean[i], 4);
+    snprintf(key, sizeof(key), "%s_SD", NAMES[i]);
+    field(key, w.sd[i], 4);
+    snprintf(key, sizeof(key), "%s_MIN", NAMES[i]);
+    field(key, w.min[i], 3);
+    snprintf(key, sizeof(key), "%s_MAX", NAMES[i]);
+    field(key, w.max[i], 3);
+  }
+  field("AMAG_MIN", w.accelMagnitudeMin, 3);
+  field("AMAG_MAX", w.accelMagnitudeMax, 3);
+  field("ROLL_START", w.rollStart, 2);
+  field("PITCH_START", w.pitchStart, 2);
+  field("ROLL_MIN", w.rollMin, 2);
+  field("ROLL_MAX", w.rollMax, 2);
+  field("PITCH_MIN", w.pitchMin, 2);
+  field("PITCH_MAX", w.pitchMax, 2);
+  field("YAW_CHANGE", w.yawChange, 2);
+  count("LATE", w.late);
+  count("ERRORS", w.errors);
+  count("STALLS", w.stalls);
+  count("ACC_REJECTS", w.accRejects);
+  count("GAP_MIN_US", w.gapMinUs);
+  count("GAP_MAX_US", w.gapMaxUs);
+  count("LAT_MAX_US", w.latencyMaxUs);
+  count("FILTER_MAX_US", w.filterMaxUs);
+  count("LOOP_MAX_US", w.loopMaxUs);
+  output.println();
 }
 
 void RobotLink::sendError(uint32_t sequence, const char* code)
@@ -352,6 +539,18 @@ void RobotLink::sendStatus(uint32_t sequence)
   output.print(status.configuredAccelerationMmPerSecondSquared);
   output.print(" REQUESTED_TMC_MODE=");
   output.print(chopperModeName(status.configuredChopperMode));
+  Imu::Snapshot imu;
+  Imu::snapshot(imu);
+  output.print(" IMU=");
+  output.print(Imu::stateName(imu.state));
+  if (imu.state == Imu::State::Ok) {
+    output.print(" IMU_ROLL=");
+    output.print(imu.roll, 2);
+    output.print(" IMU_PITCH=");
+    output.print(imu.pitch, 2);
+    output.print(" IMU_YAW=");
+    output.print(imu.yaw, 2);
+  }
   output.print(" UPTIME_MS=");
   output.print(millis());
   output.print(" RX_AGE_MS=");

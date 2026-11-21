@@ -6,7 +6,7 @@
 
 Robot::Robot(Motor& leftMotor, Motor& rightMotor,
              MotionController& motionController, TMC2209& leftDriver,
-             TMC2209& rightDriver, arduino::UART& stepperUart)
+             TMC2209& rightDriver, HardwareSerial& stepperUart)
     : leftMotor_(leftMotor),
       rightMotor_(rightMotor),
       motionController_(motionController),
@@ -311,6 +311,11 @@ Robot::Status Robot::status()
   result.driverPollTotalUs = result.leftDriver.pollDurationUs +
                              result.rightDriver.pollDurationUs;
   return result;
+}
+
+bool Robot::motorsBusy() const
+{
+  return leftMotor_.isBusy() || rightMotor_.isBusy();
 }
 
 bool Robot::takeJobCompletion(JobCompletion& completion)

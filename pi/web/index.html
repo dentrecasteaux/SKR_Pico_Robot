@@ -84,7 +84,13 @@
               <p class="eyebrow">PRESS AND HOLD</p>
               <h2>Manual drive</h2>
             </div>
-            <span class="lease-label">600 ms safety hold</span>
+            <div class="drive-heading-side">
+              <span class="lease-label">600 ms safety hold</span>
+              <button class="imu-control drive-record" id="drive-record" disabled
+                      title="Record IMU statistics while you drive; the result appears in the IMU panel">
+                <span class="record-dot"></span><span id="drive-record-label">Record IMU</span>
+              </button>
+            </div>
           </div>
 
           <div class="dpad" aria-label="Directional controls">
@@ -222,9 +228,144 @@
         </div>
       </div>
 
+      <section class="panel imu-panel" id="imu-panel" aria-label="IMU">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">IMU / MPU6050 ON CORE 1</p>
+            <h2>Attitude and motion tests</h2>
+          </div>
+          <span class="imu-state" id="imu-state">Waiting</span>
+        </div>
+
+        <div class="imu-metrics">
+          <article class="metric"><span>Roll</span><strong id="imu-roll">—</strong></article>
+          <article class="metric"><span>Pitch</span><strong id="imu-pitch">—</strong></article>
+          <article class="metric"><span>Heading (yaw)</span><strong id="imu-yaw">—</strong></article>
+          <article class="metric"><span>Rates p / q / r</span><strong id="imu-rates">—</strong></article>
+          <article class="metric"><span>Sample rate</span><strong id="imu-rate">—</strong></article>
+          <article class="metric"><span>Temperature</span><strong id="imu-temp">—</strong></article>
+        </div>
+
+        <div class="imu-chart-wrap">
+          <div class="imu-chart-bar">
+            <select id="imu-chart-mode" aria-label="Chart data">
+              <option value="angles">Roll and pitch</option>
+              <option value="yaw">Heading (yaw)</option>
+              <option value="rates">Rates p / q / r</option>
+              <option value="accel">Acceleration</option>
+            </select>
+            <span class="imu-legend" id="imu-legend"></span>
+            <span class="imu-chart-note">last 30 s</span>
+          </div>
+          <canvas id="imu-chart" class="imu-chart" height="180"></canvas>
+        </div>
+
+        <div class="imu-controls">
+          <button class="action-button imu-control imu-button" id="imu-calibrate" disabled>Calibrate gyro</button>
+          <button class="action-button imu-control imu-button" id="imu-zero" disabled>Zero heading</button>
+          <label class="imu-inline">
+            <span>Filter τ</span>
+            <select id="imu-tau" disabled>
+              <option value="0.1">0.1 s</option>
+              <option value="0.25">0.25 s</option>
+              <option value="0.5">0.5 s</option>
+              <option value="1">1 s</option>
+              <option value="2">2 s</option>
+            </select>
+          </label>
+          <label class="imu-inline imu-check">
+            <input type="checkbox" id="imu-auto-bias" disabled>
+            <span>Auto-bias when stopped</span>
+          </label>
+        </div>
+        <p class="imu-health" id="imu-health">—</p>
+
+        <div class="imu-tests">
+          <div class="imu-test-card">
+            <p class="eyebrow">RECORD WHILE YOU DRIVE</p>
+            <label class="imu-field">
+              <span>Label</span>
+              <input id="record-label" type="text" maxlength="40" placeholder="e.g. 400 mm/s straight">
+            </label>
+            <div class="imu-test-buttons">
+              <button class="action-button imu-control imu-button" id="record-start" disabled>Start recording</button>
+              <button class="action-button imu-control imu-button" id="record-stop" disabled>Stop and save</button>
+            </div>
+          </div>
+          <div class="imu-test-card">
+            <p class="eyebrow">STILL DRIFT</p>
+            <label class="imu-field">
+              <span>Duration</span>
+              <select id="still-duration">
+                <option value="30">30 s</option>
+                <option value="60" selected>1 min</option>
+                <option value="300">5 min</option>
+              </select>
+            </label>
+            <button class="action-button imu-control imu-button imu-test-run" data-test="still" disabled>Run still test</button>
+          </div>
+          <div class="imu-test-card">
+            <p class="eyebrow">STRAIGHT MOVE</p>
+            <label class="imu-field">
+              <span>Distance</span>
+              <div class="input-unit">
+                <input id="test-distance" type="number" value="500" step="50">
+                <span>mm</span>
+              </div>
+            </label>
+            <button class="action-button imu-control imu-button imu-test-run" data-test="move" disabled>Run move test</button>
+          </div>
+          <div class="imu-test-card">
+            <p class="eyebrow">TURN CHECK</p>
+            <label class="imu-field">
+              <span>Angle</span>
+              <div class="input-unit">
+                <input id="test-angle" type="number" value="360" step="45">
+                <span>deg</span>
+              </div>
+            </label>
+            <button class="action-button imu-control imu-button imu-test-run" data-test="turn" disabled>Run turn test</button>
+          </div>
+        </div>
+
+        <div class="imu-progress" id="imu-progress" hidden>
+          <span id="imu-progress-text">Running…</span>
+          <button class="action-button imu-control imu-cancel" id="imu-cancel">Cancel</button>
+        </div>
+
+        <div class="imu-results">
+          <div class="imu-results-bar">
+            <h2>Results</h2>
+            <div>
+              <button class="action-button imu-control imu-small" id="results-csv">Download CSV</button>
+              <button class="action-button imu-control imu-small" id="results-clear">Clear</button>
+            </div>
+          </div>
+          <div class="imu-table-wrap">
+            <table class="imu-table">
+              <thead>
+                <tr>
+                  <th>Test</th><th>Time</th><th>Duration</th><th>Heading change</th>
+                  <th>Expected / error</th><th>Drift</th><th>Roll range</th>
+                  <th>Pitch range</th><th>Gyro noise</th><th>Accel noise</th>
+                  <th>|a| range</th><th>Missed / err / stall</th>
+                </tr>
+              </thead>
+              <tbody id="results-body">
+                <tr class="imu-empty"><td colspan="12">No results yet</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <details class="imu-details">
+            <summary>Last result: all window fields</summary>
+            <pre id="results-raw">—</pre>
+          </details>
+        </div>
+      </section>
+
       <footer>
         <span id="last-update">Waiting for telemetry</span>
-        <span>Pi → robotd → SKR Pico</span>
+        <span>Pi → robotd → SKR Pico (core 0 motion, core 1 IMU)</span>
       </footer>
     </main>
 

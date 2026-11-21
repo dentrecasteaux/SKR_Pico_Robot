@@ -79,7 +79,7 @@ public:
 
   Robot(Motor& leftMotor, Motor& rightMotor,
         MotionController& motionController, TMC2209& leftDriver,
-        TMC2209& rightDriver, arduino::UART& stepperUart);
+        TMC2209& rightDriver, HardwareSerial& stepperUart);
 
   void begin();
   void update();
@@ -102,6 +102,8 @@ public:
                           TMC2209::ChopperMode chopperMode);
   Status status();
   bool takeJobCompletion(JobCompletion& completion);
+  // True while either motor is generating STEP pulses. Cheap: no driver I/O.
+  bool motorsBusy() const;
 
 private:
   bool motionAllowed();
@@ -122,7 +124,7 @@ private:
   MotionController& motionController_;
   TMC2209& leftDriver_;
   TMC2209& rightDriver_;
-  arduino::UART& stepperUart_;
+  HardwareSerial& stepperUart_;
   Mode mode_ = Mode::Idle;
   bool estopLatched_ = false;
   bool velocityLeaseActive_ = false;

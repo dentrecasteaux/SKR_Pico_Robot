@@ -97,6 +97,20 @@ are disabled. The installed Casun 42SHD0001-24B motor profile is capped at
 `robotdctl.py` is only a local service test client. The deployed web interface
 uses the same Unix-socket API through `robot_web.py`.
 
+## Deploying from the development computer
+
+From the repository root on the Mac:
+
+```text
+tools/deploy-pi.sh
+```
+
+It copies `pi/` into `~/r2w` on `robot@r2w-pi.local` (or the address given as
+an argument or in `R2W_PI`) with `rsync`, falling back to `scp`. Nothing on
+the Pi is deleted. It then checks that the Python files compile, installs
+changed user service files, restarts `robotd` and `robot-web`, and pings the
+Pico. SSH access to the Pi is required.
+
 ## Start robotd automatically
 
 Install the supplied user service:
@@ -149,6 +163,25 @@ Manual drive buttons must be held. The page refreshes a 600 ms local control
 lease every 200 ms; releasing the button, hiding the page, losing Wi-Fi, or
 closing the browser stops those refreshes. `robotd` then sends `STOP`, while the
 independent Pico lease remains the final communications-loss safeguard.
+
+### IMU panel
+
+When the Pico firmware includes the IMU, the page shows a live IMU panel:
+
+- roll, pitch, heading, rates, sample rate and temperature, with a 30-second
+  rolling chart;
+- **Calibrate gyro** (idle only; keep the robot still for about 2 s), **Zero
+  heading**, the filter time constant and auto-bias;
+- **tests**: still drift, straight move and turn check (which compares the
+  commanded angle with the gyro-measured heading change);
+- **recording while you drive**: from the IMU panel or the **Record IMU**
+  button in the drive panel.
+
+Each test uses a Pico-side IMU test window, so the statistics cover every
+500 Hz sample, not just the values the page displays. Results are kept in the
+browser and can be downloaded as CSV. `robotd` polls the IMU at about 10 Hz
+and keeps 60 s of history for the chart. With firmware that has no IMU, the
+panel reports it and `robotd` stops polling until the Pico reconnects.
 
 The initial web server has no user login or TLS. Use it only on a trusted local
 network and do not expose port 8080 to the internet.

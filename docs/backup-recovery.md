@@ -48,7 +48,10 @@ normal upload or requires a BOOTSEL/UF2 recovery.
 
 ## Pi deployment
 
-Copy the contents of the repository’s `pi/` directory to:
+The simplest way is `tools/deploy-pi.sh` from the repository root on the
+development computer (see `pi/README.md`). It copies `pi/`, restarts both
+services and pings the Pico. To deploy by hand instead, copy the contents of
+the repository’s `pi/` directory to:
 
 ```text
 /home/robot/r2w/

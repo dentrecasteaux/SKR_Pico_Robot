@@ -64,12 +64,14 @@ R2W/1 ACK <sequence> OK [KEY=VALUE ...]
 R2W/1 ERR <sequence> CODE=<code> [FIELD=<key>] [MSG=<token>]
 R2W/1 PONG <sequence> UPTIME_MS=<milliseconds>
 R2W/1 STAT <sequence> <status-fields>
+R2W/1 IMU <sequence> <imu-fields>
+R2W/1 IMUW <sequence> <window-fields>
 R2W/1 DONE JOB=<job-id> ORIGIN_SEQ=<sequence> RESULT=<result>
 ```
 
 `ACK` confirms acceptance, not completion. `ERR` means the command was not
-accepted. `PONG` and `STAT` are successful direct replies and therefore do not
-also receive an `ACK`.
+accepted. `PONG`, `STAT`, `IMU` and `IMUW` are successful direct replies and
+therefore do not also receive an `ACK`.
 
 `DONE` is an asynchronous event for a previously accepted finite job. It may be
 sent at any time after that job's `ACK`. The Pico should retain the most recent
@@ -202,6 +204,109 @@ the motors. If not implemented, the Pico returns `UNSUPPORTED_COMMAND` and
 recovery requires reset. Physical emergency-stop hardware, when added, must not
 be clearable by this command while asserted.
 
+## IMU commands
+
+These commands read or adjust the MPU6050 IMU running on the Pico's second
+core. They never move the motors, so they are accepted in every mode including
+`ESTOP`, and they are not cached for replay. A firmware built without the IMU
+(`R2W_IMU=0`) answers each of them with `UNSUPPORTED_COMMAND`. Firmware older
+than the IMU work answers `UNKNOWN_COMMAND`.
+
+### `IMU`
+
+Returns the latest IMU snapshot.
+
+```text
+R2W/1 CMD 20 IMU
+R2W/1 IMU 20 STATE=OK CAL=OK CAL_ATTEMPTS=1 WHO_AM_I=0x68 ROLL=1.20 PITCH=-0.50 YAW=12.34 P=0.01 Q=-0.02 R=0.03 AX=0.010 AY=0.020 AZ=1.004 TEMP_C=30.8 TAU=0.50 AUTO_BIAS=0 MOTORS_STOPPED=1 AUTO_UPDATES=0 BIAS_X=2.821 BIAS_Y=-8.401 BIAS_Z=1.232 SAMPLE_HZ=500 SAMPLES=123456 ERRORS=0 STALLS=0 LATE=0 ACC_REJECTS=0 AGE_MS=1 WINDOW=3
+```
+
+| Field | Values and units |
+|---|---|
+| `STATE` | `OK`, `CALIBRATING`, `STARTING`, `NO_SENSOR`, `STALE` (no sample for 100 ms) or `OFF` |
+| `CAL` | `NONE`, `RUNNING`, `OK`, or `FORCED` (never still enough; last attempt used) |
+| `CAL_ATTEMPTS` | Calibration attempts used (1–5) |
+| `WHO_AM_I` | Sensor ID register, hexadecimal token (MPU6050 = `0x68`) |
+| `ROLL`, `PITCH`, `YAW` | Degrees, robot frame. Positive yaw turns left, matching `W` |
+| `P`, `Q`, `R` | Bias-corrected body rates about X, Y, Z in deg/s |
+| `AX`, `AY`, `AZ` | Acceleration in g |
+| `TEMP_C` | Sensor temperature in °C |
+| `TAU` | Complementary-filter time constant in seconds |
+| `AUTO_BIAS` | `1` when automatic bias tracking is enabled |
+| `MOTORS_STOPPED` | `1` when no STEP pulses are being generated |
+| `AUTO_UPDATES` | Number of automatic bias updates applied |
+| `BIAS_X`, `BIAS_Y`, `BIAS_Z` | Current gyro bias in deg/s |
+| `SAMPLE_HZ` | Samples counted over the last second (nominally 500) |
+| `SAMPLES`, `ERRORS`, `STALLS`, `LATE`, `ACC_REJECTS` | Totals since start-up: samples, I²C read errors, stall-recovery reads, gaps over 1.5 periods, accelerometer corrections skipped |
+| `AGE_MS` | Time since the latest sample |
+| `WINDOW` | Current test-window ID, or `0` |
+
+### `IMU_CAL`
+
+Starts gyro bias calibration: about 2 s, keep the robot still. Rejected with
+`BUSY` while either motor is generating steps, or `IMU_UNAVAILABLE` if the IMU
+has not started.
+
+```text
+R2W/1 CMD 21 IMU_CAL
+R2W/1 ACK 21 OK
+```
+
+### `IMU_ZERO_YAW`
+
+Sets the integrated heading to zero.
+
+### `IMU_SET`
+
+Adjusts IMU settings. At least one field is required.
+
+```text
+R2W/1 CMD 22 IMU_SET TAU=0.5 AUTO_BIAS=1
+R2W/1 ACK 22 OK
+```
+
+- `TAU`: complementary-filter time constant, 0.05–5 seconds (`OUT_OF_RANGE`
+  otherwise).
+- `AUTO_BIAS`: `0` or `1`. Auto-bias updates the gyro bias after each still
+  1-second window, and only once the motors have been stopped for 1 s.
+
+Settings are held in RAM and return to defaults after reset (`TAU=0.5`,
+`AUTO_BIAS=0`).
+
+### `IMU_WINDOW_START` and `IMU_WINDOW`
+
+A test window accumulates statistics over every 500 Hz sample from
+`IMU_WINDOW_START` until the next `IMU_WINDOW_START`. `IMU_WINDOW` reads the
+current totals without resetting them, so it can be read during a test and
+again at the end.
+
+```text
+R2W/1 CMD 23 IMU_WINDOW_START
+R2W/1 ACK 23 OK WINDOW=4
+R2W/1 CMD 24 IMU_WINDOW
+R2W/1 IMUW 24 WINDOW=4 SAMPLES=2500 DURATION_MS=5000 MOVING_SAMPLES=1500 GX_MEAN=0.0012 GX_SD=0.0610 GX_MIN=-0.210 GX_MAX=0.190 ... AMAG_MIN=0.990 AMAG_MAX=1.020 ROLL_START=1.20 PITCH_START=-0.50 ROLL_MIN=-0.30 ROLL_MAX=0.30 PITCH_MIN=-0.20 PITCH_MAX=0.20 YAW_CHANGE=89.70 LATE=0 ERRORS=0 STALLS=0 ACC_REJECTS=0 GAP_MIN_US=1990 GAP_MAX_US=2015 LAT_MAX_US=450 FILTER_MAX_US=150 LOOP_MAX_US=200
+```
+
+| Field | Values and units |
+|---|---|
+| `WINDOW` | Window ID (`0` if none has been started) |
+| `SAMPLES`, `DURATION_MS` | Samples and time covered |
+| `MOVING_SAMPLES` | Samples taken while the motors were generating steps |
+| `GX_*`, `GY_*`, `GZ_*` | Bias-corrected rates (deg/s): `_MEAN`, `_SD` (standard deviation), `_MIN`, `_MAX` |
+| `AX_*`, `AY_*`, `AZ_*` | Acceleration (g): same four statistics |
+| `AMAG_MIN`, `AMAG_MAX` | Range of the acceleration magnitude in g |
+| `ROLL_START`, `PITCH_START` | Attitude at the start of the window, degrees |
+| `ROLL_MIN`/`_MAX`, `PITCH_MIN`/`_MAX` | Range relative to the start values, degrees |
+| `YAW_CHANGE` | Heading change over the window, unwrapped (may exceed ±180°) |
+| `LATE`, `ERRORS`, `STALLS`, `ACC_REJECTS` | Counts within the window |
+| `GAP_MIN_US`, `GAP_MAX_US` | Interrupt-to-interrupt sample spacing |
+| `LAT_MAX_US` | Longest delay from data-ready interrupt to data in hand |
+| `FILTER_MAX_US`, `LOOP_MAX_US` | Longest attitude-maths time and longest core 1 loop pass |
+
+Typical uses: start a window, run a `TURN`, read `YAW_CHANGE` and compare it
+with the commanded angle; or start a window, drive, and read the noise and
+roll/pitch ranges to measure vibration.
+
 ## Lease rules
 
 Leases apply only to `SET_VELOCITY`.
@@ -280,6 +385,7 @@ Initial error codes:
 | `DRIVER_FAULT` | Driver state prevents motion |
 | `SEQUENCE_CONFLICT` | A recent sequence number was reused differently |
 | `LINE_TOO_LONG` | Input exceeded the parser buffer |
+| `IMU_UNAVAILABLE` | The IMU has not started, so the request cannot be applied |
 
 Example:
 
@@ -327,8 +433,15 @@ When available, status should also include:
 | `LAST_JOB` | Most recently completed job ID, otherwise `0` |
 | `LAST_RESULT` | `NONE`, `OK`, `STOPPED`, `ESTOPPED`, `FAULT`, or `REPLACED` |
 
-Future battery, encoder, IMU, and odometry fields may be added without changing
-the major protocol version.
+When the firmware includes the IMU, status also contains:
+
+| Field | Values and units |
+|---|---|
+| `IMU` | IMU `STATE` (see `IMU`), or `OFF` when built without it |
+| `IMU_ROLL`, `IMU_PITCH`, `IMU_YAW` | Degrees, present only when `IMU=OK` |
+
+Future battery, encoder, and odometry fields may be added without changing the
+major protocol version.
 
 ## Safety behaviour
 

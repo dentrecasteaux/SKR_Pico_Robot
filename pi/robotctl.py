@@ -16,6 +16,9 @@ import serial
 
 PROTOCOL = "R2W/1"
 COMMAND_ATTEMPTS = 2
+# Direct replies that carry the command's sequence number. IMU and IMUW are
+# the IMU snapshot and test-window replies.
+SEQUENCED_REPLIES = {"ACK", "ERR", "PONG", "STAT", "IMU", "IMUW"}
 DEFAULT_DEVICE_PATTERN = (
     "/dev/serial/by-id/usb-Arduino_RaspberryPi_Pico_*-if00"
 )
@@ -115,7 +118,7 @@ class RobotClient:
         kind = parts[1]
         sequence: Optional[int] = None
         fields_start = 2
-        if kind in {"ACK", "ERR", "PONG", "STAT"} and len(parts) >= 3:
+        if kind in SEQUENCED_REPLIES and len(parts) >= 3:
             try:
                 sequence = int(parts[2])
             except ValueError:

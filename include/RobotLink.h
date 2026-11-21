@@ -2,6 +2,7 @@
 
 #include <Arduino.h>
 
+#include "Protocol.h"
 #include "Robot.h"
 #include "SerialTransport.h"
 
@@ -18,6 +19,10 @@ public:
 private:
   void processLine(char* line);
   void sendAck(uint32_t sequence, uint32_t jobId = 0);
+  void sendAckField(uint32_t sequence, const char* key, uint32_t value);
+  void sendImu(uint32_t sequence);
+  void sendImuWindow(uint32_t sequence);
+  void processImuCommand(const Protocol::Command& command);
   void sendError(uint32_t sequence, const char* code);
   void sendCommandError(uint32_t sequence, Robot::CommandResult result);
   const char* commandErrorCode(Robot::CommandResult result) const;

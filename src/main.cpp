@@ -5,6 +5,7 @@
 
 #include "Hardware.h"
 #include "Config.h"
+#include "Imu.h"
 #include "Motor.h"
 #include "MotionController.h"
 #include "Robot.h"
@@ -12,7 +13,9 @@
 #include "Stepper.h"
 #include "TMC2209.h"
 
-arduino::UART stepperUart(HW::UART_TX, HW::UART_RX);
+// UART1 on GPIO8 (TX) / GPIO9 (RX) is Serial2 in arduino-pico. Pins are set
+// in setup() before Robot::begin() opens the port.
+SerialUART& stepperUart = Serial2;
 Stepper leftStepper(HW::LEFT_STEP, HW::LEFT_DIR, HW::LEFT_EN, true);
 Stepper rightStepper(HW::RIGHT_STEP, HW::RIGHT_DIR, HW::RIGHT_EN, false);
 Motor leftMotor(leftStepper, Config::MAX_ACCELERATION_STEPS_PER_SECOND_SQUARED);
@@ -51,7 +54,7 @@ void printStatus()
 
 void printHelp()
 {
-  Serial.println("Commands: left/right on/off/test/forward/reverse/speed N, drive LINEAR TURN, velocity MM_PER_S DEG_PER_S, move DISTANCE_MM, turn ANGLE_DEGREES, drivers, configuration, configure CURRENT_MA MICROSTEPS ACCEL_MM_S2 MODE, off, status, help");
+  Serial.println("Commands: left/right on/off/test/forward/reverse/speed N, drive LINEAR TURN, velocity MM_PER_S DEG_PER_S, move DISTANCE_MM, turn ANGLE_DEGREES, drivers, configuration, configure CURRENT_MA MICROSTEPS ACCEL_MM_S2 MODE, imu, off, status, help");
 }
 
 void printConfiguration()
@@ -204,6 +207,40 @@ void printDriverHealth()
   Serial.print("Both drivers: poll=");
   Serial.print(status.driverPollTotalUs);
   Serial.println(" us total");
+}
+
+void printImu()
+{
+  Imu::Snapshot imu;
+  Imu::snapshot(imu);
+  Serial.print("IMU: ");
+  Serial.print(Imu::stateName(imu.state));
+  if (!imu.enabled) {
+    Serial.println(" (built without the IMU)");
+    return;
+  }
+  Serial.print(", cal=");
+  Serial.print(Imu::calName(imu.cal));
+  Serial.print(", roll=");
+  Serial.print(imu.roll, 2);
+  Serial.print(", pitch=");
+  Serial.print(imu.pitch, 2);
+  Serial.print(", yaw=");
+  Serial.print(imu.yaw, 2);
+  Serial.print(" deg, rates=");
+  Serial.print(imu.p, 2);
+  Serial.print("/");
+  Serial.print(imu.q, 2);
+  Serial.print("/");
+  Serial.print(imu.r, 2);
+  Serial.print(" deg/s, ");
+  Serial.print(imu.sampleHz);
+  Serial.print(" Hz, errors=");
+  Serial.print(imu.errors);
+  Serial.print(", stalls=");
+  Serial.print(imu.stalls);
+  Serial.print(", late=");
+  Serial.println(imu.late);
 }
 
 bool processTurnCommand(const char* command)
@@ -427,6 +464,9 @@ void processCommand(const char* command)
   } else if (std::strcmp(command, "drivers") == 0) {
     printDriverHealth();
     return;
+  } else if (std::strcmp(command, "imu") == 0) {
+    printImu();
+    return;
   } else if (std::strcmp(command, "configuration") == 0) {
     printConfiguration();
     return;
@@ -452,6 +492,8 @@ void setup()
     delay(10);
   }
 
+  stepperUart.setTX(HW::UART_TX);
+  stepperUart.setRX(HW::UART_RX);
   robot.begin();
 
   Serial.println("SKR Pico starting...");
@@ -462,6 +504,8 @@ void setup()
   Serial.println(leftDriver.isConnected() ? "connected" : "not responding");
   Serial.print("Y TMC2209 UART: ");
   Serial.println(rightDriver.isConnected() ? "connected" : "not responding");
+  Serial.println(Imu::enabled() ? "IMU: MPU6050 on core 1 (type imu)"
+                                : "IMU: not built in (R2W_IMU=0)");
   printHelp();
 }
 
@@ -469,4 +513,19 @@ void loop()
 {
   robotLink.update();
   robot.update();
+  // Auto-bias on core 1 only runs while no STEP pulses are being generated.
+  Imu::setMotorsStopped(!robot.motorsBusy());
 }
+
+#if R2W_IMU
+// Core 1: the IMU only. It never touches the motors, the TMC UART or USB.
+void setup1()
+{
+  Imu::beginCore1();
+}
+
+void loop1()
+{
+  Imu::updateCore1();
+}
+#endif

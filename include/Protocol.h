@@ -16,7 +16,13 @@ enum class CommandType
   Stop,
   Estop,
   ClearEstop,
-  Configure
+  Configure,
+  Imu,
+  ImuCalibrate,
+  ImuZeroYaw,
+  ImuSet,
+  ImuWindowStart,
+  ImuWindow
 };
 
 enum class ChopperMode { StealthChop, SpreadCycle };
@@ -34,6 +40,10 @@ struct Command
   uint32_t microsteps = 0;
   float accelerationMmPerSecondSquared = 0.0F;
   ChopperMode chopperMode = ChopperMode::StealthChop;
+  bool hasTau = false;
+  float tauSeconds = 0.0F;
+  bool hasAutoBias = false;
+  bool autoBias = false;
 };
 
 struct ParseResult

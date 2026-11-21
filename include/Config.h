@@ -32,4 +32,16 @@ namespace Config {
   constexpr uint32_t MIN_VELOCITY_LEASE_MS = 100;
   constexpr uint32_t MAX_VELOCITY_LEASE_MS = 2000;
   constexpr uint32_t CALIBRATION_MOVE_STEP_INTERVAL_US = 10000;
+
+  // IMU (MPU6050). Robot frame: X forward, Y left, Z up; positive yaw turns
+  // left, matching the W (deg/s) convention of SET_VELOCITY and TURN.
+  // Mounting: robot axis i = IMU_AXIS_SIGN[i] * sensor axis IMU_AXIS_FROM[i]
+  // (0 = sensor X, 1 = Y, 2 = Z), applied to both gyro and accelerometer.
+  // Identity until the board is mounted and its orientation measured.
+  constexpr uint8_t IMU_AXIS_FROM[3] = {0, 1, 2};
+  constexpr int8_t IMU_AXIS_SIGN[3] = {1, 1, 1};
+  constexpr uint32_t IMU_I2C_HZ = 400000;
+  constexpr float IMU_FILTER_TAU_S = 0.5F;
+  // Auto-bias may only run after the motors have been stopped this long.
+  constexpr uint32_t IMU_AUTO_BIAS_SETTLE_MS = 1000;
 }

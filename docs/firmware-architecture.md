@@ -1,17 +1,59 @@
 # Pico Firmware Architecture
 
-## Main loop
+## Core and main loops
 
-The Arduino main loop repeatedly updates the robot and communications:
+The firmware uses the Earle Philhower **arduino-pico** core (selected in
+`platformio.ini`), which runs `setup()`/`loop()` on core 0 and
+`setup1()`/`loop1()` on core 1.
+
+Core 0, the main loop, repeatedly updates communications and the robot:
 
 ```text
-robot.update()
 robotLink.update()
+robot.update()
+Imu::setMotorsStopped(!robot.motorsBusy())
 ```
 
 Neither operation waits for a complete movement. Each pass performs a small
 amount of work and returns, allowing serial handling and motor pulse scheduling
 to coexist.
+
+Core 1 runs only the IMU (`Imu::beginCore1()` / `Imu::updateCore1()`). It owns
+I²C0 and the GPIO16 data-ready interrupt, never prints, and never touches the
+motors, the TMC UART or USB. Building with `-DR2W_IMU=0` leaves core 1 unused
+and makes every IMU command return `UNSUPPORTED_COMMAND`.
+
+## IMU module (`Imu`)
+
+Per 500 Hz sample, core 1:
+
+- reads the 14-byte sample with a non-blocking I²C FIFO burst (about 430 µs of
+  bus time, polled rather than waited for);
+- maps sensor axes into the robot frame (`IMU_AXIS_FROM`, `IMU_AXIS_SIGN` in
+  `Config.h`);
+- calibrates gyro bias at start-up or on request: 2 s average with a stillness
+  check, retried up to five times;
+- runs a complementary filter for roll and pitch (default time constant 0.5 s,
+  with the accelerometer correction skipped when |a| is more than 0.15 g away
+  from 1 g) and integrates yaw;
+- optionally tracks gyro bias while still (auto-bias), only after the motors
+  have been stopped for 1 s, so a real slow turn is never absorbed;
+- accumulates test-window statistics (noise, ranges, heading change, timing).
+
+Core 0 reads results through a mutex-protected snapshot and sends requests
+(calibrate, zero heading, filter time constant, auto-bias, start window)
+through flags. These calls return in microseconds.
+
+Robustness: stall recovery reads anyway if INT stays high with no interrupt
+for 6 ms (also timed from the last read, so a disconnected INT gives about
+166 reads/s rather than a flood); 50 consecutive read errors return the IMU to
+`NO_SENSOR`, which retries initialisation every second; core 0 reports `STALE`
+if no sample has arrived for 100 ms.
+
+Measured on the bench (MPU6050 test project): 500 Hz with no missed samples
+under heavy core 0 load, filter maths about 93 µs per sample, core 1 longest
+loop pass about 210 µs, yaw drift about 0.5 °/min with calibration only and
+none at rest with auto-bias.
 
 ## Layers
 
@@ -122,6 +164,10 @@ validates framing, command names, required fields, duplicate fields, numeric
 format and configured ranges.
 
 It does not move hardware.
+
+IMU commands (`IMU`, `IMU_CAL`, `IMU_ZERO_YAW`, `IMU_SET`, `IMU_WINDOW_START`,
+`IMU_WINDOW`) never move the motors. They are accepted in every mode, including
+`ESTOP`, and are not part of the motion-reply replay cache.
 
 ### `SerialTransport`
 
