@@ -16,8 +16,10 @@
 // UART1 on GPIO8 (TX) / GPIO9 (RX) is Serial2 in arduino-pico. Pins are set
 // in setup() before Robot::begin() opens the port.
 SerialUART& stepperUart = Serial2;
-Stepper leftStepper(HW::LEFT_STEP, HW::LEFT_DIR, HW::LEFT_EN, true);
-Stepper rightStepper(HW::RIGHT_STEP, HW::RIGHT_DIR, HW::RIGHT_EN, false);
+// Direction flags for the balancing chassis (42A08 motors, 22 Nov 2026):
+// both inverted relative to the three-wheeler after the forward-move test.
+Stepper leftStepper(HW::LEFT_STEP, HW::LEFT_DIR, HW::LEFT_EN, false);
+Stepper rightStepper(HW::RIGHT_STEP, HW::RIGHT_DIR, HW::RIGHT_EN, true);
 Motor leftMotor(leftStepper, Config::MAX_ACCELERATION_STEPS_PER_SECOND_SQUARED);
 Motor rightMotor(rightStepper, Config::MAX_ACCELERATION_STEPS_PER_SECOND_SQUARED);
 MotionController motionController(leftMotor, rightMotor);
