@@ -34,7 +34,16 @@ ALLOWED_ACTIONS = {
     "imu_set",
     "imu_window_start",
     "imu_window",
+    "log_start",
+    "log_stop",
+    "log_status",
+    "bb_freeze",
+    "bb_arm",
+    "bb_dump",
+    "runs",
 }
+RUNS_DIR = Path.home() / "runs"
+RUN_FILES = {"data.csv": "text/csv", "meta.json": "application/json"}
 
 
 def default_socket_path() -> Path:
@@ -59,6 +68,12 @@ class WebHandler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:
         if self.path == "/api/status":
             self._proxy({"action": "service_status"})
+            return
+        if self.path == "/api/runs":
+            self._proxy({"action": "runs"})
+            return
+        if self.path.startswith("/runs/"):
+            self._serve_run_file(self.path[len("/runs/"):])
             return
         if self.path == "/favicon.ico":
             self.send_response(204)
@@ -151,6 +166,38 @@ class WebHandler(BaseHTTPRequestHandler):
         self.send_header("Cache-Control", "no-store")
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("Content-Security-Policy", "default-src 'self'")
+        self.end_headers()
+        self.wfile.write(content)
+
+    def _serve_run_file(self, rest: str) -> None:
+        # /runs/<run folder>/<data.csv|meta.json>, nothing else.
+        parts = rest.split("/")
+        if (
+            len(parts) != 2
+            or parts[1] not in RUN_FILES
+            or not parts[0]
+            or parts[0].startswith(".")
+            or "\\" in parts[0]
+        ):
+            self.send_error(404)
+            return
+        path = RUNS_DIR / parts[0] / parts[1]
+        try:
+            if path.resolve().parent.parent != RUNS_DIR.resolve():
+                raise OSError
+            content = path.read_bytes()
+        except OSError:
+            self.send_error(404)
+            return
+        self.send_response(200)
+        self.send_header("Content-Type", RUN_FILES[parts[1]])
+        self.send_header("Content-Length", str(len(content)))
+        self.send_header(
+            "Content-Disposition",
+            f'attachment; filename="{parts[0]}_{parts[1]}"',
+        )
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("X-Content-Type-Options", "nosniff")
         self.end_headers()
         self.wfile.write(content)
 

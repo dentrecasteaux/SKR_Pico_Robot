@@ -17,6 +17,7 @@ from typing import Any, Optional
 import serial
 
 from robotctl import Reply, RobotClient, RobotLinkError, resolve_port
+from runlog import BlackBoxCollector, RunRecorder, list_runs
 
 
 DEFAULT_PICO_LEASE_MS = 1000
@@ -27,6 +28,10 @@ WORKER_TICK_SECONDS = 0.025
 IMU_PERIOD_SECONDS = 0.1
 IMU_HISTORY_POINTS = 600  # 60 s at 10 Hz
 IMU_HISTORY_FIELDS = ("ROLL", "PITCH", "YAW", "P", "Q", "R", "AX", "AY", "AZ")
+# Balancing chassis wheel (CALIBRATION.md); used only to add mm/s columns.
+WHEEL_DIAMETER_MM = 62.33
+FULL_STEPS_PER_REV = 200
+BB_DUMP_TIMEOUT_SECONDS = 30.0
 
 
 def default_socket_path() -> Path:
@@ -67,6 +72,12 @@ class RobotController:
         self._imu_point = 0
         self._imu_epoch = time.monotonic()
         self._next_imu_poll = 0.0
+        # Phase 6 telemetry
+        self._recorder: Optional[RunRecorder] = None
+        self._blackbox: Optional[BlackBoxCollector] = None
+        self._last_run: dict[str, Any] = {}
+        self._last_blackbox: dict[str, Any] = {}
+        self._log_status: dict[str, str] = {}
         self._worker = threading.Thread(
             target=self._run_worker, name="robotd-link", daemon=True
         )
@@ -178,6 +189,86 @@ class RobotController:
                 if not fields:
                     raise ValueError("imu_set needs tau and/or auto_bias")
                 reply = client.command("IMU_SET", *fields)
+            elif action == "log_start":
+                if self._recorder is not None:
+                    raise ValueError("a log run is already recording")
+                name = request.get("name", "run")
+                notes = request.get("notes", "")
+                if not isinstance(name, str) or not isinstance(notes, str):
+                    raise ValueError("name and notes must be strings")
+                divisor = self._integer(request, "div", 2)
+                duration = request.get("duration_s")
+                if duration is not None and (
+                    isinstance(duration, bool)
+                    or not isinstance(duration, (int, float))
+                    or duration <= 0
+                ):
+                    raise ValueError("duration_s must be a positive number")
+                self._record_status(client.command("STATUS"))
+                self._recorder = RunRecorder(
+                    name, divisor, notes, duration,
+                    dict(self._latest_status), dict(self._latest_imu),
+                    self._steps_per_mm(),
+                )
+                try:
+                    reply = client.command("LOG_START", f"DIV={divisor}")
+                except RobotLinkError:
+                    self._finish_recorder({"error": "LOG_START rejected"})
+                    raise
+                self._log_status = reply_fields(reply)
+                return {
+                    "ok": True,
+                    "reply": reply.line,
+                    "run": self._recorder.path.name,
+                    "service": self.snapshot(),
+                }
+            elif action == "log_stop":
+                reply = client.command("LOG_STOP")
+                self._log_status = reply_fields(reply)
+                client.poll_events()
+                result = self._finish_recorder(self._log_status)
+                return {
+                    "ok": True,
+                    "reply": reply.line,
+                    "run": result,
+                    "service": self.snapshot(),
+                }
+            elif action == "log_status":
+                reply = client.command("LOG_STATUS")
+                self._log_status = reply_fields(reply)
+            elif action == "bb_freeze":
+                reply = client.command("BB_FREEZE")
+                self._log_status = reply_fields(reply)
+            elif action == "bb_arm":
+                reply = client.command("BB_ARM")
+                self._log_status = reply_fields(reply)
+            elif action == "bb_dump":
+                if self._blackbox is not None:
+                    raise ValueError("a black-box dump is already in progress")
+                status = reply_fields(client.command("LOG_STATUS"))
+                if status.get("BB") != "FROZEN":
+                    raise ValueError(
+                        "black box is not frozen (send bb_freeze first)"
+                    )
+                self._blackbox = BlackBoxCollector(
+                    dict(self._latest_status), status, self._steps_per_mm()
+                )
+                try:
+                    reply = client.command("BB_DUMP")
+                except RobotLinkError:
+                    self._blackbox.close({"error": "BB_DUMP rejected"})
+                    self._blackbox = None
+                    raise
+                self._log_status = reply_fields(reply)
+                return {
+                    "ok": True,
+                    "reply": reply.line,
+                    "run": self._blackbox.path.name,
+                    "service": self.snapshot(),
+                }
+            elif action == "runs":
+                return {"ok": True, "runs": list_runs(),
+                        "service": self.snapshot()}
             elif action == "imu_window_start":
                 reply = client.command("IMU_WINDOW_START")
             elif action == "imu_window":
@@ -208,7 +299,56 @@ class RobotController:
             "imu_supported": self._imu_supported,
             "imu": dict(self._latest_imu),
             "imu_point": self._imu_point,
+            "log": self._telemetry_snapshot(),
         }
+
+    def _telemetry_snapshot(self) -> dict[str, Any]:
+        result: dict[str, Any] = {
+            "firmware": dict(self._log_status),
+            "last_run": self._last_run,
+            "last_blackbox": self._last_blackbox,
+        }
+        if self._recorder is not None:
+            result["recording"] = {
+                "run": self._recorder.path.name,
+                **self._recorder.summary(),
+            }
+        if self._blackbox is not None:
+            result["dumping"] = {
+                "run": self._blackbox.path.name,
+                **self._blackbox.summary(),
+            }
+        return result
+
+    def _steps_per_mm(self) -> Optional[float]:
+        try:
+            microsteps = int(self._latest_status.get("MICROSTEPS", ""))
+        except ValueError:
+            return None
+        import math
+        return FULL_STEPS_PER_REV * microsteps / (math.pi * WHEEL_DIAMETER_MM)
+
+    def _finish_recorder(self, firmware: dict[str, str]) -> dict[str, Any]:
+        if self._recorder is None:
+            return {}
+        meta = self._recorder.close({"firmware_at_stop": firmware})
+        self._last_run = {"run": self._recorder.path.name,
+                          **meta.get("summary", {})}
+        self._recorder = None
+        return self._last_run
+
+    def _finish_blackbox(self, end: dict[str, str],
+                         complete: bool = True) -> None:
+        if self._blackbox is None:
+            return
+        if complete:
+            meta = self._blackbox.finish(end)
+        else:
+            meta = self._blackbox.close({"error": "dump incomplete", **end})
+        self._last_blackbox = {"run": self._blackbox.path.name,
+                               "complete": complete,
+                               **meta.get("summary", {})}
+        self._blackbox = None
 
     def _run_worker(self) -> None:
         while not self._stop_event.wait(WORKER_TICK_SECONDS):
@@ -227,6 +367,20 @@ class RobotController:
             self._next_reconnect = now + RECONNECT_PERIOD_SECONDS
             self._connect()
             return
+
+        # Drain unsolicited lines (LOG/BB telemetry, DONE events) every tick.
+        self._client.poll_events()
+        if self._recorder is not None and self._recorder.expired():
+            reply = self._client.command("LOG_STOP")
+            self._log_status = reply_fields(reply)
+            self._client.poll_events()
+            self._finish_recorder(self._log_status)
+            return
+        if (
+            self._blackbox is not None
+            and now - self._blackbox.started > BB_DUMP_TIMEOUT_SECONDS
+        ):
+            self._finish_blackbox({}, complete=False)
 
         if self._velocity is not None:
             if now >= self._control_deadline:
@@ -286,6 +440,10 @@ class RobotController:
         return self._client
 
     def _close_client(self) -> None:
+        if self._recorder is not None:
+            self._finish_recorder({"error": "link lost"})
+        if self._blackbox is not None:
+            self._finish_blackbox({"error": "link lost"}, complete=False)
         if self._client is not None:
             self._client.close()
             self._client = None
@@ -301,6 +459,17 @@ class RobotController:
         self._latest_status_line = reply.line
 
     def _record_event(self, reply: Reply) -> None:
+        if reply.kind == "LOG":
+            if self._recorder is not None:
+                self._recorder.add_line(reply.fields)
+            return
+        if reply.kind == "BB":
+            if self._blackbox is not None:
+                self._blackbox.add_line(reply.fields)
+            return
+        if reply.kind == "BBEND":
+            self._finish_blackbox(reply_fields(reply))
+            return
         self._last_event = reply.line
 
     def _record_imu(self, reply: Reply) -> None:

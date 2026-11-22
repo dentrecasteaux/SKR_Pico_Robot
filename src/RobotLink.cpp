@@ -5,10 +5,11 @@
 #include "Imu.h"
 #include "Protocol.h"
 
-RobotLink::RobotLink(Stream& stream, Robot& robot,
+RobotLink::RobotLink(Stream& stream, Robot& robot, Telemetry::Logger& logger,
                      LegacyCommandHandler legacyCommandHandler)
     : transport_(stream),
       robot_(robot),
+      logger_(logger),
       legacyCommandHandler_(legacyCommandHandler)
 {
 }
@@ -103,6 +104,7 @@ void RobotLink::processLine(char* line)
       return;
     case Protocol::CommandType::Estop:
       robot_.estop();
+      logger_.freeze("ESTOP");
       cacheReply(originalLine, command.sequence, true);
       sendAck(command.sequence);
       return;
@@ -144,7 +146,93 @@ void RobotLink::processLine(char* line)
     case Protocol::CommandType::ImuWindow:
       processImuCommand(command);
       return;
+    case Protocol::CommandType::LogStart:
+    case Protocol::CommandType::LogStop:
+    case Protocol::CommandType::LogStatus:
+    case Protocol::CommandType::BbFreeze:
+    case Protocol::CommandType::BbArm:
+    case Protocol::CommandType::BbDump:
+      processLogCommand(command);
+      return;
   }
+}
+
+// Telemetry commands never move the motors: accepted in every mode and not
+// part of the motion-reply replay cache. Replies are ACKs with fields.
+void RobotLink::processLogCommand(const Protocol::Command& command)
+{
+  const uint32_t sequence = command.sequence;
+  switch (command.type) {
+    case Protocol::CommandType::LogStart:
+      if (!logger_.startLog(command.logDivisor)) {
+        sendError(sequence, "OUT_OF_RANGE");
+        return;
+      }
+      sendLogStatus(sequence);
+      return;
+    case Protocol::CommandType::LogStop:
+      logger_.stopLog();
+      sendLogStatus(sequence);
+      return;
+    case Protocol::CommandType::LogStatus:
+      sendLogStatus(sequence);
+      return;
+    case Protocol::CommandType::BbFreeze:
+      logger_.freeze("COMMAND");
+      sendLogStatus(sequence);
+      return;
+    case Protocol::CommandType::BbArm:
+      if (!logger_.arm()) {
+        sendError(sequence, "BUSY");
+        return;
+      }
+      sendLogStatus(sequence);
+      return;
+    case Protocol::CommandType::BbDump:
+      if (!logger_.startDump()) {
+        // Not frozen, or a LOG stream is running (stop it first).
+        sendError(sequence, "BUSY");
+        return;
+      }
+      sendLogStatus(sequence);
+      return;
+    default:
+      sendError(sequence, "UNKNOWN_COMMAND");
+      return;
+  }
+}
+
+void RobotLink::sendLogStatus(uint32_t sequence)
+{
+  const Telemetry::Stats s = logger_.stats();
+  Print& output = transport_.output();
+  output.print(Protocol::VERSION);
+  output.print(" ACK ");
+  output.print(sequence);
+  output.print(" OK LOG=");
+  output.print(s.logging ? 1 : 0);
+  output.print(" DIV=");
+  output.print(s.divisor);
+  output.print(" SEQ=");
+  output.print(s.seq);
+  output.print(" SENT=");
+  output.print(s.sent);
+  output.print(" STREAM_DROPS=");
+  output.print(s.streamDrops);
+  output.print(" IMU_DROPS=");
+  output.print(s.imuDrops);
+  output.print(" IMU_DROPS_TOTAL=");
+  output.print(s.imuDropsTotal);
+  output.print(" BB=");
+  output.print(Telemetry::Logger::bbStateName(s.bbState));
+  output.print(" BB_COUNT=");
+  output.print(s.bbCount);
+  output.print(" BB_DUMPED=");
+  output.print(s.bbDumped);
+  output.print(" BB_REASON=");
+  output.print(s.bbReason[0] != '\0' ? s.bbReason : "NONE");
+  output.print(" BB_FROZEN_T_US=");
+  output.println(s.bbFrozenAtUs);
 }
 
 // IMU commands never move the motors, so they are accepted in every mode

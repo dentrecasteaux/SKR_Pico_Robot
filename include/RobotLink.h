@@ -5,13 +5,14 @@
 #include "Protocol.h"
 #include "Robot.h"
 #include "SerialTransport.h"
+#include "Telemetry.h"
 
 class RobotLink
 {
 public:
   using LegacyCommandHandler = void (*)(const char* command);
 
-  RobotLink(Stream& stream, Robot& robot,
+  RobotLink(Stream& stream, Robot& robot, Telemetry::Logger& logger,
             LegacyCommandHandler legacyCommandHandler);
 
   void update();
@@ -23,6 +24,8 @@ private:
   void sendImu(uint32_t sequence);
   void sendImuWindow(uint32_t sequence);
   void processImuCommand(const Protocol::Command& command);
+  void processLogCommand(const Protocol::Command& command);
+  void sendLogStatus(uint32_t sequence);
   void sendError(uint32_t sequence, const char* code);
   void sendCommandError(uint32_t sequence, Robot::CommandResult result);
   const char* commandErrorCode(Robot::CommandResult result) const;
@@ -39,6 +42,7 @@ private:
 
   SerialTransport transport_;
   Robot& robot_;
+  Telemetry::Logger& logger_;
   LegacyCommandHandler legacyCommandHandler_;
   uint32_t lastValidCommandMs_ = 0;
 

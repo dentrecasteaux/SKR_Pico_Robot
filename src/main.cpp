@@ -485,7 +485,8 @@ void processCommand(const char* command)
 
 }  // namespace
 
-RobotLink robotLink(Serial, robot, processCommand);
+Telemetry::Logger telemetryLogger;
+RobotLink robotLink(Serial, robot, telemetryLogger, processCommand);
 
 void setup()
 {
@@ -515,6 +516,7 @@ void loop()
 {
   robotLink.update();
   robot.update();
+  telemetryLogger.update(robot, Serial);
   // Auto-bias on core 1 only runs while no STEP pulses are being generated.
   Imu::setMotorsStopped(!robot.motorsBusy());
 }

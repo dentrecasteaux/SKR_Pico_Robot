@@ -104,6 +104,10 @@ public:
   bool takeJobCompletion(JobCompletion& completion);
   // True while either motor is generating STEP pulses. Cheap: no driver I/O.
   bool motorsBusy() const;
+  // Telemetry: current mode and signed wheel speeds in steps/s (forward
+  // positive; reported in velocity mode, 0 during finite MOVE/TURN). Cheap.
+  Mode mode() const { return mode_; }
+  void wheelSpeeds(int32_t& left, int32_t& right) const;
 
 private:
   bool motionAllowed();

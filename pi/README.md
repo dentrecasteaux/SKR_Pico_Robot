@@ -42,6 +42,41 @@ the client remains connected until it receives the matching `DONE` event.
 
 ## Test scripts
 
+### Telemetry runs (Phase 6)
+
+`robotd` records firmware telemetry into one folder per run under `~/runs/`:
+`data.csv` (engineering units, plus wheel speeds in mm/s) and `meta.json`
+(name, notes, rate, the robot status at the start, firmware counters at the
+end, and a summary with rows, missing records and the largest time gap).
+
+```text
+python3 robotdctl.py log-start --name my-test --div 2 --notes "what I did"
+python3 robotdctl.py log-start --name quick --duration 10   # stops by itself
+python3 robotdctl.py log-stop
+python3 robotdctl.py log-status
+python3 robotdctl.py bb-freeze      # ESTOP also freezes it
+python3 robotdctl.py bb-dump        # saves ~/runs/<time>_bb_<reason>/
+python3 robotdctl.py bb-arm         # clear and restart recording
+python3 robotdctl.py runs
+```
+
+The web server lists runs at `/api/runs` and serves
+`/runs/<run>/data.csv` and `/runs/<run>/meta.json` for download. From the
+Mac, `rsync -av robot@r2w-pi.local:runs/ ~/robot-runs/` copies everything.
+
+### `log_test.py`: Phase 6 pass test
+
+**Robot on the stand.** It records a 30 s run while driving a ±200 mm/s,
+0.25 Hz sine on both wheels, then checks there are no missing records or time
+gaps and that the logged wheel speed follows the command. It then freezes and
+dumps the black box, and checks it holds about 2 s of consecutive 500 Hz
+records. It prints PASS/FAIL for each check.
+
+```text
+python3 log_test.py
+python3 log_test.py --seconds 10 --div 1
+```
+
 ### `vibe_test.py`: IMU vibration with the motors running
 
 Commissioning plan Phase 5.4. **Robot on the stand, wheels clear.** For each

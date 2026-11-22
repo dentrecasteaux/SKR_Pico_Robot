@@ -313,6 +313,12 @@ Robot::Status Robot::status()
   return result;
 }
 
+void Robot::wheelSpeeds(int32_t& left, int32_t& right) const
+{
+  left = leftMotor_.speed();
+  right = rightMotor_.speed();
+}
+
 bool Robot::motorsBusy() const
 {
   return leftMotor_.isBusy() || rightMotor_.isBusy();

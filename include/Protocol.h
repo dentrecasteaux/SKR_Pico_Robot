@@ -22,7 +22,13 @@ enum class CommandType
   ImuZeroYaw,
   ImuSet,
   ImuWindowStart,
-  ImuWindow
+  ImuWindow,
+  LogStart,
+  LogStop,
+  LogStatus,
+  BbFreeze,
+  BbArm,
+  BbDump
 };
 
 enum class ChopperMode { StealthChop, SpreadCycle };
@@ -44,6 +50,7 @@ struct Command
   float tauSeconds = 0.0F;
   bool hasAutoBias = false;
   bool autoBias = false;
+  uint32_t logDivisor = 2;     // LOG_START DIV=, default 250 Hz
 };
 
 struct ParseResult

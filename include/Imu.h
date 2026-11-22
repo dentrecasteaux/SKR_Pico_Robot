@@ -106,6 +106,30 @@ struct WindowStats
   uint32_t loopMaxUs = 0;             // longest core 1 loop pass
 };
 
+// One processed sample, for telemetry. Core 1 pushes every sample into a
+// single-producer/single-consumer queue; core 0 pops them (Telemetry).
+struct Sample
+{
+  uint32_t n = 0;                     // core 1 sample counter (gaps = drops)
+  uint32_t tUs = 0;                   // micros() of the data-ready interrupt
+  float roll = 0.0F;                  // degrees, robot frame
+  float pitch = 0.0F;
+  float yaw = 0.0F;
+  float p = 0.0F;                     // bias-corrected rates, deg/s
+  float q = 0.0F;
+  float r = 0.0F;
+  float ax = 0.0F;                    // acceleration, g
+  float ay = 0.0F;
+  float az = 0.0F;
+  uint8_t flags = 0;                  // SAMPLE_* bits below
+};
+
+constexpr uint8_t SAMPLE_LATE = 0x01;         // gap > 1.5 periods before it
+constexpr uint8_t SAMPLE_STALL = 0x02;        // read by stall recovery
+constexpr uint8_t SAMPLE_ACC_REJECT = 0x04;   // accel correction skipped
+constexpr uint8_t SAMPLE_CALIBRATING = 0x08;  // gyro calibration running
+constexpr uint8_t SAMPLE_NO_ATTITUDE = 0x10;  // attitude not yet valid
+
 // ---- core 1 (called from setup1() / loop1()) ----
 void beginCore1();
 void updateCore1();
@@ -120,6 +144,8 @@ void zeroYaw();
 bool setTau(float seconds);                // false if out of range
 void setAutoBias(bool on);
 void setMotorsStopped(bool stopped);       // call every loop pass
+bool popSample(Sample& out);               // false if the queue is empty
+uint32_t sampleQueueDrops();               // samples lost to a full queue
 
 const char* stateName(State state);
 const char* calName(CalState cal);

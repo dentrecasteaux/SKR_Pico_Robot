@@ -49,6 +49,24 @@ def build_parser() -> argparse.ArgumentParser:
     move.add_argument("distance", type=float)
     turn = subparsers.add_parser("turn")
     turn.add_argument("angle", type=float)
+
+    log_start = subparsers.add_parser(
+        "log-start", help="start recording a telemetry run on the Pi"
+    )
+    log_start.add_argument("--name", default="run")
+    log_start.add_argument("--notes", default="")
+    log_start.add_argument(
+        "--div", type=int, default=2, help="1 = 500 Hz, 2 = 250 Hz, ..."
+    )
+    log_start.add_argument(
+        "--duration", type=float, help="stop automatically after N seconds"
+    )
+    subparsers.add_parser("log-stop", help="stop the run and close its files")
+    subparsers.add_parser("log-status")
+    subparsers.add_parser("bb-freeze", help="freeze the black box")
+    subparsers.add_parser("bb-arm", help="clear and restart the black box")
+    subparsers.add_parser("bb-dump", help="save the frozen black box to a run")
+    subparsers.add_parser("runs", help="list recorded runs")
     return parser
 
 
@@ -66,6 +84,10 @@ def payload(args: argparse.Namespace) -> dict[str, Any]:
         result["distance"] = args.distance
     elif args.action == "turn":
         result["angle"] = args.angle
+    elif args.action == "log-start":
+        result.update(name=args.name, notes=args.notes, div=args.div)
+        if args.duration is not None:
+            result["duration_s"] = args.duration
     elif args.action == "configure":
         result.update(
             current_ma=args.current_ma,

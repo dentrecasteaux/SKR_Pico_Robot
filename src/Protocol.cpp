@@ -70,6 +70,14 @@ Protocol::CommandType commandType(const char* name, bool& recognised)
   if (std::strcmp(name, "IMU_WINDOW_START") == 0) {
     return Protocol::CommandType::ImuWindowStart;
   }
+  if (std::strcmp(name, "LOG_START") == 0) return Protocol::CommandType::LogStart;
+  if (std::strcmp(name, "LOG_STOP") == 0) return Protocol::CommandType::LogStop;
+  if (std::strcmp(name, "LOG_STATUS") == 0) {
+    return Protocol::CommandType::LogStatus;
+  }
+  if (std::strcmp(name, "BB_FREEZE") == 0) return Protocol::CommandType::BbFreeze;
+  if (std::strcmp(name, "BB_ARM") == 0) return Protocol::CommandType::BbArm;
+  if (std::strcmp(name, "BB_DUMP") == 0) return Protocol::CommandType::BbDump;
   if (std::strcmp(name, "IMU_WINDOW") == 0) {
     return Protocol::CommandType::ImuWindow;
   }
@@ -127,6 +135,7 @@ Protocol::ParseResult Protocol::parseCommand(char* line, Command& command)
   bool hasMode = false;
   bool hasTau = false;
   bool hasAutoBias = false;
+  bool hasDivisor = false;
 
   while ((token = ::strtok_r(nullptr, " ", &savePosition)) != nullptr) {
     char* equals = std::strchr(token, '=');
@@ -236,6 +245,12 @@ Protocol::ParseResult Protocol::parseCommand(char* line, Command& command)
       }
       hasAutoBias = true;
       command.autoBias = flag == 1;
+    } else if (std::strcmp(token, "DIV") == 0) {
+      if (hasDivisor || !parseUnsigned(value, command.logDivisor)) {
+        result.errorCode = hasDivisor ? "DUPLICATE_FIELD" : "INVALID_VALUE";
+        return result;
+      }
+      hasDivisor = true;
     } else {
       result.errorCode = "UNKNOWN_FIELD";
       return result;
@@ -248,7 +263,11 @@ Protocol::ParseResult Protocol::parseCommand(char* line, Command& command)
   const bool noFields =
       !hasLinear && !hasTurn && !hasLease && !hasDistance && !hasAngle &&
       !hasCurrent && !hasMicrosteps && !hasAcceleration && !hasMode &&
-      !hasImuFields;
+      !hasImuFields && !hasDivisor;
+  if (hasDivisor && command.type != CommandType::LogStart) {
+    result.errorCode = "UNKNOWN_FIELD";
+    return result;
+  }
   const bool hasConfiguration =
       hasCurrent || hasMicrosteps || hasAcceleration || hasMode ||
       hasImuFields;
@@ -263,6 +282,11 @@ Protocol::ParseResult Protocol::parseCommand(char* line, Command& command)
     case CommandType::ImuZeroYaw:
     case CommandType::ImuWindowStart:
     case CommandType::ImuWindow:
+    case CommandType::LogStop:
+    case CommandType::LogStatus:
+    case CommandType::BbFreeze:
+    case CommandType::BbArm:
+    case CommandType::BbDump:
       if (!noFields) {
         result.errorCode = "UNKNOWN_FIELD";
         return result;
@@ -306,6 +330,13 @@ Protocol::ParseResult Protocol::parseCommand(char* line, Command& command)
       }
       if (hasLinear || hasTurn || hasLease || hasDistance || hasAngle ||
           hasImuFields) {
+        result.errorCode = "UNKNOWN_FIELD";
+        return result;
+      }
+      break;
+    case CommandType::LogStart:
+      if (hasLinear || hasTurn || hasLease || hasDistance || hasAngle ||
+          hasConfiguration) {
         result.errorCode = "UNKNOWN_FIELD";
         return result;
       }

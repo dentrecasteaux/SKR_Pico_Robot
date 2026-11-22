@@ -97,6 +97,27 @@ class RobotClient:
 
         raise RobotLinkError("Command retry failed")
 
+    def poll_events(self, max_lines: int = 2000) -> int:
+        """Read and dispatch complete lines that are already waiting.
+
+        Used between commands to drain unsolicited lines (LOG/BB telemetry,
+        DONE events) so they do not pile up in the serial buffer. Returns the
+        number of lines handled. Never waits for new data beyond finishing a
+        partly received line.
+        """
+        handled = 0
+        while handled < max_lines and self._serial.in_waiting:
+            raw = self._serial.readline()
+            if not raw:
+                break
+            reply = self._parse_reply(raw)
+            if self._event_handler is None:
+                print(reply.line)
+            else:
+                self._event_handler(reply)
+            handled += 1
+        return handled
+
     def read_reply(self) -> Reply:
         raw = self._serial.readline()
         if not raw:

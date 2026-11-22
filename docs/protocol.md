@@ -307,6 +307,52 @@ Typical uses: start a window, run a `TURN`, read `YAW_CHANGE` and compare it
 with the commanded angle; or start a window, drive, and read the noise and
 roll/pitch ranges to measure vibration.
 
+## Telemetry commands (balancing Phase 6)
+
+Core 0 drains every IMU sample (500 Hz) from core 1, adds the robot state,
+and keeps it in a 1 s live ring and a 2 s black-box ring. These commands never
+move the motors. They are accepted in every mode, including ESTOP, and are not
+part of the replay cache. All of them reply with the same telemetry status
+ACK:
+
+```text
+R2W/1 ACK 41 OK LOG=1 DIV=2 SEQ=123456 SENT=0 STREAM_DROPS=0 IMU_DROPS=0 IMU_DROPS_TOTAL=0 BB=RECORDING BB_COUNT=1024 BB_DUMPED=0 BB_REASON=NONE BB_FROZEN_T_US=0
+```
+
+| Command | Effect |
+|---|---|
+| `LOG_START [DIV=n]` | Stream every n-th sample as `LOG` lines (`DIV` 1–50; default 2 = 250 Hz). Restarts the counters. |
+| `LOG_STOP` | Stop streaming. `SENT` and `STREAM_DROPS` stay readable. |
+| `LOG_STATUS` | Report only. |
+| `BB_FREEZE` | Freeze the black box (`BB_REASON=COMMAND`). `ESTOP` also freezes it (`ESTOP`). |
+| `BB_DUMP` | Send the frozen black box as `BB` lines, then `BBEND`. `ERR BUSY` unless frozen and not streaming. |
+| `BB_ARM` | Clear the black box and resume recording. `ERR BUSY` during a dump. |
+
+`LOG` and `BB` lines are unsequenced and positional:
+
+```text
+R2W/1 LOG <seq> <t_us> <pitch> <roll> <yaw> <p> <q> <r> <ax> <ay> <az> <u> <v_left> <v_right> <mode> <flags>
+R2W/1 BB  <same fields>
+R2W/1 BBEND COUNT=1024 REASON=ESTOP FROZEN_T_US=123456789
+```
+
+| Field | Units |
+|---|---|
+| `seq` | Core 1 sample number since boot. A gap means samples were lost in the core 1 → core 0 queue (`IMU_DROPS` counts them since `LOG_START`; `IMU_DROPS_TOTAL` since boot, including start-up while core 0 waits for the USB host). |
+| `t_us` | `micros()` of the IMU data-ready interrupt (wraps at 2³²) |
+| `pitch`, `roll`, `yaw` | Centidegrees, robot frame |
+| `p`, `q`, `r` | Bias-corrected rates, centidegrees/s |
+| `ax`, `ay`, `az` | Milli-g |
+| `u` | Commanded wheel acceleration, mm/s² (balance controller; 0 until Phase 9) |
+| `v_left`, `v_right` | Wheel speed in steps/s, forward positive (velocity mode only; 0 during MOVE/TURN) |
+| `mode` | 0 IDLE, 1 VELOCITY, 2 MOVE, 3 TURN, 4 ESTOP |
+| `flags` | 0x01 late sample, 0x02 stall read, 0x04 accel correction rejected, 0x08 calibrating, 0x10 attitude not valid, 0x80 motors busy |
+
+The firmware writes these lines only when the USB transmit buffer has room,
+so a slow reader never blocks the control loop. The stream can lag by up to
+1 s (the live ring) before records are skipped and counted in
+`STREAM_DROPS`. The dump is also written in the background.
+
 ## Lease rules
 
 Leases apply only to `SET_VELOCITY`.

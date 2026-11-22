@@ -9,6 +9,7 @@
 #include "Config.h"
 #include "Hardware.h"
 #include "hardware/i2c.h"
+#include "hardware/sync.h"
 #include "pico/mutex.h"
 
 // Implementation notes (proven in the skr-pico-mpu6050-test project):
@@ -198,6 +199,26 @@ uint32_t motorsStoppedSinceMs = 0;
 bool motorsWereStopped = true;
 
 WindowAcc window;
+
+// Sample queue (core 1 producer, core 0 consumer). Lock-free: each side
+// owns one index; memory barriers order the data and the index updates.
+constexpr uint32_t QUEUE_SIZE = 256;  // power of two; 0.5 s at 500 Hz
+Imu::Sample sampleQueue[QUEUE_SIZE];
+volatile uint32_t queueHead = 0;      // written by core 1
+volatile uint32_t queueTail = 0;      // written by core 0
+volatile uint32_t queueDrops = 0;     // written by core 1
+
+void pushSample(const Imu::Sample& sample)
+{
+  const uint32_t head = queueHead;
+  if (head - queueTail >= QUEUE_SIZE) {
+    queueDrops = queueDrops + 1;
+    return;
+  }
+  sampleQueue[head & (QUEUE_SIZE - 1)] = sample;
+  __dmb();
+  queueHead = head + 1;
+}
 
 bool writeRegister(uint8_t reg, uint8_t value)
 {
@@ -610,6 +631,27 @@ void processSample(const uint8_t* b, uint32_t readUs, uint32_t isrUs,
   windowStep(rates, accel, accelMagnitude, !stopped, gapValid, gapUs,
              latencyUs, filterUs, nowMs);
   publish(rates, accel, tempC, nowMs);
+
+  Imu::Sample sample;
+  sample.n = samples;
+  sample.tUs = fromStall ? nowUs : isrUs;
+  sample.roll = roll;
+  sample.pitch = pitch;
+  sample.yaw = yaw;
+  sample.p = rates[0];
+  sample.q = rates[1];
+  sample.r = rates[2];
+  sample.ax = accel[0];
+  sample.ay = accel[1];
+  sample.az = accel[2];
+  if (isLate) sample.flags |= Imu::SAMPLE_LATE;
+  if (fromStall) sample.flags |= Imu::SAMPLE_STALL;
+  if (accRejects != rejectsBefore) sample.flags |= Imu::SAMPLE_ACC_REJECT;
+  if (calState == Imu::CalState::Running) {
+    sample.flags |= Imu::SAMPLE_CALIBRATING;
+  }
+  if (!attitudeValid) sample.flags |= Imu::SAMPLE_NO_ATTITUDE;
+  pushSample(sample);
   loopMaxUs = 0;
 }
 
@@ -814,6 +856,19 @@ void Imu::setAutoBias(bool on) { autoBiasEnabled = on; }
 
 void Imu::setMotorsStopped(bool stopped) { motorsStopped = stopped; }
 
+bool Imu::popSample(Sample& out)
+{
+  const uint32_t tail = queueTail;
+  if (queueHead == tail) return false;
+  __dmb();
+  out = sampleQueue[tail & (QUEUE_SIZE - 1)];
+  __dmb();
+  queueTail = tail + 1;
+  return true;
+}
+
+uint32_t Imu::sampleQueueDrops() { return queueDrops; }
+
 #else  // R2W_IMU == 0: stubs so the rest of the firmware builds unchanged.
 
 bool Imu::enabled() { return false; }
@@ -829,6 +884,8 @@ void Imu::zeroYaw() {}
 bool Imu::setTau(float) { return false; }
 void Imu::setAutoBias(bool) {}
 void Imu::setMotorsStopped(bool) {}
+bool Imu::popSample(Sample&) { return false; }
+uint32_t Imu::sampleQueueDrops() { return 0; }
 void Imu::beginCore1() {}
 void Imu::updateCore1() {}
 
