@@ -143,8 +143,8 @@ class RobotController:
             elif action == "clear_estop":
                 reply = client.command("CLEAR_ESTOP")
             elif action == "configure":
-                current_ma = self._integer(request, "current_ma", 400)
-                microsteps = self._integer(request, "microsteps", 4)
+                current_ma = self._integer(request, "current_ma", 1000)
+                microsteps = self._integer(request, "microsteps", 16)
                 acceleration = self._number(request, "acceleration_mm_s2")
                 mode = request.get("tmc_mode")
                 if mode not in {"STEALTHCHOP", "SPREADCYCLE"}:

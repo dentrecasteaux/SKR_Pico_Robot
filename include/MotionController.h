@@ -21,6 +21,7 @@ public:
 
 private:
   float stepsPerMillimetre() const;
+  uint32_t calibrationStepIntervalUs() const;
   void setWheelSpeeds(int32_t left, int32_t right, int32_t maximumMagnitude);
 
   Motor& leftMotor_;

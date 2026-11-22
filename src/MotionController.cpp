@@ -85,10 +85,9 @@ bool MotionController::moveDistance(float distanceMm)
   if (steps == 0) return false;
 
   const bool forward = distanceMm > 0.0F;
-  return leftMotor_.startMove(steps, forward,
-                              Config::CALIBRATION_MOVE_STEP_INTERVAL_US) &&
-         rightMotor_.startMove(steps, forward,
-                               Config::CALIBRATION_MOVE_STEP_INTERVAL_US);
+  const uint32_t intervalUs = calibrationStepIntervalUs();
+  return leftMotor_.startMove(steps, forward, intervalUs) &&
+         rightMotor_.startMove(steps, forward, intervalUs);
 }
 
 bool MotionController::turnAngle(float angleDegrees)
@@ -104,10 +103,9 @@ bool MotionController::turnAngle(float angleDegrees)
   if (steps == 0) return false;
 
   const bool turnLeft = angleDegrees > 0.0F;
-  return leftMotor_.startMove(steps, !turnLeft,
-                              Config::CALIBRATION_MOVE_STEP_INTERVAL_US) &&
-         rightMotor_.startMove(steps, turnLeft,
-                               Config::CALIBRATION_MOVE_STEP_INTERVAL_US);
+  const uint32_t intervalUs = calibrationStepIntervalUs();
+  return leftMotor_.startMove(steps, !turnLeft, intervalUs) &&
+         rightMotor_.startMove(steps, turnLeft, intervalUs);
 }
 
 void MotionController::stop()
@@ -132,6 +130,13 @@ uint16_t MotionController::microsteps() const { return microsteps_; }
 float MotionController::accelerationMmPerSecondSquared() const
 {
   return accelerationMmPerSecondSquared_;
+}
+
+uint32_t MotionController::calibrationStepIntervalUs() const
+{
+  return static_cast<uint32_t>(lroundf(
+      1000000.0F / (Config::CALIBRATION_MOVE_SPEED_MM_PER_SECOND *
+                    stepsPerMillimetre())));
 }
 
 float MotionController::stepsPerMillimetre() const
