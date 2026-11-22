@@ -34,10 +34,11 @@ CSV_HEADER = (
     "mode", "flags",
 )
 MODE_NAMES = {0: "IDLE", 1: "VELOCITY", 2: "MOVE", 3: "TURN", 4: "ESTOP",
-              5: "HOLD"}
+              5: "HOLD", 6: "BALANCE"}
 FLAG_NAMES = {
     0x01: "LATE", 0x02: "STALL", 0x04: "ACC_REJECT", 0x08: "CALIBRATING",
-    0x10: "NO_ATTITUDE", 0x80: "MOTORS_BUSY",
+    0x10: "NO_ATTITUDE", 0x20: "BALANCE_ACTIVE", 0x40: "BALANCE_DRY",
+    0x80: "MOTORS_BUSY",
 }
 _SAFE_NAME = re.compile(r"[^A-Za-z0-9_.-]+")
 

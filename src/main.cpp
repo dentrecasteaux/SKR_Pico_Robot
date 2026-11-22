@@ -5,6 +5,7 @@
 
 #include "Hardware.h"
 #include "Config.h"
+#include "Balance.h"
 #include "Imu.h"
 #include "Motor.h"
 #include "MotionController.h"
@@ -486,6 +487,21 @@ void processCommand(const char* command)
 }  // namespace
 
 Telemetry::Logger telemetryLogger;
+
+// Core 0 side of the balance controller: freeze the black box on a trip, and
+// give the motors back to core 0 once core 1 has released them.
+void syncBalance()
+{
+  static Balance::State previous = Balance::State::Off;
+  const Balance::State current = Balance::currentState();
+  if (current == Balance::State::Tripped && previous != Balance::State::Tripped) {
+    telemetryLogger.freeze(Balance::reasonName(Balance::status().reason));
+  }
+  if (robot.mode() == Robot::Mode::Balance && !Balance::active()) {
+    robot.exitBalance();
+  }
+  previous = current;
+}
 RobotLink robotLink(Serial, robot, telemetryLogger, processCommand);
 
 void setup()
@@ -495,6 +511,7 @@ void setup()
     delay(10);
   }
 
+  Balance::attach(leftStepper, rightStepper);
   stepperUart.setTX(HW::UART_TX);
   stepperUart.setRX(HW::UART_RX);
   robot.begin();
@@ -517,6 +534,7 @@ void loop()
   robotLink.update();
   robot.update();
   telemetryLogger.update(robot, Serial);
+  syncBalance();
   // Auto-bias on core 1 only runs while no STEP pulses are being generated.
   Imu::setMotorsStopped(!robot.motorsBusy());
 }

@@ -29,7 +29,19 @@ enum class CommandType
   BbFreeze,
   BbArm,
   BbDump,
-  Hold
+  Hold,
+  BalSet,
+  BalArm,
+  BalStop,
+  BalStatus
+};
+
+// BAL_SET / BAL_ARM carry generic KEY=number pairs, checked by RobotLink.
+constexpr size_t MAX_PAIRS = 16;
+struct Pair
+{
+  const char* key = nullptr;   // points into the parsed line
+  float value = 0.0F;
 };
 
 enum class ChopperMode { StealthChop, SpreadCycle };
@@ -52,6 +64,8 @@ struct Command
   bool hasAutoBias = false;
   bool autoBias = false;
   uint32_t logDivisor = 2;     // LOG_START DIV=, default 250 Hz
+  Pair pairs[MAX_PAIRS];
+  size_t pairCount = 0;
 };
 
 struct ParseResult

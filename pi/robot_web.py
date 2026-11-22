@@ -42,6 +42,10 @@ ALLOWED_ACTIONS = {
     "bb_dump",
     "runs",
     "hold",
+    "bal_set",
+    "bal_arm",
+    "bal_stop",
+    "bal_status",
 }
 RUNS_DIR = Path.home() / "runs"
 RUN_FILES = {"data.csv": "text/csv", "meta.json": "application/json"}

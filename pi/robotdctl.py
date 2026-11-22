@@ -50,6 +50,18 @@ def build_parser() -> argparse.ArgumentParser:
     turn = subparsers.add_parser("turn")
     turn.add_argument("angle", type=float)
 
+    bal_set = subparsers.add_parser(
+        "bal-set", help="set balance parameters, e.g. KP=39 KD=2.9 TRIM=-3.9"
+    )
+    bal_set.add_argument("pairs", nargs="+", metavar="KEY=VALUE")
+    bal_arm = subparsers.add_parser(
+        "bal-arm", help="arm the balance controller (lift the robot upright)"
+    )
+    bal_arm.add_argument("--dry", action="store_true",
+                         help="controller only, motors off (sign checks)")
+    subparsers.add_parser("bal-stop")
+    subparsers.add_parser("bal-status")
+
     hold = subparsers.add_parser(
         "hold", help="lock the wheels (drivers on, no motion) for a while"
     )
@@ -89,6 +101,14 @@ def payload(args: argparse.Namespace) -> dict[str, Any]:
         result["distance"] = args.distance
     elif args.action == "turn":
         result["angle"] = args.angle
+    elif args.action == "bal-set":
+        values = {}
+        for pair in args.pairs:
+            key, _, value = pair.partition("=")
+            values[key] = float(value)
+        result["set"] = values
+    elif args.action == "bal-arm":
+        result["dry"] = args.dry
     elif args.action == "hold":
         result["lease_ms"] = args.lease
     elif args.action == "log-start":

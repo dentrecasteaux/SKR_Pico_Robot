@@ -178,6 +178,43 @@ The balancing logs (u, θ, θ̇) will then give l_eff directly by regression of 
 - `HOLD [LEASE=ms]` command: wheels locked (drivers on, no steps), time-limited (500–120000 ms), ended by STOP/ESTOP/motion. `MODE=HOLD` (telemetry mode 5). `robotdctl hold`.
 - `pi/limits_test.py`, `pi/fall_test.py` (pure-Python fit, checked on synthetic falls: ω exact, θ_eq within 0.1°).
 
+## 2026-11-23: Phases 8–9, safety layer and first balance
+
+### Built
+
+- **Firmware `Balance` module on core 1,** run straight after each 500 Hz IMU sample. u = KP·e + KD·θ̇ + KV·v + KX·x → v → x. Steps follow v immediately: a long interval is restarted rather than waited out, and a direction change restarts the state machines.
+- **Safety:** an arming window (|e| ≤ 2°, |θ̇| ≤ 20 °/s) with soft start (0.3 s). Trips: tilt (+5.0° / −20.6° IMU), runaway (at VMAX for 0.3 s), IMU stale (20 ms) or invalid, and arming timeout. On a trip the steps stop at once, the drivers are released after 0.5 s, and the black box freezes with the reason. Dry-run mode. `MODE=BALANCE` locks out all other motion; STOP/ESTOP stop it.
+- **Commands:** `BAL_SET/BAL_ARM [DRY=1]/BAL_STOP/BAL_STATUS`. Telemetry: mode 6, flags 0x20/0x40, u (mm/s²) and the commanded speed.
+- **Pi:** `robotdctl bal-*`, `dryrun_check.py`, `balance_run.py`, `balance_tools.py`.
+
+### 9.1 Dry-run sign check: PASS
+
+12,679 samples over a 9.1° pitch range. The u-vs-error slope is **38.9 m/s²/rad against KP 39**, correlation 0.997. Leaning forward >2° gave mean u +2.61; leaning back gave −2.06.
+
+### 9.2 Wheels in the air, 30% gains: direction correct
+
+Acceleration was gentle, as designed (30% gains, 0.2 m/s cap).
+
+### 9.3 First floor balance: SUCCESS
+
+**First attempt (bug):** it ran with left-over stand-test parameters (KP 3.5, trim −10.9°, VMAX 0.2, ±30° tilt limits, 10° arming window). `balance_run.py` had applied its temporary settings before its restore safety net took effect, so an interrupted stand run left them behind and the next run scaled them again. The robot rocked between the training wheels for 27 s until TILT_FWD tripped at 19°. **Fixed:** the restore now covers every exit; each floor run resets the safety settings to their defaults and refuses KP < 15.
+
+**Second attempt** (KP 39, KD 2.9, TRIM −3.9, defaults; run `2026-11-23_083314_balance`): **balanced for 64.6 s and was stopped by Ctrl-C.** Over 52.8 s of steady running (after the soft start):
+
+| Quantity | Value |
+|---|---|
+| Pitch | mean **−3.904°** (trim −3.90), sd **0.116°**, peak-to-peak 0.55° |
+| Wheel speed | mean 0.1 mm/s, sd 15.3 mm/s, range −45..+35 mm/s |
+| Position | within **±7 mm** the whole time |
+| u | sd 0.19 m/s², max 0.75 m/s² (of 6) |
+| Pitch rate | sd 3.3 °/s |
+| Oscillation | no dominant mode: weak spectral peaks at 1.8 Hz (0.03°) and 5.4 Hz (0.014°) |
+
+- **The fall-test balance angle was right to 0.004°.** That's why PD alone held position (the expected drift didn't appear).
+- **The gains designed from the model worked first time** (designed for l_eff = 140 mm, ω_n = 14 rad/s).
+- The l_eff regression gave no result (r ≈ 0): too little excitation while it stood still. Repeat with deliberate small pushes.
+- The visible "small oscillation" is mostly the base rocking by a few mm (±15 mm/s). The controller uses about 3% of its acceleration range.
+
 ## Actions arising
 
 - Fit a LiPo voltage alarm on the balance lead (the SKR doesn't measure the battery).
@@ -187,4 +224,6 @@ The balancing logs (u, θ, θ̇) will then give l_eff directly by regression of 
 
 ## Next
 
-Phase 8 (safety layer) and Phase 9 (PD balance loop on core 1, with a step generator that applies speed changes immediately). 7.2 (loaded acceleration on the floor) is folded into Phase 9's logs.
+- Push tests (gentle, then firmer) to excite the dynamics: l_eff regression, recovery behaviour, check of a_max/v_max under load.
+- Optional tidy-ups before Phase 10: try KD 3.5–4 and the 94 Hz IMU filter (5.6) to see if the residual rocking shrinks; try ACCEL_COMP=1.
+- Phase 10: outer speed/position loop (KV, KX), then drive commands. Then Phase 11: LQR (same u = K·x form) and the comparison protocol.

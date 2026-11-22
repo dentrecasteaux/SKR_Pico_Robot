@@ -81,6 +81,12 @@ Protocol::CommandType commandType(const char* name, bool& recognised)
   if (std::strcmp(name, "BB_ARM") == 0) return Protocol::CommandType::BbArm;
   if (std::strcmp(name, "BB_DUMP") == 0) return Protocol::CommandType::BbDump;
   if (std::strcmp(name, "HOLD") == 0) return Protocol::CommandType::Hold;
+  if (std::strcmp(name, "BAL_SET") == 0) return Protocol::CommandType::BalSet;
+  if (std::strcmp(name, "BAL_ARM") == 0) return Protocol::CommandType::BalArm;
+  if (std::strcmp(name, "BAL_STOP") == 0) return Protocol::CommandType::BalStop;
+  if (std::strcmp(name, "BAL_STATUS") == 0) {
+    return Protocol::CommandType::BalStatus;
+  }
   if (std::strcmp(name, "IMU_WINDOW") == 0) {
     return Protocol::CommandType::ImuWindow;
   }
@@ -124,6 +130,42 @@ Protocol::ParseResult Protocol::parseCommand(char* line, Command& command)
   command.type = commandType(token, recognised);
   if (!recognised) {
     result.errorCode = "UNKNOWN_COMMAND";
+    return result;
+  }
+
+  // Balance commands: generic KEY=number pairs, validated by RobotLink.
+  if (command.type == CommandType::BalSet ||
+      command.type == CommandType::BalArm ||
+      command.type == CommandType::BalStop ||
+      command.type == CommandType::BalStatus) {
+    command.pairCount = 0;
+    while ((token = ::strtok_r(nullptr, " ", &savePosition)) != nullptr) {
+      char* equals = std::strchr(token, '=');
+      if (equals == nullptr || equals == token || equals[1] == '\0') {
+        result.errorCode = "INVALID_VALUE";
+        return result;
+      }
+      *equals = '\0';
+      if (command.pairCount >= MAX_PAIRS) {
+        result.errorCode = "UNKNOWN_FIELD";
+        return result;
+      }
+      Pair& pair = command.pairs[command.pairCount];
+      pair.key = token;
+      if (!parseFloat(equals + 1, pair.value)) {
+        result.errorCode = "INVALID_VALUE";
+        return result;
+      }
+      ++command.pairCount;
+    }
+    if ((command.type == CommandType::BalStop ||
+         command.type == CommandType::BalStatus) &&
+        command.pairCount != 0) {
+      result.errorCode = "UNKNOWN_FIELD";
+      return result;
+    }
+    command.sequence = result.sequence;
+    result.valid = true;
     return result;
   }
 

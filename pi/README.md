@@ -100,6 +100,33 @@ angle θ_trim. `--analyse RUN ...` re-analyses saved runs.
 ssh -t robot@r2w-pi.local 'cd r2w && python3 fall_test.py'
 ```
 
+### Balancing (Phases 8–9)
+
+```text
+python3 robotdctl.py bal-status
+python3 robotdctl.py bal-set KP=39 KD=2.9 TRIM=-3.9
+python3 robotdctl.py bal-arm [--dry]
+python3 robotdctl.py bal-stop          # STOP and ESTOP also stop it
+```
+
+**`dryrun_check.py` (9.1, motors off).** Tilt the robot by hand forward and
+back. It checks u = KP·e + KD·θ̇ holds with the right sign (lean forward →
+drive forward). Do this before any powered attempt.
+
+**`balance_run.py` (9.2 / 9.3).** A logged attempt at 500 Hz. It arms, then
+you lift the robot towards upright and it engages by itself. It ends on a
+trip, Ctrl-C or `--seconds`. Afterwards it saves the black box and prints how
+long it stood, the end reason and an l_eff estimate from the run's own data.
+`--kp/--kd/--trim` set gains first, and `--scale 0.3` runs at 30% gains for
+that run only. `--stand` is the wheels-in-the-air test: it zeroes the error at
+the current angle, allows any tilt and caps the speed at 0.2 m/s.
+
+```text
+ssh -t robot@r2w-pi.local 'cd r2w && python3 dryrun_check.py'
+ssh -t robot@r2w-pi.local 'cd r2w && python3 balance_run.py --stand --scale 0.3'
+ssh -t robot@r2w-pi.local 'cd r2w && python3 balance_run.py'
+```
+
 ### `vibe_test.py`: IMU vibration with the motors running
 
 Commissioning plan Phase 5.4. **Robot on the stand, wheels clear.** For each

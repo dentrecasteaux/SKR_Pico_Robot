@@ -2,6 +2,8 @@
 
 #include <cstring>
 
+#include "Balance.h"
+#include "Config.h"
 #include "Imu.h"
 #include "Protocol.h"
 
@@ -98,11 +100,13 @@ void RobotLink::processLine(char* line)
       return;
     }
     case Protocol::CommandType::Stop:
+      Balance::stop(Balance::Reason::Command);
       robot_.stop();
       cacheReply(originalLine, command.sequence, true);
       sendAck(command.sequence);
       return;
     case Protocol::CommandType::Estop:
+      Balance::stop(Balance::Reason::Estop);
       robot_.estop();
       logger_.freeze("ESTOP");
       cacheReply(originalLine, command.sequence, true);
@@ -164,7 +168,155 @@ void RobotLink::processLine(char* line)
     case Protocol::CommandType::BbDump:
       processLogCommand(command);
       return;
+    case Protocol::CommandType::BalSet:
+    case Protocol::CommandType::BalArm:
+    case Protocol::CommandType::BalStop:
+    case Protocol::CommandType::BalStatus:
+      processBalanceCommand(command);
+      return;
   }
+}
+
+// Balance commands. BAL_SET changes parameters (allowed while balancing, for
+// tuning); BAL_ARM hands the motors to core 1; BAL_STOP stops it.
+void RobotLink::processBalanceCommand(const Protocol::Command& command)
+{
+  const uint32_t sequence = command.sequence;
+  if (!Imu::enabled()) {
+    sendError(sequence, "UNSUPPORTED_COMMAND");
+    return;
+  }
+  switch (command.type) {
+    case Protocol::CommandType::BalSet: {
+      Balance::Params p = Balance::params();
+      for (size_t i = 0; i < command.pairCount; ++i) {
+        const char* k = command.pairs[i].key;
+        const float v = command.pairs[i].value;
+        if (std::strcmp(k, "KP") == 0) p.kp = v;
+        else if (std::strcmp(k, "KD") == 0) p.kd = v;
+        else if (std::strcmp(k, "KV") == 0) p.kv = v;
+        else if (std::strcmp(k, "KX") == 0) p.kx = v;
+        else if (std::strcmp(k, "TRIM") == 0) p.trimDeg = v;
+        else if (std::strcmp(k, "AMAX") == 0) p.aMax = v;
+        else if (std::strcmp(k, "VMAX") == 0) p.vMax = v;
+        else if (std::strcmp(k, "SOFT") == 0) p.softStartS = v;
+        else if (std::strcmp(k, "TILT_FWD") == 0) p.tiltFwdDeg = v;
+        else if (std::strcmp(k, "TILT_BACK") == 0) p.tiltBackDeg = v;
+        else if (std::strcmp(k, "ARM_WINDOW") == 0) p.armWindowDeg = v;
+        else if (std::strcmp(k, "ARM_RATE") == 0) p.armRateDps = v;
+        else if (std::strcmp(k, "ARM_TIMEOUT") == 0) p.armTimeoutS = v;
+        else if (std::strcmp(k, "RUNAWAY") == 0) p.runawayS = v;
+        else if (std::strcmp(k, "ACCEL_COMP") == 0) p.accelComp = v != 0.0F;
+        else {
+          sendError(sequence, "UNKNOWN_FIELD");
+          return;
+        }
+      }
+      if (!Balance::setParams(p)) {
+        sendError(sequence, "OUT_OF_RANGE");
+        return;
+      }
+      sendBalanceStatus(sequence);
+      return;
+    }
+    case Protocol::CommandType::BalArm: {
+      bool dry = false;
+      for (size_t i = 0; i < command.pairCount; ++i) {
+        if (std::strcmp(command.pairs[i].key, "DRY") == 0) {
+          dry = command.pairs[i].value != 0.0F;
+        } else {
+          sendError(sequence, "UNKNOWN_FIELD");
+          return;
+        }
+      }
+      if (Balance::active()) {
+        sendError(sequence, "BUSY");
+        return;
+      }
+      const Robot::CommandResult entered = robot_.enterBalance();
+      if (entered != Robot::CommandResult::Accepted) {
+        sendCommandError(sequence, entered);
+        return;
+      }
+      const float stepsPerMetre =
+          Config::MOTOR_FULL_STEPS_PER_REVOLUTION * robot_.microsteps() /
+          (3.14159265F * Config::WHEEL_DIAMETER_MM / 1000.0F);
+      if (!Balance::arm(dry, stepsPerMetre)) {
+        robot_.exitBalance();
+        sendError(sequence, "BUSY");
+        return;
+      }
+      logger_.arm();   // fresh black box for this attempt
+      sendBalanceStatus(sequence);
+      return;
+    }
+    case Protocol::CommandType::BalStop:
+      Balance::stop(Balance::Reason::Command);
+      sendBalanceStatus(sequence);
+      return;
+    case Protocol::CommandType::BalStatus:
+      sendBalanceStatus(sequence);
+      return;
+    default:
+      sendError(sequence, "UNKNOWN_COMMAND");
+      return;
+  }
+}
+
+void RobotLink::sendBalanceStatus(uint32_t sequence)
+{
+  const Balance::Status s = Balance::status();
+  const Balance::Params p = Balance::params();
+  Print& o = transport_.output();
+  const auto f = [&o](const char* key, float value, int digits) {
+    o.print(' ');
+    o.print(key);
+    o.print('=');
+    o.print(value, digits);
+  };
+  const auto n = [&o](const char* key, uint32_t value) {
+    o.print(' ');
+    o.print(key);
+    o.print('=');
+    o.print(value);
+  };
+  o.print(Protocol::VERSION);
+  o.print(" ACK ");
+  o.print(sequence);
+  o.print(" OK BAL=");
+  o.print(Balance::stateName(s.state));
+  o.print(" REASON=");
+  o.print(Balance::reasonName(s.reason));
+  n("DRY", s.dry ? 1 : 0);
+  f("THETA", s.thetaDeg, 2);
+  f("ERR", s.errorDeg, 2);
+  f("RATE", s.rateDps, 1);
+  f("U", s.u, 3);
+  f("V", s.v, 3);
+  f("X", s.x, 3);
+  f("SCALE", s.scale, 2);
+  n("RUN_MS", s.runMs);
+  n("ENGAGES", s.engages);
+  n("TRIPS", s.trips);
+  f("MAX_U", s.maxAbsU, 2);
+  f("MAX_ERR", s.maxAbsErrorDeg, 2);
+  n("STEP_HZ", s.stepRateSps);
+  f("KP", p.kp, 3);
+  f("KD", p.kd, 3);
+  f("KV", p.kv, 3);
+  f("KX", p.kx, 3);
+  f("TRIM", p.trimDeg, 2);
+  f("AMAX", p.aMax, 2);
+  f("VMAX", p.vMax, 3);
+  f("SOFT", p.softStartS, 2);
+  f("TILT_FWD", p.tiltFwdDeg, 2);
+  f("TILT_BACK", p.tiltBackDeg, 2);
+  f("ARM_WINDOW", p.armWindowDeg, 2);
+  f("ARM_RATE", p.armRateDps, 1);
+  f("ARM_TIMEOUT", p.armTimeoutS, 1);
+  f("RUNAWAY", p.runawayS, 2);
+  n("ACCEL_COMP", p.accelComp ? 1 : 0);
+  o.println();
 }
 
 // Telemetry commands never move the motors: accepted in every mode and not
@@ -550,6 +702,9 @@ void RobotLink::sendStatus(uint32_t sequence)
       break;
     case Robot::Mode::Hold:
       mode = "HOLD";
+      break;
+    case Robot::Mode::Balance:
+      mode = "BALANCE";
       break;
   }
 

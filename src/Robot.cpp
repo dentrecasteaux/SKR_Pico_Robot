@@ -95,7 +95,7 @@ void Robot::pollDriverTelemetry(TMC2209& driver,
 bool Robot::setVelocity(float linearMmPerSecond,
                         float turnDegreesPerSecond)
 {
-  if (estopLatched_ ||
+  if (estopLatched_ || mode_ == Mode::Balance ||
       linearMmPerSecond < -Config::MAX_LINEAR_SPEED_MM_PER_SECOND ||
       linearMmPerSecond > Config::MAX_LINEAR_SPEED_MM_PER_SECOND ||
       turnDegreesPerSecond < -Config::MAX_TURN_SPEED_DEGREES_PER_SECOND ||
@@ -119,6 +119,7 @@ Robot::CommandResult Robot::setVelocity(float linearMmPerSecond,
                                         uint32_t leaseMs)
 {
   if (estopLatched_) return CommandResult::EstopLatched;
+  if (mode_ == Mode::Balance) return CommandResult::Busy;
   if (linearMmPerSecond < -Config::MAX_LINEAR_SPEED_MM_PER_SECOND ||
       linearMmPerSecond > Config::MAX_LINEAR_SPEED_MM_PER_SECOND ||
       turnDegreesPerSecond < -Config::MAX_TURN_SPEED_DEGREES_PER_SECOND ||
@@ -179,7 +180,7 @@ Robot::CommandResult Robot::startFiniteMotion(bool turn, float value,
       (turn && std::fabs(value) > Config::MAX_TURN_ANGLE_DEGREES)) {
     return CommandResult::OutOfRange;
   }
-  if (mode_ == Mode::Move || mode_ == Mode::Turn) {
+  if (mode_ == Mode::Move || mode_ == Mode::Turn || mode_ == Mode::Balance) {
     return CommandResult::Busy;
   }
   if (!motionAllowed()) return CommandResult::DriverFault;
@@ -226,8 +227,28 @@ Robot::CommandResult Robot::hold(uint32_t leaseMs)
   return CommandResult::Accepted;
 }
 
+Robot::CommandResult Robot::enterBalance()
+{
+  if (estopLatched_) return CommandResult::EstopLatched;
+  if (mode_ != Mode::Idle && mode_ != Mode::Hold) return CommandResult::Busy;
+  if (!motionAllowed()) return CommandResult::DriverFault;
+  // Release core 0's hold on the motors; core 1 enables them when it arms.
+  motionController_.stop();
+  mode_ = Mode::Balance;
+  return CommandResult::Accepted;
+}
+
+void Robot::exitBalance()
+{
+  if (mode_ != Mode::Balance) return;
+  mode_ = estopLatched_ ? Mode::Estop : Mode::Idle;
+}
+
 void Robot::stop()
 {
+  // While balancing, core 1 owns the steppers: the caller stops the balance
+  // controller, and exitBalance() runs once it has released the motors.
+  if (mode_ == Mode::Balance) return;
   motionController_.stop();
   cancelActiveJob(JobResult::Stopped);
   velocityLeaseActive_ = false;
@@ -238,6 +259,10 @@ void Robot::stop()
 
 void Robot::estop()
 {
+  if (mode_ == Mode::Balance) {
+    estopLatched_ = true;       // mode becomes ESTOP in exitBalance()
+    return;
+  }
   motionController_.stop();
   cancelActiveJob(JobResult::Estopped);
   velocityLeaseActive_ = false;

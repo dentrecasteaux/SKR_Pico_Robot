@@ -3,6 +3,7 @@
 #include <cmath>
 #include <cstdio>
 
+#include "Balance.h"
 #include "Imu.h"
 #include "Protocol.h"
 
@@ -43,10 +44,16 @@ void Logger::update(const Robot& robot, Print& out)
     record.ax = sample.ax;
     record.ay = sample.ay;
     record.az = sample.az;
-    record.u = 0.0F;
-    record.vLeft = vLeft;
-    record.vRight = vRight;
-    record.mode = mode;
+    record.u = sample.uMmS2;
+    if (sample.flags & Balance::FLAG_ACTIVE) {
+      record.vLeft = sample.vSps;   // commanded by the balance controller
+      record.vRight = sample.vSps;
+      record.mode = static_cast<uint8_t>(Robot::Mode::Balance);
+    } else {
+      record.vLeft = vLeft;
+      record.vRight = vRight;
+      record.mode = mode;
+    }
     record.flags = sample.flags | (busy ? FLAG_MOTORS_BUSY : 0);
     lastTUs_ = sample.tUs;
     lastSampleN_ = sample.n;

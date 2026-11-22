@@ -6,6 +6,7 @@
 #include <cmath>
 #include <cstring>
 
+#include "Balance.h"
 #include "Config.h"
 #include "Hardware.h"
 #include "hardware/i2c.h"
@@ -616,10 +617,14 @@ void processSample(const uint8_t* b, uint32_t readUs, uint32_t isrUs,
     float dt = gapValid ? gapUs * 1e-6F : PERIOD_US * 1e-6F;
     if (dt < 0.0005F) dt = 0.0005F;
     if (dt > 0.02F) dt = 0.02F;
-    attitudeStep(dt, rates[0], rates[1], rates[2], accel[0], accel[1],
+    // While balancing, optionally remove the commanded wheel acceleration
+    // from the accelerometer X axis (plan 5.5); 0 unless enabled.
+    attitudeStep(dt, rates[0], rates[1], rates[2],
+                 accel[0] - Balance::accelCompensationG(), accel[1],
                  accel[2]);
     const bool settled =
-        stopped && nowMs - motorsStoppedSinceMs >= Config::IMU_AUTO_BIAS_SETTLE_MS;
+        stopped && !Balance::active() &&
+        nowMs - motorsStoppedSinceMs >= Config::IMU_AUTO_BIAS_SETTLE_MS;
     autoBiasStep(gyro, accelMagnitude, autoBiasEnabled && settled);
   }
   const uint32_t filterUs = micros() - filterStartUs;
@@ -651,6 +656,14 @@ void processSample(const uint8_t* b, uint32_t readUs, uint32_t isrUs,
     sample.flags |= Imu::SAMPLE_CALIBRATING;
   }
   if (!attitudeValid) sample.flags |= Imu::SAMPLE_NO_ATTITUDE;
+
+  // Balance control update, straight after the attitude for this sample.
+  const Balance::StepOutput control =
+      Balance::step(sample.tUs, pitch, roll, rates[1], rates[2],
+                    attitudeValid, isLate || fromStall);
+  sample.uMmS2 = control.uMmS2;
+  sample.vSps = control.vSps;
+  sample.flags |= control.flags;
   pushSample(sample);
   loopMaxUs = 0;
 }
@@ -707,6 +720,7 @@ void Imu::updateCore1()
   const uint32_t loopStartUs = micros();
 
   if (state == State::NoSensor) {
+    Balance::poll(micros());   // trips any balancing on the stale-IMU check
     if (millis() - lastInitAttemptMs >= NO_SENSOR_RETRY_MS) {
       initialiseSensor();
       publishState();
@@ -761,6 +775,8 @@ void Imu::updateCore1()
       readError(true);
     }
   }
+
+  Balance::poll(micros());
 
   const uint32_t loopUs = micros() - loopStartUs;
   if (loopUs > loopMaxUs) loopMaxUs = loopUs;

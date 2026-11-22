@@ -17,7 +17,8 @@ public:
     Move,
     Turn,
     Estop,
-    Hold      // drivers enabled, wheels stationary (locked), time-limited
+    Hold,     // drivers enabled, wheels stationary (locked), time-limited
+    Balance   // core 1 balance controller owns the steppers
   };
 
   enum class CommandResult
@@ -98,6 +99,10 @@ public:
   // Lock the wheels: enable both drivers with no motion for leaseMs. Ended by
   // the lease, STOP, ESTOP or any motion command.
   CommandResult hold(uint32_t leaseMs);
+  // Hand the steppers to the balance controller (core 1) / take them back.
+  CommandResult enterBalance();
+  void exitBalance();
+  uint16_t microsteps() const { return motionController_.microsteps(); }
   void stop();
   void estop();
   CommandResult clearEstop();

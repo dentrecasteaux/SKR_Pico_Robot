@@ -121,7 +121,10 @@ struct Sample
   float ax = 0.0F;                    // acceleration, g
   float ay = 0.0F;
   float az = 0.0F;
-  uint8_t flags = 0;                  // SAMPLE_* bits below
+  float uMmS2 = 0.0F;                 // balance: commanded wheel accel
+  int32_t vSps = 0;                   // balance: commanded wheel speed
+  uint8_t flags = 0;                  // SAMPLE_* bits below, plus
+                                      // Balance::FLAG_ACTIVE / FLAG_DRY
 };
 
 constexpr uint8_t SAMPLE_LATE = 0x01;         // gap > 1.5 periods before it

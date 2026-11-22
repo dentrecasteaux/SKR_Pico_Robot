@@ -39,11 +39,12 @@ struct Record
   float ax = 0.0F;       // g
   float ay = 0.0F;
   float az = 0.0F;
-  float u = 0.0F;        // commanded wheel acceleration, mm/s² (Phase 9)
+  float u = 0.0F;        // commanded wheel acceleration, mm/s² (balance)
   int32_t vLeft = 0;     // steps/s, forward positive
   int32_t vRight = 0;
   uint8_t mode = 0;      // Robot::Mode
-  uint8_t flags = 0;     // Imu::SAMPLE_* bits, plus FLAG_MOTORS_BUSY
+  uint8_t flags = 0;     // Imu::SAMPLE_* bits, Balance::FLAG_ACTIVE (0x20),
+                         // Balance::FLAG_DRY (0x40), FLAG_MOTORS_BUSY (0x80)
 };
 
 constexpr uint8_t FLAG_MOTORS_BUSY = 0x80;
