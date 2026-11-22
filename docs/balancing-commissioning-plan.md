@@ -4,7 +4,7 @@ Started 22 Nov 2026. The SKR Pico robot electronics (14.8 V 4S LiPo, buck conver
 
 **How it works:** finish each phase and record its numbers in [balancing-results.md](balancing-results.md) before starting the next. Phases 1–6 need no balancing code. Most past difficulty with balancing came from wrong signs, an unknown balance angle and guessed gains. Phases 5–8 remove all three before the first attempt.
 
-**Status (22 Nov 2026):** Phases 1–5 complete (a few optional items remain). Next: Phase 6 logging.
+**Status (22 Nov 2026):** Phases 1–6 complete (a few optional items remain). Next: Phase 7.
 
 ---
 
