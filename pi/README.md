@@ -40,6 +40,30 @@ during a timed velocity command also sends `STOP`.
 Finite commands return after `ACK` unless `--wait` is supplied. With `--wait`,
 the client remains connected until it receives the matching `DONE` event.
 
+## Test scripts
+
+### `vibe_test.py`: IMU vibration with the motors running
+
+Commissioning plan Phase 5.4. **Robot on the stand, wheels clear.** For each
+chopper mode it runs both wheels at a series of speeds, waits for them to
+reach speed, then records a 4 s firmware IMU statistics window
+(`IMU_WINDOW_START` / `IMU_WINDOW`, every 500 Hz sample). It prints gyro and
+accelerometer standard deviations, the |a| range and the pitch-estimate
+peak-to-peak for each point.
+
+```text
+python3 vibe_test.py                                # both modes, 0, 0.5, 1, 2, 3 rev/s
+python3 vibe_test.py --modes SPREADCYCLE --speeds 0 1 2
+```
+
+Results go to `~/runs/<timestamp>_vibe/` (`data.csv`, `meta.json`). At the end
+the script restores 1000 mA, 1/16, 150 mm/s² and StealthChop. It drives through
+`robotd`, which caps a velocity hold at 5 s, so the motors stop by themselves
+if the script dies.
+
+Long fixed-speed runs (e.g. the heat run) can use a shell loop instead,
+re-sending `robotdctl.py velocity … --hold 5000` every 3 s.
+
 ## Device selection
 
 By default, the client finds one matching Arduino Raspberry Pi Pico under:

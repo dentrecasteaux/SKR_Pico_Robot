@@ -98,6 +98,14 @@ learning the software and sensors, but adding an IMU does not turn the existing
 controller into a balancing robot. Treat balancing as a later dedicated
 milestone with its own safety analysis.
 
+**Status, Nov 2026:** the electronics now run a dedicated two-wheel balancing
+chassis. Commissioning follows a phased plan (mechanical measurements, motors,
+power, directions, IMU, logging, plant identification, safety layer, PD, outer
+loops, then a PID vs LQR comparison). See
+[balancing-commissioning-plan.md](balancing-commissioning-plan.md) and the
+running results in [balancing-results.md](balancing-results.md). Phases 1–5
+are complete.
+
 ## RP2040 PIO and DMA
 
 PIO STEP generation is complete and tested with one state machine per motor.

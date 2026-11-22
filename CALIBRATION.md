@@ -1,5 +1,16 @@
 # Initial drive calibration
 
+## Balancing chassis (current, 22 Nov 2026)
+
+- **Wheel diameter: 62.33 mm.** Loaded roll test, 1958 mm in 10 revolutions.
+  Checked with `move 500` on the floor: 500 mm exactly, straight.
+- **Wheel track: 223 mm.** Measured tyre-centreline distance. A `turn 90`
+  on the training wheels gave 94.5° by IMU yaw, which is affected by scrub,
+  so the track is not yet turn-calibrated.
+- 1/16 microstepping: 16,343 microsteps/m.
+
+The sections below are the three-wheeler history.
+
 These values are deliberately provisional. They are sufficient for early
 bench testing and can be refined later with repeatable distance and angle
 tests, or with encoders.

@@ -6,16 +6,17 @@
 |---|---|
 | Motor controller | BigTreeTech SKR Pico V1.0, RP2040 |
 | Executive controller | Raspberry Pi Zero 2 W |
-| Drive motors | Two NEMA17 stepper motors, direct drive |
-| Motor drivers | On-board TMC2209 |
-| Chassis | Two driven wheels and one passive castor |
+| Drive motors | Two Rtelligent (SZruitech) **42A08** NEMA17 steppers, direct drive (see below) |
+| Motor drivers | On-board TMC2209 (heatsinks fitted) |
+| Chassis | **Two-wheel balancing chassis** (Nov 2026) with 3D-printed "training wheel" tilt stops. The electronics moved here from the three-wheeler (two driven wheels and a castor). |
 | Battery | 4S LiPo, 14.8 V nominal and 16.8 V fully charged |
 | Pi-to-Pico link | USB CDC serial |
-| Wheel diameter | 61 mm effective, provisional |
-| Wheel track | 188 mm effective, provisional |
+| Wheel diameter | 62.33 mm effective (roll test: 1958 mm / 10 rev; `move 500` measured 500 mm) |
+| Wheel track | 223 mm (tyre centrelines, measured; not yet turn-calibrated) |
 | Motor resolution | 200 full steps/revolution |
-| Microstepping | 1/4 |
-| Run current | 400 mA RMS |
+| Microstepping | 1/16 (driver interpolation to 1/256) |
+| Run current | 1000 mA RMS (runtime ceiling 1300 mA) |
+| Mass | 1880 g total |
 
 The effective wheel geometry is a software calibration, not merely a ruler
 measurement. It compensates approximately for tyre deformation and open-loop
@@ -32,8 +33,33 @@ turning behaviour. It will be refined when encoders are fitted.
 | DIAG route, unused | GPIO 4 | GPIO 3 |
 
 Both enable signals are active-low. Direction inversion is handled at the
-`Stepper` construction boundary to account for the mirrored physical mounting:
-left is inverted and right is not.
+`Stepper` construction boundary to account for the mirrored physical mounting.
+On the balancing chassis **left is not inverted and right is inverted**. The
+three-wheeler was the opposite. Checked with `move 200` and `turn 90` on
+22 Nov 2026.
+
+## Drive motors: Rtelligent 42A08
+
+| Parameter | Value |
+|---|---|
+| Type | Hybrid open-loop bipolar, 1.8° (200 steps/rev), 4 wires |
+| Rated current | 1.8 A/phase (listings don't say RMS or peak) |
+| Holding torque | 0.68–0.71 N·m (published) |
+| Phase resistance | 2.0 Ω ±10% published; about 2.4–2.7 Ω measured with a meter whose leads read 0.8–1.2 Ω |
+| Phase inductance | 4.8 mH published |
+| Rotor inertia | 114 g·cm² |
+| Body / shaft | 42 × 42 × 60 mm; 5 mm × 24 mm shaft |
+| **Coil pairs** | **Red–Blue** and **Green–Black**. Both motors are crimped identically. |
+
+**Heat run** (10 min at 2 rev/s, 1.0 A RMS, StealthChop, about 28 °C room):
+motors 33 °C, TMC2209 heatsinks 50 °C, no driver warnings, CS_ACTUAL 17 on
+both drivers. The drivers, not the motors, limit the current. A balancer runs
+at full run current the whole time, so 1.0 A is the working value. Go higher
+only with airflow.
+
+**Resonance:** in SpreadCycle the motors are audibly rougher and shake the IMU
+more at 1–2 rev/s (mid-band resonance), and quieter again by 3 rev/s.
+StealthChop damps it. See `vibe_test.py` in `pi/README.md`.
 
 The shared TMC2209 UART uses:
 
@@ -124,8 +150,10 @@ not be treated as a physical emergency stop.
 ## Hardware not yet fitted or integrated
 
 - wheel encoders;
-- rigid IMU mounting (the MPU6050 is connected and integrated, but not yet
-  mounted with a measured orientation);
+- rigid IMU mounting (on the balancing chassis the MPU6050 is taped to the
+  battery layer, about 10° pitched relative to the platforms; pitch and yaw
+  signs are verified, and the offset is absorbed by the measured balance
+  angle);
 - battery voltage or current sensing;
 - physical emergency-stop switch and independent motor-power interruption;
 - autonomous-navigation sensors.

@@ -24,6 +24,10 @@ design ideas, not completed features.
 10. [Backup, deployment and recovery](backup-recovery.md) — source control,
    Pi deployment and rebuilding.
 11. [Roadmap](roadmap.md) — encoders, IMU, telemetry and autonomy.
+12. [Balancing commissioning plan](balancing-commissioning-plan.md) — phased
+   bring-up of the two-wheel balancing chassis.
+13. [Balancing results](balancing-results.md) — measurements and test results
+   for each phase.
 
 ## Design history
 
