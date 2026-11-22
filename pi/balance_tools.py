@@ -17,10 +17,10 @@ FLAG_DRY = 0x40
 SOCK = default_socket_path()
 
 # Firmware defaults (Balance::Params). Floor runs restore the safety values.
-DEFAULTS = {"KP": 39.0, "KD": 2.9, "KV": 0.0, "KX": 0.0, "TRIM": -3.9,
+DEFAULTS = {"KP": 36.7, "KD": 4.19, "KV": 4.81, "KX": 2.94, "TRIM": -3.9,
             "AMAX": 6.0, "VMAX": 0.55, "SOFT": 0.3, "TILT_FWD": 5.0,
             "TILT_BACK": -20.6, "ARM_WINDOW": 2.0, "ARM_RATE": 20.0,
-            "ARM_TIMEOUT": 20.0, "RUNAWAY": 0.3}
+            "ARM_TIMEOUT": 20.0, "RUNAWAY": 0.3, "ACCEL_COMP": 1}
 SAFETY_KEYS = ("AMAX", "VMAX", "SOFT", "TILT_FWD", "TILT_BACK", "ARM_WINDOW",
                "ARM_RATE", "ARM_TIMEOUT", "RUNAWAY")
 

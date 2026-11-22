@@ -2,6 +2,7 @@
 
 #include <cmath>
 
+#include "Config.h"
 #include "Stepper.h"
 #include "pico/mutex.h"
 
@@ -18,6 +19,8 @@ constexpr uint32_t ARM_REQUEST_TIMEOUT_MS = 200;
 constexpr float MIN_STEP_RATE = 10.0F;          // steps/s; below this, no pulses
 constexpr uint32_t MIN_INTERVAL_US = 20;        // 50 kHz ceiling
 constexpr uint32_t RESTART_IF_INTERVAL_OVER_US = 2000;
+constexpr float HALF_TRACK_M = Config::WHEEL_TRACK_MM / 2000.0F;
+constexpr float TURN_ACCEL_DPS2 = 180.0F;
 
 Stepper* leftStepper = nullptr;
 Stepper* rightStepper = nullptr;
@@ -30,6 +33,9 @@ volatile bool armDry = false;
 volatile float armStepsPerMetre = 0.0F;
 volatile uint32_t armRequestMs = 0;     // core 0 only
 volatile bool stopRequest = false;
+volatile float driveV = 0.0F;           // m/s target
+volatile float driveW = 0.0F;           // deg/s target
+volatile uint32_t driveUntilMs = 0;     // lease end (millis)
 volatile Reason stopReason = Reason::Command;
 Params pendingParams;                   // under balanceMutex
 volatile uint32_t paramsVersion = 1;
@@ -64,65 +70,76 @@ float maxAbsError = 0.0F;
 float lastTheta = 0.0F;
 float lastError = 0.0F;
 float lastRate = 0.0F;
+float trimEst = 0.0F;
+float vRef = 0.0F;
+float wRef = 0.0F;      // deg/s
+float xRef = 0.0F;
 
-// Step generator: both wheels at the same rate.
-bool genRunning = false;
-bool genForward = true;
-uint32_t genInterval = 0;
-uint32_t genRate = 0;
+// One step generator per wheel.
+struct Generator
+{
+  Stepper* stepper = nullptr;
+  bool running = false;
+  bool forward = true;
+  uint32_t interval = 0;
+  uint32_t rate = 0;
+};
+Generator leftGen;
+Generator rightGen;
+
+void stopGenerator(Generator& g)
+{
+  if (g.stepper) g.stepper->stopPulses();
+  g.running = false;
+  g.interval = 0;
+  g.rate = 0;
+}
 
 void stopPulses()
 {
-  if (leftStepper) leftStepper->stopPulses();
-  if (rightStepper) rightStepper->stopPulses();
-  genRunning = false;
-  genInterval = 0;
-  genRate = 0;
+  stopGenerator(leftGen);
+  stopGenerator(rightGen);
 }
 
-void startPulses(bool forward, uint32_t interval)
+void startGenerator(Generator& g, bool forward, uint32_t interval)
 {
-  leftStepper->stopPulses();
-  rightStepper->stopPulses();
-  leftStepper->setDirection(forward);
-  rightStepper->setDirection(forward);
-  leftStepper->startPulses(UINT32_MAX, interval);
-  rightStepper->startPulses(UINT32_MAX, interval);
-  genRunning = true;
-  genForward = forward;
-  genInterval = interval;
+  g.stepper->stopPulses();
+  g.stepper->setDirection(forward);
+  g.stepper->startPulses(UINT32_MAX, interval);
+  g.running = true;
+  g.forward = forward;
+  g.interval = interval;
 }
 
 // Apply a wheel speed straight away. The PIO program only reads a new
 // interval after finishing the current one, so when the current interval is
-// long (slow) and the new one much shorter, the state machines are restarted
+// long (slow) and the new one much shorter, the state machine is restarted
 // instead (which also gives an immediate step). Direction changes restart.
-void drive(float speedMps)
+void driveWheel(Generator& g, float speedMps)
 {
-  if (!leftStepper || !rightStepper) return;
+  if (!g.stepper) return;
   const float rate = speedMps * stepsPerMetre;
   const float magnitude = fabsf(rate);
   if (magnitude < MIN_STEP_RATE) {
-    if (genRunning) stopPulses();
+    if (g.running) stopGenerator(g);
     return;
   }
   uint32_t interval = static_cast<uint32_t>(1000000.0F / magnitude);
   if (interval < MIN_INTERVAL_US) interval = MIN_INTERVAL_US;
   const bool forward = rate > 0.0F;
-  genRate = static_cast<uint32_t>(magnitude);
+  g.rate = static_cast<uint32_t>(magnitude);
 
-  if (!genRunning || forward != genForward) {
-    startPulses(forward, interval);
+  if (!g.running || forward != g.forward) {
+    startGenerator(g, forward, interval);
     return;
   }
-  if (interval == genInterval) return;
-  if (genInterval > RESTART_IF_INTERVAL_OVER_US && interval < genInterval / 2) {
-    startPulses(forward, interval);
+  if (interval == g.interval) return;
+  if (g.interval > RESTART_IF_INTERVAL_OVER_US && interval < g.interval / 2) {
+    startGenerator(g, forward, interval);
     return;
   }
-  const bool leftOk = leftStepper->updatePulseInterval(interval);
-  const bool rightOk = rightStepper->updatePulseInterval(interval);
-  if (leftOk && rightOk) genInterval = interval;  // else retry next sample
+  if (g.stepper->updatePulseInterval(interval)) g.interval = interval;
+  // else the FIFO is busy: retry next sample
 }
 
 void enableDrivers()
@@ -135,9 +152,9 @@ void disableDrivers()
 {
   leftStepper->disable();
   rightStepper->disable();
-  genRunning = false;
-  genInterval = 0;
-  genRate = 0;
+  leftGen.running = rightGen.running = false;
+  leftGen.interval = rightGen.interval = 0;
+  leftGen.rate = rightGen.rate = 0;
 }
 
 void trip(Reason why, uint32_t nowUs)
@@ -170,6 +187,10 @@ void publish(uint32_t nowUs)
   s.u = u;
   s.v = v;
   s.x = x;
+  s.trimEstDeg = trimEst;
+  s.vRef = vRef;
+  s.wRefDps = wRef;
+  s.xRef = xRef;
   s.scale = scale;
   s.runMs = (state == State::Running || state == State::Dry)
                 ? (nowUs - engageUs) / 1000
@@ -178,7 +199,7 @@ void publish(uint32_t nowUs)
   s.trips = trips;
   s.maxAbsU = maxAbsU;
   s.maxAbsErrorDeg = maxAbsError;
-  s.stepRateSps = genRunning ? genRate : 0;
+  s.stepRateSps = leftGen.running ? leftGen.rate : 0;
   mutex_exit(&balanceMutex);
 }
 
@@ -191,12 +212,21 @@ void takeParams()
   mutex_exit(&balanceMutex);
 }
 
-void engage(uint32_t nowUs)
+void resetMotion()
 {
-  engageUs = nowUs;
   v = 0.0F;
   x = 0.0F;
   u = 0.0F;
+  vRef = 0.0F;
+  wRef = 0.0F;
+  xRef = 0.0F;
+  trimEst = p.trimDeg;
+}
+
+void engage(uint32_t nowUs)
+{
+  engageUs = nowUs;
+  resetMotion();
   scale = 0.0F;
   pinned = false;
   maxAbsU = 0.0F;
@@ -210,6 +240,8 @@ void attach(Stepper& left, Stepper& right)
 {
   leftStepper = &left;
   rightStepper = &right;
+  leftGen.stepper = &left;
+  rightGen.stepper = &right;
   mutex_enter_blocking(&balanceMutex);
   pendingParams = Params();
   mutex_exit(&balanceMutex);
@@ -234,6 +266,19 @@ void stop(Reason why)
   stopRequest = true;
 }
 
+bool setDrive(float vMps, float wDps, uint32_t leaseMs)
+{
+  if (!std::isfinite(vMps) || !std::isfinite(wDps) ||
+      fabsf(vMps) > MAX_DRIVE_MPS || fabsf(wDps) > MAX_DRIVE_DPS ||
+      leaseMs < 100 || leaseMs > 2000) {
+    return false;
+  }
+  driveV = vMps;
+  driveW = wDps;
+  driveUntilMs = millis() + leaseMs;
+  return true;
+}
+
 bool setParams(const Params& n)
 {
   const bool ok =
@@ -248,7 +293,10 @@ bool setParams(const Params& n)
       n.armWindowDeg >= 0.2F && n.armWindowDeg <= 10.0F &&
       n.armRateDps >= 1.0F && n.armRateDps <= 200.0F &&
       n.armTimeoutS >= 1.0F && n.armTimeoutS <= 120.0F &&
-      n.runawayS >= 0.05F && n.runawayS <= 5.0F;
+      n.runawayS >= 0.05F && n.runawayS <= 5.0F &&
+      n.trimRate >= 0.0F && n.trimRate <= 10.0F &&
+      n.trimRangeDeg >= 0.0F && n.trimRangeDeg <= 10.0F &&
+      n.driveAccel > 0.0F && n.driveAccel <= 3.0F;
   if (!ok) return false;
   mutex_enter_blocking(&balanceMutex);
   pendingParams = n;
@@ -297,8 +345,9 @@ StepOutput step(uint32_t tUs, float pitchDeg, float rollDeg, float qDps,
   // Pitch rate exactly as the attitude filter propagates pitch.
   const float rr = rollDeg * D2R;
   const float rateDps = cosf(rr) * qDps - sinf(rr) * rDps;
+  if (state == State::Off || state == State::Arming) trimEst = p.trimDeg;
   lastTheta = pitchDeg;
-  lastError = pitchDeg - p.trimDeg;
+  lastError = pitchDeg - trimEst;
   lastRate = rateDps;
 
   if (stopRequest) {
@@ -312,6 +361,9 @@ StepOutput step(uint32_t tUs, float pitchDeg, float rollDeg, float qDps,
     stepsPerMetre = armStepsPerMetre;
     reason = Reason::None;
     stopPulses();
+    resetMotion();
+    driveV = 0.0F;
+    driveW = 0.0F;
     if (dry) {
       state = State::Dry;
       engage(tUs);
@@ -363,9 +415,33 @@ StepOutput step(uint32_t tUs, float pitchDeg, float rollDeg, float qDps,
 
   const float runS = (tUs - engageUs) * 1e-6F;
   scale = p.softStartS > 0.0F ? fminf(1.0F, runS / p.softStartS) : 1.0F;
+
+  // Drive set points: zero when the lease has expired; ramped.
+  const bool leased = static_cast<int32_t>(driveUntilMs - millis()) > 0;
+  const float vTarget = leased ? driveV : 0.0F;
+  const float wTarget = leased ? driveW : 0.0F;
+  const float dv = p.driveAccel * dt;
+  vRef += fmaxf(-dv, fminf(dv, vTarget - vRef));
+  const float dw = TURN_ACCEL_DPS2 * dt;
+  wRef += fmaxf(-dw, fminf(dw, wTarget - wRef));
+  xRef += vRef * dt;
+
+  // Automatic trim: walk trim_est until the robot rests at x_ref. Only while
+  // calm (near the speed set point and nearly upright), so pushes and
+  // manoeuvres don't drag it.
+  const bool calm = fabsf(v - vRef) < 0.05F && fabsf(lastError) < 1.0F;
+  if (state == State::Running && calm && p.kx > 0.0F && p.trimRate > 0.0F) {
+    trimEst -= p.trimRate * (x - xRef) * dt;
+    const float lo = fmaxf(p.trimDeg - p.trimRangeDeg, p.tiltBackDeg + 2.0F);
+    const float hi = fminf(p.trimDeg + p.trimRangeDeg, p.tiltFwdDeg - 2.0F);
+    if (trimEst < lo) trimEst = lo;
+    if (trimEst > hi) trimEst = hi;
+    lastError = pitchDeg - trimEst;
+  }
+
   const float e = lastError * D2R;
   const float edot = rateDps * D2R;
-  float cmd = p.kp * e + p.kd * edot + p.kv * v + p.kx * x;
+  float cmd = p.kp * e + p.kd * edot + p.kv * (v - vRef) + p.kx * (x - xRef);
   cmd *= scale;
   if (cmd > p.aMax) cmd = p.aMax;
   if (cmd < -p.aMax) cmd = -p.aMax;
@@ -390,13 +466,20 @@ StepOutput step(uint32_t tUs, float pitchDeg, float rollDeg, float qDps,
       publish(tUs);
       return out;
     }
-    drive(v);
+  }
+  const float turn = wRef * D2R * HALF_TRACK_M;
+  const float vLeft = v - turn;
+  const float vRight = v + turn;
+  if (state == State::Running) {
+    driveWheel(leftGen, vLeft);
+    driveWheel(rightGen, vRight);
     out.flags = FLAG_ACTIVE;
   } else {
     out.flags = FLAG_ACTIVE | FLAG_DRY;
   }
   out.uMmS2 = u * 1000.0F;
-  out.vSps = static_cast<int32_t>(v * stepsPerMetre);
+  out.vLeftSps = static_cast<int32_t>(vLeft * stepsPerMetre);
+  out.vRightSps = static_cast<int32_t>(vRight * stepsPerMetre);
   publish(tUs);
   return out;
 }

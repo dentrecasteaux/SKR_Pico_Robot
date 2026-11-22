@@ -215,6 +215,36 @@ Acceleration was gentle, as designed (30% gains, 0.2 m/s cap).
 - The l_eff regression gave no result (r ≈ 0): too little excitation while it stood still. Repeat with deliberate small pushes.
 - The visible "small oscillation" is mostly the base rocking by a few mm (±15 mm/s). The controller uses about 3% of its acceleration range.
 
+## 2026-11-23: Push tests, full-state control and Phase 10
+
+### Push tests with PD (KP 39)
+
+| Run | KD | Result |
+|---|---|---|
+| `084134` | 2.9 | Caught every push (peak lean ≤ 1.8°, max u 2.3/6 m/s², max v 0.28/0.55 m/s, travel ≤ 20 cm, settled 0.3–1.3 s). l_eff regression ≈ 230 mm (r = 0.59). |
+| `084515`, `084710` | 3.6 | **Rocking halved:** quiet-period pitch sd 0.04–0.05° (from 0.09–0.12°), wheel speed sd 5–7 mm/s (from 15). Both runs fell after many pushes: with no speed loop the robot wandered at up to ±0.47 m/s and drifted 0.7 m, so a push in the direction of travel hit the speed or acceleration limit. |
+
+### Full-state control (pole placement)
+
+Model θ̈ = (gθ − u)/l, ẍ = u, u = KP·e + KD·θ̇ + KV·v + KX·x gives
+l·s⁴ + (KD − KV·l)·s³ + (KP − g − KX·l)·s² + KV·g·s + KX·g = 0 (KV, KX > 0 for stability). Designed for l = 0.20 m, poles at 10 rad/s (ζ 0.7) and 1.2 rad/s (ζ 0.9): **KP 36.7, KD 4.19, KV 4.81, KX 2.94**. Checked stable and reasonably damped for l = 0.12–0.30 m.
+
+Run `085327`: it returned towards home after each push and held quiet-period pitch sd 0.05°, but it **settled further from home after each push, with a growing steady lean** (−0.44° → −0.88° → −1.2° at x = +90 → +208 → +267 mm). This matches KP·e = −KX·x exactly: the balance point had moved. **The IMU was shifting on its tape mount with each push** (confirmed; the prototype mount stays as it is).
+
+### Phase 10 firmware
+
+- **Automatic trim:** trim_est −= TRIM_RATE·(x − x_ref)·dt, within ±4°, only while calm (|v − v_ref| < 0.05 m/s and |e| < 1°).
+- **Driving while balancing:** SET_VELOCITY in BALANCE mode sets v_ref / w_ref (lease, ramped); x_ref integrates v_ref; separate step generators per wheel for turning. Web drive buttons capped at 250 mm/s and 60 °/s; releasing sends speed 0 (keeps balancing).
+- The full-state gains became the defaults.
+
+### Accelerometer compensation (plan 5.5): decisive
+
+- Run `102354` (no compensation): returned home after every push, but **ran away** after the hardest. In the black box the wheels accelerate forward to VMAX while the *measured* pitch swings back 2°, then the robot topples forward. Cause: at 2 m/s² the accelerometer reads an 11° backward tilt, so the complementary filter (τ 0.5 s) drifts the estimate backwards during sustained accelerations and the controller under-reacts. l_eff regression gave nonsense (2.3 m), consistent with a biased angle.
+- Run `102857` (**ACCEL_COMP=1**, TRIM_RATE 0.25): **recovered from backward leans of 9.2° and 9.9°** (it fell at about 3° before). Returned home within about 2 s every time (pushed out to ≤ 250 mm). The user felt the robot "push back". It ended on a forward lean with the wheels pinned at VMAX 0.55 m/s while the robot did *not* tip back, so most likely a sustained push from behind: the speed limit is now the constraint for forward disturbances.
+- **ACCEL_COMP now defaults on**, and the trim rate defaults to 0.25 (calm-only).
+
+**Open points:** the VMAX headroom (0.55 m/s against 0.8 m/s stall unloaded; consider 0.65 after loaded tests); the l_eff regression needs a gyro-integrated angle; drive test from the web page still to do.
+
 ## Actions arising
 
 - Fit a LiPo voltage alarm on the balance lead (the SKR doesn't measure the battery).
@@ -224,6 +254,5 @@ Acceleration was gentle, as designed (30% gains, 0.2 m/s cap).
 
 ## Next
 
-- Push tests (gentle, then firmer) to excite the dynamics: l_eff regression, recovery behaviour, check of a_max/v_max under load.
-- Optional tidy-ups before Phase 10: try KD 3.5–4 and the 94 Hz IMU filter (5.6) to see if the residual rocking shrinks; try ACCEL_COMP=1.
-- Phase 10: outer speed/position loop (KV, KX), then drive commands. Then Phase 11: LQR (same u = K·x form) and the comparison protocol.
+- Drive test from the web page (Phase 10 pass: stands 60 s within ±0.2 m, recovers from pushes, drives on command).
+- Phase 11: LQR (same u = K·x form) and the comparison protocol (repeatable push, step in speed, sensitivity).

@@ -109,6 +109,8 @@ python3 robotdctl.py bal-arm [--dry]
 python3 robotdctl.py bal-stop          # STOP and ESTOP also stop it
 ```
 
+**Driving while balancing (Phase 10).** Once it's balancing, the web page's drive buttons (or `robotdctl velocity`) drive it, limited to 250 mm/s and 60 °/s from the web. Letting go of a drive button sends speed 0 rather than STOP, so the robot stops and keeps balancing. The STOP button still ends balancing.
+
 **`dryrun_check.py` (9.1, motors off).** Tilt the robot by hand forward and
 back. It checks u = KP·e + KD·θ̇ holds with the right sign (lean forward →
 drive forward). Do this before any powered attempt.

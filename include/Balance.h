@@ -12,9 +12,17 @@ class Stepper;
 // Robot::Mode::Balance, which locks out every other motion command).
 //
 // Control law (wheel acceleration command, robot frame, forward positive):
-//   e = theta - trim                               (rad)
-//   u = Kp*e + Kd*theta_dot + Kv*v + Kx*x          (m/s^2), clamped to +/-a_max
-//   v += u*dt (clamped to +/-v_max);  x += v*dt
+//   e = theta - trim_est                           (rad)
+//   u = Kp*e + Kd*theta_dot + Kv*(v - v_ref) + Kx*(x - x_ref)
+//                                                  (m/s^2), clamped to +/-a_max
+//   v += u*dt (clamped to +/-v_max);  x += v*dt;  x_ref += v_ref*dt
+// v_ref / w_ref come from drive commands (SET_VELOCITY while balancing), with
+// a lease; they ramp at driveAccel. Turning adds -/+ w_ref*track/2 to the
+// left/right wheel speeds.
+// Automatic trim (when Kx > 0): trim_est -= trimRate*(x - x_ref)*dt, within
+// +/-trimRange of trim. A wrong trim makes the robot settle off its target
+// position (Kp*e = -Kx*(x - x_ref) at rest); this walks trim_est until that
+// offset is gone, e.g. after the IMU mount shifts.
 // Kv and Kx default to 0 (Phase 9 PD). They take the same sign convention as
 // an LQR gain row for state [x, v, theta, theta_dot], where the position and
 // speed gains are normally positive (the base moves *further* first).
@@ -53,10 +61,13 @@ enum class Reason : uint8_t
 
 struct Params
 {
-  float kp = 39.0F;          // m/s^2 per rad
-  float kd = 2.9F;           // m/s^2 per rad/s
-  float kv = 0.0F;           // m/s^2 per m/s
-  float kx = 0.0F;           // m/s^2 per m
+  // Full-state pole placement (l_eff 0.20 m; poles 10 rad/s zeta 0.7 and
+  // 1.2 rad/s zeta 0.9), robust for l_eff 0.12-0.30 m. Phase 9 PD was
+  // KP 39 KD 2.9 KV 0 KX 0.
+  float kp = 36.7F;          // m/s^2 per rad
+  float kd = 4.19F;          // m/s^2 per rad/s
+  float kv = 4.81F;          // m/s^2 per m/s
+  float kx = 2.94F;          // m/s^2 per m
   float trimDeg = -3.9F;     // IMU pitch at the balance point
   float aMax = 6.0F;         // m/s^2
   float vMax = 0.55F;        // m/s
@@ -67,7 +78,12 @@ struct Params
   float armRateDps = 20.0F;
   float armTimeoutS = 20.0F;
   float runawayS = 0.3F;
-  bool accelComp = false;    // subtract u/g from the accelerometer X axis
+  bool accelComp = true;     // subtract u/g from the accelerometer X axis
+                             // (big improvement in push recovery, 23 Nov)
+  float trimRate = 0.25F;    // deg per (m*s); 0 = no automatic trim.
+                             // Adapts only while calm (see Balance.cpp).
+  float trimRangeDeg = 4.0F; // trim_est stays within trim +/- this
+  float driveAccel = 0.5F;   // m/s^2 ramp for v_ref
 };
 
 struct Status
@@ -81,13 +97,17 @@ struct Status
   float u = 0.0F;                 // m/s^2
   float v = 0.0F;                 // m/s
   float x = 0.0F;                 // m
+  float trimEstDeg = 0.0F;        // trim in use (automatic trim)
+  float vRef = 0.0F;              // m/s, drive set point (ramped)
+  float wRefDps = 0.0F;           // deg/s
+  float xRef = 0.0F;              // m
   float scale = 0.0F;             // soft-start factor 0..1
   uint32_t runMs = 0;             // time since engaging
   uint32_t engages = 0;           // successful engagements since boot
   uint32_t trips = 0;
   float maxAbsU = 0.0F;           // since engaging
   float maxAbsErrorDeg = 0.0F;
-  uint32_t stepRateSps = 0;       // current step rate (both wheels)
+  uint32_t stepRateSps = 0;       // current step rate (left wheel)
 };
 
 // ---- core 0 (setup) ----
@@ -99,7 +119,8 @@ void attach(Stepper& left, Stepper& right);
 struct StepOutput
 {
   float uMmS2 = 0.0F;
-  int32_t vSps = 0;
+  int32_t vLeftSps = 0;
+  int32_t vRightSps = 0;
   uint8_t flags = 0;    // FLAG_ACTIVE / FLAG_DRY
 };
 StepOutput step(uint32_t tUs, float pitchDeg, float rollDeg, float qDps,
@@ -118,6 +139,11 @@ constexpr uint8_t FLAG_DRY = 0x40;     // telemetry flag: dry run
 bool arm(bool dry, float stepsPerMetre);   // false unless Off
 void stop(Reason reason);                  // any state -> Tripped/Off
 bool setParams(const Params& params);      // false if a value is invalid
+// Drive set points while balancing (from SET_VELOCITY). Returns false if out
+// of range. They fall back to zero when the lease expires.
+bool setDrive(float vMps, float wDps, uint32_t leaseMs);
+constexpr float MAX_DRIVE_MPS = 0.3F;
+constexpr float MAX_DRIVE_DPS = 90.0F;
 Params params();
 Status status();
 const char* stateName(State state);

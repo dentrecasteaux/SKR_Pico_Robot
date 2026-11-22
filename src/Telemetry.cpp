@@ -47,7 +47,7 @@ void Logger::update(const Robot& robot, Print& out)
     record.u = sample.uMmS2;
     if (sample.flags & Balance::FLAG_ACTIVE) {
       record.vLeft = sample.vSps;   // commanded by the balance controller
-      record.vRight = sample.vSps;
+      record.vRight = sample.vRightSps;
       record.mode = static_cast<uint8_t>(Robot::Mode::Balance);
     } else {
       record.vLeft = vLeft;

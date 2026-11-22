@@ -117,7 +117,7 @@ def run(args, base, saved, temp) -> int:
                      f"trim {st['TRIM']} scale {args.scale}")["run"]
     call("bal_arm")
     print("Armed. Lift towards upright..." if not args.stand else "Armed.")
-    state, engaged_at = "", None
+    state, engaged_at, ended_at = "", None, None
     t0 = time.monotonic()
     try:
         while time.monotonic() - t0 < args.seconds:
@@ -128,6 +128,8 @@ def run(args, base, saved, temp) -> int:
                       + (f" ({s['REASON']})" if state in ("TRIPPED", "OFF") else ""))
                 if state == "RUNNING" and engaged_at is None:
                     engaged_at = time.monotonic()
+                if state in ("TRIPPED", "OFF") and engaged_at and not ended_at:
+                    ended_at = time.monotonic()
             if state in ("TRIPPED", "OFF"):
                 break
             print(f"\r   err {float(s['ERR']):+6.2f}°  u {float(s['U']):+5.2f}  "
@@ -135,13 +137,14 @@ def run(args, base, saved, temp) -> int:
                   end="", flush=True)
             time.sleep(0.1)
     except KeyboardInterrupt:
+        ended_at = ended_at or time.monotonic()
         print("\nStopping.")
     finally:
         call("bal_stop")
         time.sleep(0.7)
     final = balance_status()
     call("log_stop")
-    stood = (time.monotonic() - engaged_at) if engaged_at else 0.0
+    stood = ((ended_at or time.monotonic()) - engaged_at) if engaged_at else 0.0
     bb = None
     try:
         lst = call("log_status")["service"]["log"]["firmware"]

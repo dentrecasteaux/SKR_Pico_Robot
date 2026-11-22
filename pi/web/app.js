@@ -154,7 +154,12 @@ async function updateStatus() {
 
 async function renewDrive(session) {
   if (driveSession !== session) return;
-  const [linear, angular] = driveVectors[session.direction]();
+  let [linear, angular] = driveVectors[session.direction]();
+  if (currentStatus.MODE === "BALANCE") {
+    // Balance-mode drive limits (firmware: 300 mm/s, 90 deg/s).
+    linear = Math.max(-250, Math.min(250, linear));
+    angular = Math.max(-60, Math.min(60, angular));
+  }
   try {
     await api({
       action: "velocity",
@@ -198,7 +203,12 @@ function endDrive(sendStop = true) {
     driveSession = null;
   }
   if (sendStop && wasDriving) {
-    api({action: "stop"}).catch((error) => showToast(error.message, true));
+    // While balancing, letting go means "speed 0", not STOP (which would end
+    // balancing and drop the robot onto a training wheel).
+    const release = currentStatus.MODE === "BALANCE"
+      ? {action: "velocity", linear: 0, angular: 0, lease_ms: 500, hold_ms: 500}
+      : {action: "stop"};
+    api(release).catch((error) => showToast(error.message, true));
   }
 }
 

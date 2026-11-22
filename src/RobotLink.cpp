@@ -69,6 +69,17 @@ void RobotLink::processLine(char* line)
       sendStatus(command.sequence);
       return;
     case Protocol::CommandType::SetVelocity: {
+      // While balancing, SET_VELOCITY sets the balance controller's drive
+      // set points (same units and lease), so every client can drive it.
+      if (robot_.mode() == Robot::Mode::Balance) {
+        if (Balance::setDrive(command.linearMmPerSecond / 1000.0F,
+                              command.turnDegreesPerSecond, command.leaseMs)) {
+          sendAck(command.sequence);
+        } else {
+          sendError(command.sequence, "OUT_OF_RANGE");
+        }
+        return;
+      }
       const Robot::CommandResult commandResult = robot_.setVelocity(
           command.linearMmPerSecond, command.turnDegreesPerSecond,
           command.leaseMs);
@@ -207,6 +218,9 @@ void RobotLink::processBalanceCommand(const Protocol::Command& command)
         else if (std::strcmp(k, "ARM_TIMEOUT") == 0) p.armTimeoutS = v;
         else if (std::strcmp(k, "RUNAWAY") == 0) p.runawayS = v;
         else if (std::strcmp(k, "ACCEL_COMP") == 0) p.accelComp = v != 0.0F;
+        else if (std::strcmp(k, "TRIM_RATE") == 0) p.trimRate = v;
+        else if (std::strcmp(k, "TRIM_RANGE") == 0) p.trimRangeDeg = v;
+        else if (std::strcmp(k, "DRIVE_ACCEL") == 0) p.driveAccel = v;
         else {
           sendError(sequence, "UNKNOWN_FIELD");
           return;
@@ -294,6 +308,10 @@ void RobotLink::sendBalanceStatus(uint32_t sequence)
   f("U", s.u, 3);
   f("V", s.v, 3);
   f("X", s.x, 3);
+  f("TRIM_EST", s.trimEstDeg, 2);
+  f("V_REF", s.vRef, 3);
+  f("W_REF", s.wRefDps, 1);
+  f("X_REF", s.xRef, 3);
   f("SCALE", s.scale, 2);
   n("RUN_MS", s.runMs);
   n("ENGAGES", s.engages);
@@ -316,6 +334,9 @@ void RobotLink::sendBalanceStatus(uint32_t sequence)
   f("ARM_TIMEOUT", p.armTimeoutS, 1);
   f("RUNAWAY", p.runawayS, 2);
   n("ACCEL_COMP", p.accelComp ? 1 : 0);
+  f("TRIM_RATE", p.trimRate, 2);
+  f("TRIM_RANGE", p.trimRangeDeg, 1);
+  f("DRIVE_ACCEL", p.driveAccel, 2);
   o.println();
 }
 

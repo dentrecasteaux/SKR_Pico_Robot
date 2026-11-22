@@ -662,7 +662,8 @@ void processSample(const uint8_t* b, uint32_t readUs, uint32_t isrUs,
       Balance::step(sample.tUs, pitch, roll, rates[1], rates[2],
                     attitudeValid, isLate || fromStall);
   sample.uMmS2 = control.uMmS2;
-  sample.vSps = control.vSps;
+  sample.vSps = control.vLeftSps;
+  sample.vRightSps = control.vRightSps;
   sample.flags |= control.flags;
   pushSample(sample);
   loopMaxUs = 0;

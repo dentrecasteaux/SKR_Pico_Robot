@@ -340,7 +340,13 @@ R2W/1 ACK 60 OK BAL=RUNNING REASON=NONE DRY=0 THETA=-3.71 ERR=0.19 RATE=1.2 U=0.
 | `BAL_STOP` | Stop (`REASON=COMMAND`). |
 | `BAL_STATUS` | Report only. |
 
-**Control law** (units SI, forward positive): e = θ − TRIM; u = KP·e + KD·θ̇ + KV·v + KX·x, ramped in over `SOFT` s and clamped to ±`AMAX` m/s²; v += u·dt, clamped to ±`VMAX` m/s; x += v·dt. θ̇ is the pitch rate as the attitude filter propagates it (cos φ·q − sin φ·r). Step pulses follow v immediately. A slow interval is restarted rather than waited out, and a direction change restarts the state machines.
+**Driving while balancing (Phase 10):** `SET_VELOCITY V= W= LEASE=` is accepted in `MODE=BALANCE` and sets the controller's drive set points (|V| ≤ 300 mm/s, |W| ≤ 90 °/s, LEASE 100–2000 ms; else `OUT_OF_RANGE`). When the lease expires they return to zero. v_ref ramps at `DRIVE_ACCEL` m/s², and w_ref at 180 °/s². x_ref integrates v_ref. Turning adds −/+ w_ref·track/2 to the left/right wheel speeds (separate step generators per wheel).
+
+**Automatic trim (Phase 10):** with KX > 0, trim_est −= `TRIM_RATE`·(x − x_ref)·dt, within ±`TRIM_RANGE` of `TRIM` (and 2° inside the tilt limits). A wrong trim makes the robot settle off its target position. This walks the trim until that offset is gone, e.g. after the IMU mount shifts. Each engagement starts from `TRIM`; `TRIM_EST` reports the value in use.
+
+Extra `BAL_SET` keys: `TRIM_RATE` (deg per m·s, default 0.25; 0 = off; adapts only while calm: |v − v_ref| < 0.05 m/s and |e| < 1°), `TRIM_RANGE` (default 4°), `DRIVE_ACCEL` (default 0.5 m/s²). Extra status fields: `TRIM_EST`, `V_REF`, `W_REF`, `X_REF`, `TRIM_RATE`, `TRIM_RANGE`, `DRIVE_ACCEL`. Default gains are now the full-state set KP 36.7, KD 4.19, KV 4.81, KX 2.94.
+
+**Control law** (units SI, forward positive): e = θ − trim_est; u = KP·e + KD·θ̇ + KV·(v − v_ref) + KX·(x − x_ref), ramped in over `SOFT` s and clamped to ±`AMAX` m/s²; v += u·dt, clamped to ±`VMAX` m/s; x += v·dt. θ̇ is the pitch rate as the attitude filter propagates it (cos φ·q − sin φ·r). Step pulses follow v immediately. A slow interval is restarted rather than waited out, and a direction change restarts the state machines.
 
 **States:** `OFF` → `ARMING` → `RUNNING` (or `DRY`) → `TRIPPED` → `OFF`. On a trip the steps stop at once (wheels locked), and the drivers are disabled 0.5 s later. The black box freezes with the trip reason.
 
@@ -354,7 +360,9 @@ R2W/1 ACK 60 OK BAL=RUNNING REASON=NONE DRY=0 THETA=-3.71 ERR=0.19 RATE=1.2 U=0.
 | `ARM_TIMEOUT` | Not lifted into the arming window within `ARM_TIMEOUT` s |
 
 `ACCEL_COMP=1` subtracts u/g from the accelerometer X axis before the
-attitude filter's correction step (plan 5.5). It is off by default.
+attitude filter's correction step (plan 5.5). **On by default** since 23 Nov:
+without it, sustained accelerations bias the filtered pitch backwards by
+several degrees, and hard push recoveries ran away.
 
 In telemetry, balance samples carry `mode` 6 (BALANCE), flag 0x20
 (0x40 in a dry run), `u` in mm/s², and the commanded speed in `v_left` and

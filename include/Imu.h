@@ -122,7 +122,8 @@ struct Sample
   float ay = 0.0F;
   float az = 0.0F;
   float uMmS2 = 0.0F;                 // balance: commanded wheel accel
-  int32_t vSps = 0;                   // balance: commanded wheel speed
+  int32_t vSps = 0;                   // balance: commanded left wheel speed
+  int32_t vRightSps = 0;              // balance: commanded right wheel speed
   uint8_t flags = 0;                  // SAMPLE_* bits below, plus
                                       // Balance::FLAG_ACTIVE / FLAG_DRY
 };
