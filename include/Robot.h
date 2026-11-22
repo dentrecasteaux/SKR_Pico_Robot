@@ -27,7 +27,8 @@ public:
     Busy,
     OutOfRange,
     EstopLatched,
-    DriverFault
+    DriverFault,
+    BalanceTripped   // motion refused after a balance trip until STOP/re-arm
   };
 
   enum class JobResult
@@ -102,6 +103,11 @@ public:
   // Hand the steppers to the balance controller (core 1) / take them back.
   CommandResult enterBalance();
   void exitBalance();
+  // After a balance trip (tilt, runaway, IMU), refuse motion until STOP,
+  // CLEAR_ESTOP or a new BAL_ARM, so stray drive commands can't move a
+  // fallen robot.
+  void setBalanceTripLockout() { balanceTripLockout_ = true; }
+  bool balanceTripLockout() const { return balanceTripLockout_; }
   uint16_t microsteps() const { return motionController_.microsteps(); }
   void stop();
   void estop();
@@ -140,6 +146,7 @@ private:
   HardwareSerial& stepperUart_;
   Mode mode_ = Mode::Idle;
   bool estopLatched_ = false;
+  bool balanceTripLockout_ = false;
   uint32_t holdStartedMs_ = 0;
   uint32_t holdDurationMs_ = 0;
   bool velocityLeaseActive_ = false;

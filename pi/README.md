@@ -106,10 +106,10 @@ ssh -t robot@r2w-pi.local 'cd r2w && python3 fall_test.py'
 python3 robotdctl.py bal-status
 python3 robotdctl.py bal-set KP=39 KD=2.9 TRIM=-3.9
 python3 robotdctl.py bal-arm [--dry]
-python3 robotdctl.py bal-stop          # STOP and ESTOP also stop it
+python3 robotdctl.py bal-stop          # ends balancing (as does ESTOP); STOP only stops it moving
 ```
 
-**Driving while balancing (Phase 10).** Once it's balancing, the web page's drive buttons (or `robotdctl velocity`) drive it, limited to 250 mm/s and 60 °/s from the web. Letting go of a drive button sends speed 0 rather than STOP, so the robot stops and keeps balancing. The STOP button still ends balancing.
+**Driving while balancing (Phase 10).** Once it's balancing, the web page's drive buttons (or `robotdctl velocity`) drive it, limited to 250 mm/s and 60 °/s from the web. Letting go of a drive button sends speed 0, and STOP while balancing also just stops it moving: the robot keeps balancing. `balance_run.py`'s Ctrl-C (`BAL_STOP`) or ESTOP ends balancing. After a balance trip, drive commands are refused (`BALANCE_TRIPPED`) until you press STOP or re-arm.
 
 **`dryrun_check.py` (9.1, motors off).** Tilt the robot by hand forward and
 back. It checks u = KP·e + KD·θ̇ holds with the right sign (lean forward →

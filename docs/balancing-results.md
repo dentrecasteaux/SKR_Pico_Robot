@@ -243,6 +243,15 @@ Run `085327`: it returned towards home after each push and held quiet-period pit
 - Run `102857` (**ACCEL_COMP=1**, TRIM_RATE 0.25): **recovered from backward leans of 9.2° and 9.9°** (it fell at about 3° before). Returned home within about 2 s every time (pushed out to ≤ 250 mm). The user felt the robot "push back". It ended on a forward lean with the wheels pinned at VMAX 0.55 m/s while the robot did *not* tip back, so most likely a sustained push from behind: the speed limit is now the constraint for forward disturbances.
 - **ACCEL_COMP now defaults on**, and the trim rate defaults to 0.25 (calm-only).
 
+### Web drive test 1: robot dropped by a STOP (safety fix)
+
+Run `103528`: it balanced calmly for 28 s, then **balancing ended while upright** (−3.9°, wheels −11 mm/s) and the robot fell right over (84° pitch). Cause: `robotd` sends STOP when a web drive hold (600 ms) expires, and STOP ended balancing. Afterwards, web drive commands ran the motors in **normal velocity mode** (mode 1 bursts from 41 s to 60 s) while the robot lay on its side.
+
+**Fixes:**
+- STOP while balancing now means "stop moving, keep balancing" (drive set points to zero). `BAL_STOP`/ESTOP end balancing; STOP during arming cancels.
+- **Trip lockout:** after a TILT/RUNAWAY/IMU/ARM_TIMEOUT trip, all motion commands are refused with `BALANCE_TRIPPED` until STOP, CLEAR_ESTOP or BAL_ARM.
+- `balance_run.py` ends any leftover balancing with BAL_STOP before starting.
+
 **Open points:** the VMAX headroom (0.55 m/s against 0.8 m/s stall unloaded; consider 0.65 after loaded tests); the l_eff regression needs a gyro-integrated angle; drive test from the web page still to do.
 
 ## Actions arising

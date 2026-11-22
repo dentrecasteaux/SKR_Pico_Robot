@@ -495,7 +495,9 @@ void syncBalance()
   static Balance::State previous = Balance::State::Off;
   const Balance::State current = Balance::currentState();
   if (current == Balance::State::Tripped && previous != Balance::State::Tripped) {
-    telemetryLogger.freeze(Balance::reasonName(Balance::status().reason));
+    const Balance::Reason reason = Balance::status().reason;
+    telemetryLogger.freeze(Balance::reasonName(reason));
+    if (reason != Balance::Reason::Command) robot.setBalanceTripLockout();
   }
   if (robot.mode() == Robot::Mode::Balance && !Balance::active()) {
     robot.exitBalance();

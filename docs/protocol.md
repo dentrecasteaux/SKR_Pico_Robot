@@ -326,7 +326,17 @@ Used for the free-fall and balance-angle tests. `LEASE` is 500–120000 ms
 The balance controller runs on core 1, straight after each 500 Hz IMU sample.
 While it is armed, core 1 owns the steppers, and the robot reports
 `MODE=BALANCE`. `SET_VELOCITY`, `MOVE`, `TURN`, `HOLD` and `CONFIGURE` are
-rejected with `BUSY`. `STOP` and `ESTOP` stop it. All four commands reply with
+rejected with `BUSY`. **`STOP` while balancing means "stop moving and keep
+balancing"**: it zeroes the drive set points, because ending balancing would
+drop the robot. (`robotd` also sends STOP when a drive hold expires.) STOP
+during `ARMING` cancels. `BAL_STOP` and `ESTOP` end balancing.
+
+**Trip lockout:** after a balance trip with reason `TILT_*`, `RUNAWAY`, `IMU`
+or `ARM_TIMEOUT`, `SET_VELOCITY`, `MOVE`, `TURN` and `HOLD` are refused with
+`BALANCE_TRIPPED` until `STOP`, `CLEAR_ESTOP` or a new `BAL_ARM`, so stray drive
+commands can't move a fallen robot.
+
+All four commands reply with
 the balance status ACK:
 
 ```text
@@ -352,7 +362,7 @@ Extra `BAL_SET` keys: `TRIM_RATE` (deg per m·s, default 0.25; 0 = off; adapts o
 
 | `REASON` | Cause |
 |---|---|
-| `COMMAND` | `BAL_STOP` or `STOP` |
+| `COMMAND` | `BAL_STOP`, or `STOP` during arming |
 | `ESTOP` | `ESTOP` (also latches ESTOP) |
 | `TILT_FWD` / `TILT_BACK` | Pitch beyond `TILT_FWD` / `TILT_BACK` (absolute IMU pitch) while running |
 | `RUNAWAY` | Speed pinned at `VMAX` for `RUNAWAY` s |

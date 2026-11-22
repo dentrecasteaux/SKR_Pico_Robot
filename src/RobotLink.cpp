@@ -111,6 +111,16 @@ void RobotLink::processLine(char* line)
       return;
     }
     case Protocol::CommandType::Stop:
+      // While balancing, STOP means "stop moving and keep balancing": ending
+      // balancing would drop the robot onto a training wheel. BAL_STOP and
+      // ESTOP end balancing. (robotd also sends STOP when a drive hold
+      // expires.) STOP while arming cancels the arming.
+      if (Balance::currentState() == Balance::State::Running) {
+        Balance::setDrive(0.0F, 0.0F, 100);
+        cacheReply(originalLine, command.sequence, true);
+        sendAck(command.sequence);
+        return;
+      }
       Balance::stop(Balance::Reason::Command);
       robot_.stop();
       cacheReply(originalLine, command.sequence, true);
@@ -639,6 +649,8 @@ const char* RobotLink::commandErrorCode(Robot::CommandResult result) const
       return "ESTOP_LATCHED";
     case Robot::CommandResult::DriverFault:
       return "DRIVER_FAULT";
+    case Robot::CommandResult::BalanceTripped:
+      return "BALANCE_TRIPPED";
   }
   return "INVALID_VALUE";
 }

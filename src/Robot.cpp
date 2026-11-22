@@ -95,7 +95,7 @@ void Robot::pollDriverTelemetry(TMC2209& driver,
 bool Robot::setVelocity(float linearMmPerSecond,
                         float turnDegreesPerSecond)
 {
-  if (estopLatched_ || mode_ == Mode::Balance ||
+  if (estopLatched_ || mode_ == Mode::Balance || balanceTripLockout_ ||
       linearMmPerSecond < -Config::MAX_LINEAR_SPEED_MM_PER_SECOND ||
       linearMmPerSecond > Config::MAX_LINEAR_SPEED_MM_PER_SECOND ||
       turnDegreesPerSecond < -Config::MAX_TURN_SPEED_DEGREES_PER_SECOND ||
@@ -120,6 +120,7 @@ Robot::CommandResult Robot::setVelocity(float linearMmPerSecond,
 {
   if (estopLatched_) return CommandResult::EstopLatched;
   if (mode_ == Mode::Balance) return CommandResult::Busy;
+  if (balanceTripLockout_) return CommandResult::BalanceTripped;
   if (linearMmPerSecond < -Config::MAX_LINEAR_SPEED_MM_PER_SECOND ||
       linearMmPerSecond > Config::MAX_LINEAR_SPEED_MM_PER_SECOND ||
       turnDegreesPerSecond < -Config::MAX_TURN_SPEED_DEGREES_PER_SECOND ||
@@ -183,6 +184,7 @@ Robot::CommandResult Robot::startFiniteMotion(bool turn, float value,
   if (mode_ == Mode::Move || mode_ == Mode::Turn || mode_ == Mode::Balance) {
     return CommandResult::Busy;
   }
+  if (balanceTripLockout_) return CommandResult::BalanceTripped;
   if (!motionAllowed()) return CommandResult::DriverFault;
 
   if (mode_ == Mode::Velocity) {
@@ -217,6 +219,7 @@ Robot::CommandResult Robot::hold(uint32_t leaseMs)
     return CommandResult::OutOfRange;
   }
   if (mode_ != Mode::Idle && mode_ != Mode::Hold) return CommandResult::Busy;
+  if (balanceTripLockout_) return CommandResult::BalanceTripped;
   if (!motionAllowed()) return CommandResult::DriverFault;
 
   leftMotor_.enable();
@@ -234,6 +237,7 @@ Robot::CommandResult Robot::enterBalance()
   if (!motionAllowed()) return CommandResult::DriverFault;
   // Release core 0's hold on the motors; core 1 enables them when it arms.
   motionController_.stop();
+  balanceTripLockout_ = false;
   mode_ = Mode::Balance;
   return CommandResult::Accepted;
 }
@@ -249,6 +253,7 @@ void Robot::stop()
   // While balancing, core 1 owns the steppers: the caller stops the balance
   // controller, and exitBalance() runs once it has released the motors.
   if (mode_ == Mode::Balance) return;
+  balanceTripLockout_ = false;   // STOP acknowledges a balance trip
   motionController_.stop();
   cancelActiveJob(JobResult::Stopped);
   velocityLeaseActive_ = false;
@@ -281,6 +286,7 @@ Robot::CommandResult Robot::clearEstop()
   if (!estopLatched_) return CommandResult::Accepted;
 
   estopLatched_ = false;
+  balanceTripLockout_ = false;
   mode_ = Mode::Idle;
   return CommandResult::Accepted;
 }

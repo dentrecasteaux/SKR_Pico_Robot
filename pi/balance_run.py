@@ -45,7 +45,9 @@ def main() -> int:
                     help="run even if KP looks implausibly low")
     args = ap.parse_args()
 
-    call("stop")
+    call("bal_stop")      # end any balancing left running (STOP wouldn't)
+    time.sleep(0.7)
+    call("stop")          # also clears a trip lockout
     time.sleep(0.3)
     base = balance_status()
     # Safety settings must be the defaults at the start of every run (a run
