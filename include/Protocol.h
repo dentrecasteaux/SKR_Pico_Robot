@@ -28,7 +28,8 @@ enum class CommandType
   LogStatus,
   BbFreeze,
   BbArm,
-  BbDump
+  BbDump,
+  Hold
 };
 
 enum class ChopperMode { StealthChop, SpreadCycle };

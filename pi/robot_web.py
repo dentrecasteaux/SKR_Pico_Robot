@@ -41,6 +41,7 @@ ALLOWED_ACTIONS = {
     "bb_arm",
     "bb_dump",
     "runs",
+    "hold",
 }
 RUNS_DIR = Path.home() / "runs"
 RUN_FILES = {"data.csv": "text/csv", "meta.json": "application/json"}

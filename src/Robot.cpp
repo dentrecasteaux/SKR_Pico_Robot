@@ -38,6 +38,12 @@ void Robot::update()
     mode_ = Mode::Idle;
   }
 
+  if (mode_ == Mode::Hold &&
+      millis() - holdStartedMs_ >= holdDurationMs_) {
+    motionController_.stop();
+    mode_ = Mode::Idle;
+  }
+
   if (mode_ == Mode::Velocity && velocityLeaseActive_ &&
       millis() - velocityLeaseStartedMs_ >= velocityLeaseDurationMs_) {
     motionController_.stop();
@@ -199,6 +205,24 @@ Robot::CommandResult Robot::startFiniteMotion(bool turn, float value,
   turnSetpointDegreesPerSecond_ = 0.0F;
   leaseExpiredFault_ = false;
   mode_ = turn ? Mode::Turn : Mode::Move;
+  return CommandResult::Accepted;
+}
+
+Robot::CommandResult Robot::hold(uint32_t leaseMs)
+{
+  if (estopLatched_) return CommandResult::EstopLatched;
+  if (leaseMs < Config::MIN_HOLD_LEASE_MS ||
+      leaseMs > Config::MAX_HOLD_LEASE_MS) {
+    return CommandResult::OutOfRange;
+  }
+  if (mode_ != Mode::Idle && mode_ != Mode::Hold) return CommandResult::Busy;
+  if (!motionAllowed()) return CommandResult::DriverFault;
+
+  leftMotor_.enable();
+  rightMotor_.enable();
+  holdStartedMs_ = millis();
+  holdDurationMs_ = leaseMs;
+  mode_ = Mode::Hold;
   return CommandResult::Accepted;
 }
 

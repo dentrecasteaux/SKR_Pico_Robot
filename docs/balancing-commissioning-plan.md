@@ -4,7 +4,7 @@ Started 22 Nov 2026. The SKR Pico robot electronics (14.8 V 4S LiPo, buck conver
 
 **How it works:** finish each phase and record its numbers in [balancing-results.md](balancing-results.md) before starting the next. Phases 1–6 need no balancing code. Most past difficulty with balancing came from wrong signs, an unknown balance angle and guessed gains. Phases 5–8 remove all three before the first attempt.
 
-**Status (22 Nov 2026):** Phases 1–6 complete (a few optional items remain). Next: Phase 7.
+**Status (23 Nov 2026):** Phases 1–7 complete (7.2 folded into Phase 9). Next: Phases 8–9.
 
 ---
 
@@ -127,7 +127,7 @@ The robot can't stay connected to the phone or the Mac while it runs, so the rob
 |---|---|---|
 | 7.1 | **Speed and acceleration limit**, wheels up: step-change the velocity at increasing sizes and ramp the acceleration up (e.g. 2, 5, 10, 20, 40 m/s²) until steps are lost. Check by commanding out-and-back moves and seeing whether a tyre mark returns to the same place; TMC `stallguard` / DRV_STATUS help. Do it in both chopper modes, at 1.0 and 1.3 A, and at full and low battery. | Gives **v_max and a_max**, the saturation limits for every controller. Use about 70% of them as limits in firmware. |
 | 7.2 | The same test on the floor (robot resting on the training wheels, short moves). | Load and tyre slip reduce the limits |
-| 7.3 | **Free-fall test:** hold the robot just off its balance point with the motors holding position. Release; it falls onto a training wheel. Log θ(t). An inverted pendulum grows as θ₀·cosh(ω₀t); fit ω₀. Then **l_eff = g / ω₀²**. Compare with 1.8. | Real model parameter, including friction and the training-wheel geometry |
+| 7.3 | **Free-fall test:** hold the robot just off its balance point with the motors holding position. Release; it falls onto a training wheel. Log θ(t) and fit θ_eq + A·e^(ωt) + B·e^(−ωt). **Note (23 Nov):** with the wheels locked the robot *rolls* rather than pivoting about the axle, so ω_lock² = m·g·l/(J_axle + m·r·(2l + r)), not g/l_eff. The test gives the balance angle well (average both fall directions) but bounds l_eff only loosely. | θ_trim, and a range for l_eff |
 | 7.4 | **Balance angle θ_trim:** find where the robot balances on its wheels with the motors holding. Hand-steady it until it stays in place for about 1 s, and read the logged θ (do several tries, and both directions). Error here makes the robot run away in one direction. | Record θ_trim (the controller uses θ − θ_trim) |
 
 ## Phase 8: Safety layer in firmware (before the first balancing attempt)

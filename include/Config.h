@@ -37,6 +37,11 @@ namespace Config {
   constexpr float MAX_TURN_ANGLE_DEGREES = 3600.0F;
   constexpr uint32_t MIN_VELOCITY_LEASE_MS = 100;
   constexpr uint32_t MAX_VELOCITY_LEASE_MS = 2000;
+  // HOLD: drivers energised with the wheels stationary (locked), for the
+  // free-fall and balance-angle tests. Always time-limited.
+  constexpr uint32_t DEFAULT_HOLD_LEASE_MS = 30000;
+  constexpr uint32_t MIN_HOLD_LEASE_MS = 500;
+  constexpr uint32_t MAX_HOLD_LEASE_MS = 120000;
   // Finite MOVE / TURN run at a constant wheel speed (no ramp), so keep it
   // gentle. Independent of microstepping.
   constexpr float CALIBRATION_MOVE_SPEED_MM_PER_SECOND = 50.0F;

@@ -77,6 +77,29 @@ python3 log_test.py
 python3 log_test.py --seconds 10 --div 1
 ```
 
+### `limits_test.py`: speed and acceleration limits (Phase 7.1)
+
+**Robot on the stand.** Interactive (use `ssh -t`). Part A ramps to 400–1000
+mm/s; part B does ±300 mm/s reversals at 2–20 m/s². Both run in each chopper
+mode. After every step you answer clean or stalled, because there are no
+encoders. Each step is logged, and a summary JSON is written.
+
+```text
+ssh -t robot@r2w-pi.local 'cd r2w && python3 limits_test.py'
+```
+
+### `fall_test.py`: free fall, ω₀ and balance angle (Phase 7.3/7.4)
+
+**Robot on the floor**, wheels locked with `HOLD`. Interactive. For each fall
+you hold the robot near balance, keep still, then let go gently. Each fall is
+logged at 500 Hz and fitted to θ = θ_eq + A·e^(ωt) + B·e^(−ωt), using the
+gyro-integrated pitch. This gives ω₀ (so l_eff = g/ω₀²) and θ_eq, the balance
+angle θ_trim. `--analyse RUN ...` re-analyses saved runs.
+
+```text
+ssh -t robot@r2w-pi.local 'cd r2w && python3 fall_test.py'
+```
+
 ### `vibe_test.py`: IMU vibration with the motors running
 
 Commissioning plan Phase 5.4. **Robot on the stand, wheels clear.** For each

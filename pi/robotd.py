@@ -189,6 +189,10 @@ class RobotController:
                 if not fields:
                     raise ValueError("imu_set needs tau and/or auto_bias")
                 reply = client.command("IMU_SET", *fields)
+            elif action == "hold":
+                self._clear_velocity()
+                lease = self._integer(request, "lease_ms", 30000)
+                reply = client.command("HOLD", f"LEASE={lease}")
             elif action == "log_start":
                 if self._recorder is not None:
                     raise ValueError("a log run is already recording")

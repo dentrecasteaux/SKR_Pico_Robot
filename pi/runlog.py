@@ -33,7 +33,8 @@ CSV_HEADER = (
     "v_left_sps", "v_right_sps", "v_left_mm_s", "v_right_mm_s",
     "mode", "flags",
 )
-MODE_NAMES = {0: "IDLE", 1: "VELOCITY", 2: "MOVE", 3: "TURN", 4: "ESTOP"}
+MODE_NAMES = {0: "IDLE", 1: "VELOCITY", 2: "MOVE", 3: "TURN", 4: "ESTOP",
+              5: "HOLD"}
 FLAG_NAMES = {
     0x01: "LATE", 0x02: "STALL", 0x04: "ACC_REJECT", 0x08: "CALIBRATING",
     0x10: "NO_ATTITUDE", 0x80: "MOTORS_BUSY",

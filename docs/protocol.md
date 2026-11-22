@@ -307,6 +307,20 @@ Typical uses: start a window, run a `TURN`, read `YAW_CHANGE` and compare it
 with the commanded angle; or start a window, drive, and read the noise and
 roll/pitch ranges to measure vibration.
 
+## `HOLD`
+
+```text
+R2W/1 CMD 50 HOLD LEASE=30000
+R2W/1 ACK 50 OK
+```
+
+Locks the wheels: both drivers are enabled with no STEP pulses, so the motors
+hold position (the TMC2209 drops to its hold current after a short delay).
+Used for the free-fall and balance-angle tests. `LEASE` is 500–120000 ms
+(default 30000). The hold ends when the lease expires (drivers disabled,
+`MODE=IDLE`), or on `STOP`, `ESTOP` or any motion command. `STATUS` reports
+`MODE=HOLD`. Rejected with `BUSY` while moving, and while ESTOP is latched.
+
 ## Telemetry commands (balancing Phase 6)
 
 Core 0 drains every IMU sample (500 Hz) from core 1, adds the robot state,
@@ -345,7 +359,7 @@ R2W/1 BBEND COUNT=1024 REASON=ESTOP FROZEN_T_US=123456789
 | `ax`, `ay`, `az` | Milli-g |
 | `u` | Commanded wheel acceleration, mm/s² (balance controller; 0 until Phase 9) |
 | `v_left`, `v_right` | Wheel speed in steps/s, forward positive (velocity mode only; 0 during MOVE/TURN) |
-| `mode` | 0 IDLE, 1 VELOCITY, 2 MOVE, 3 TURN, 4 ESTOP |
+| `mode` | 0 IDLE, 1 VELOCITY, 2 MOVE, 3 TURN, 4 ESTOP, 5 HOLD |
 | `flags` | 0x01 late sample, 0x02 stall read, 0x04 accel correction rejected, 0x08 calibrating, 0x10 attitude not valid, 0x80 motors busy |
 
 The firmware writes these lines only when the USB transmit buffer has room,

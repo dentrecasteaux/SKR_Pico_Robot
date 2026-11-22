@@ -1,5 +1,7 @@
 #include "Protocol.h"
 
+#include "Config.h"
+
 #include <cerrno>
 #include <cmath>
 #include <cstdlib>
@@ -78,6 +80,7 @@ Protocol::CommandType commandType(const char* name, bool& recognised)
   if (std::strcmp(name, "BB_FREEZE") == 0) return Protocol::CommandType::BbFreeze;
   if (std::strcmp(name, "BB_ARM") == 0) return Protocol::CommandType::BbArm;
   if (std::strcmp(name, "BB_DUMP") == 0) return Protocol::CommandType::BbDump;
+  if (std::strcmp(name, "HOLD") == 0) return Protocol::CommandType::Hold;
   if (std::strcmp(name, "IMU_WINDOW") == 0) {
     return Protocol::CommandType::ImuWindow;
   }
@@ -333,6 +336,14 @@ Protocol::ParseResult Protocol::parseCommand(char* line, Command& command)
         result.errorCode = "UNKNOWN_FIELD";
         return result;
       }
+      break;
+    case CommandType::Hold:
+      if (hasLinear || hasTurn || hasDistance || hasAngle ||
+          hasConfiguration) {
+        result.errorCode = "UNKNOWN_FIELD";
+        return result;
+      }
+      if (!hasLease) command.leaseMs = Config::DEFAULT_HOLD_LEASE_MS;
       break;
     case CommandType::LogStart:
       if (hasLinear || hasTurn || hasLease || hasDistance || hasAngle ||

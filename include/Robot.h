@@ -16,7 +16,8 @@ public:
     Velocity,
     Move,
     Turn,
-    Estop
+    Estop,
+    Hold      // drivers enabled, wheels stationary (locked), time-limited
   };
 
   enum class CommandResult
@@ -94,6 +95,9 @@ public:
                           uint32_t& jobId);
   CommandResult startTurn(float angleDegrees, uint32_t originSequence,
                           uint32_t& jobId);
+  // Lock the wheels: enable both drivers with no motion for leaseMs. Ended by
+  // the lease, STOP, ESTOP or any motion command.
+  CommandResult hold(uint32_t leaseMs);
   void stop();
   void estop();
   CommandResult clearEstop();
@@ -131,6 +135,8 @@ private:
   HardwareSerial& stepperUart_;
   Mode mode_ = Mode::Idle;
   bool estopLatched_ = false;
+  uint32_t holdStartedMs_ = 0;
+  uint32_t holdDurationMs_ = 0;
   bool velocityLeaseActive_ = false;
   uint32_t velocityLeaseStartedMs_ = 0;
   uint32_t velocityLeaseDurationMs_ = 0;

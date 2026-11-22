@@ -135,6 +135,49 @@ No IMU errors, stalls or accelerometer rejects; core 1 loop max 213–299 µs.
 
 **First attempt** reported 7272 IMU queue drops. They had built up at start-up, while core 0 waited for the USB host (the cable was moving from the Mac to the Pi) and nothing drained the queue. Fixed: `IMU_DROPS` now counts from `LOG_START` (with `IMU_DROPS_TOTAL` since boot), and `seq` comes from core 1, so a real drop also shows as a gap.
 
+## 2026-11-23: Phase 7, limits, free fall and balance angle
+
+### 7.1 Speed and acceleration limits (`limits_test.py`, stand, 1.0 A, 1/16)
+
+| Mode | Top speed, clean | Stalled at | ±300 mm/s reversals (unloaded) |
+|---|---|---|---|
+| **StealthChop** | **800 mm/s** (4.1 rev/s) | 1000 mm/s | clean at 2, 5, 10, 20 m/s² |
+| SpreadCycle | 600 mm/s | 800 mm/s | clean at 2, 5, 10, 20 m/s² |
+
+- **Decision: StealthChop for balancing.** It has the higher top speed, and it vibrated less in 5.4.
+- **Initial controller limits: v_max ≈ 550 mm/s** (70% of 800). **a_max ≈ 6 m/s²**, conservative because the reversal tests ran without the robot's load (1.88 kg at 6 m/s² needs about 0.18 N·m per motor). Verify both from the Phase 9 logs.
+- Without encoders, stalls were judged by eye and ear. Small step losses short of a stall would not have been seen.
+
+### 7.3 / 7.4 Free fall with the wheels held (`fall_test.py`, 6 falls, 500 Hz)
+
+| Fall | Direction | Held angle | ω (rad/s) | θ_eq (°) | Fit rms (°) |
+|---|---|---|---|---|---|
+| 1 | forward | −1.42 | 8.35 | −1.61 | 0.024 |
+| 2 | back | −4.81 | 5.68 | −5.76 | 0.009 |
+| 3 | forward | −2.15 | 6.06 | −1.73 | 0.004 |
+| 4 | back | −7.51 | 6.41 | −6.77 | 0.001 |
+| 5 | forward | −3.32 | 5.55 | −2.29 | 0.023 |
+| 6 | back | −4.74 | 5.34 | −5.44 | 0.013 |
+
+**Balance angle: θ_trim ≈ −3.9° IMU pitch.** The apparent equilibrium depends on the fall direction: forward falls give −1.9° on average, back falls −6.0°. That's a band of about ±2.0°. With the wheels locked, the robot tips about the front or back edge of the tyres' flat contact patch, so each direction shows the CoM above a different patch edge. tan(2°) × 61 mm ≈ 2 mm half-patch, which is plausible for these tyres. When the wheels are driven they roll, so the balance point is the centre of the band: **−3.9°** (mean of the direction means). This needs confirming in Phase 9, where a constant drift in one direction means θ_trim is off.
+
+**ω: the plan's 7.3 assumption was wrong.** With the wheels locked to the body, the robot doesn't pivot about the axle: it *rolls* (each radian of tilt rolls the axle r·θ forward). This is a rolling pendulum about the contact point, with
+
+  ω_lock² = m·g·l / (J_axle + m·r·(2l + r))
+
+rather than the driven-wheel model θ̈ = (g·θ − u)/l_eff. The swing-test numbers predict ω_lock ≈ 7.2 rad/s; measured 5.3–8.4 (mean 6.2, sd 1.1). Converting back, l_eff = g/ω_lock² − r(2l + r)/l gives **about 95 mm (swing test) to about 200 mm (falls)**. The locked-wheel test can't pin it down further: hand release, the patch-edge pivoting and the uncertain CoM height all contribute.
+
+**Consequence for Phase 9:** design the first PD gains for the middle of the range, l_eff ≈ 140 mm, ω_n ≈ 14 rad/s, ζ = 0.7: **Kp ≈ 39 m/s²/rad (0.68/°), Kd ≈ 2.9 m/s² per rad/s.** The closed loop is stable for any l_eff when Kp > g:
+- actual 95 mm → ω_n ≈ 17.6, ζ ≈ 0.88
+- actual 200 mm → ω_n ≈ 12.1, ζ ≈ 0.61
+
+The balancing logs (u, θ, θ̇) will then give l_eff directly by regression of θ̈ against (g·θ − u).
+
+### Firmware / tools added
+
+- `HOLD [LEASE=ms]` command: wheels locked (drivers on, no steps), time-limited (500–120000 ms), ended by STOP/ESTOP/motion. `MODE=HOLD` (telemetry mode 5). `robotdctl hold`.
+- `pi/limits_test.py`, `pi/fall_test.py` (pure-Python fit, checked on synthetic falls: ω exact, θ_eq within 0.1°).
+
 ## Actions arising
 
 - Fit a LiPo voltage alarm on the balance lead (the SKR doesn't measure the battery).
@@ -144,4 +187,4 @@ No IMU errors, stalls or accelerometer rejects; core 1 loop max 213–299 µs.
 
 ## Next
 
-Phase 7 (speed and acceleration limits, free-fall fit for ω₀, balance angle θ_trim), then Phase 8 (safety layer).
+Phase 8 (safety layer) and Phase 9 (PD balance loop on core 1, with a step generator that applies speed changes immediately). 7.2 (loaded acceleration on the floor) is folded into Phase 9's logs.

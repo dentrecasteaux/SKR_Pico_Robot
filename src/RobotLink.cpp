@@ -146,6 +146,16 @@ void RobotLink::processLine(char* line)
     case Protocol::CommandType::ImuWindow:
       processImuCommand(command);
       return;
+    case Protocol::CommandType::Hold: {
+      const Robot::CommandResult commandResult =
+          robot_.hold(command.leaseMs);
+      if (commandResult == Robot::CommandResult::Accepted) {
+        sendAck(command.sequence);
+      } else {
+        sendCommandError(command.sequence, commandResult);
+      }
+      return;
+    }
     case Protocol::CommandType::LogStart:
     case Protocol::CommandType::LogStop:
     case Protocol::CommandType::LogStatus:
@@ -537,6 +547,9 @@ void RobotLink::sendStatus(uint32_t sequence)
       break;
     case Robot::Mode::Estop:
       mode = "ESTOP";
+      break;
+    case Robot::Mode::Hold:
+      mode = "HOLD";
       break;
   }
 

@@ -50,6 +50,11 @@ def build_parser() -> argparse.ArgumentParser:
     turn = subparsers.add_parser("turn")
     turn.add_argument("angle", type=float)
 
+    hold = subparsers.add_parser(
+        "hold", help="lock the wheels (drivers on, no motion) for a while"
+    )
+    hold.add_argument("--lease", type=int, default=30000, help="ms, 500-120000")
+
     log_start = subparsers.add_parser(
         "log-start", help="start recording a telemetry run on the Pi"
     )
@@ -84,6 +89,8 @@ def payload(args: argparse.Namespace) -> dict[str, Any]:
         result["distance"] = args.distance
     elif args.action == "turn":
         result["angle"] = args.angle
+    elif args.action == "hold":
+        result["lease_ms"] = args.lease
     elif args.action == "log-start":
         result.update(name=args.name, notes=args.notes, div=args.div)
         if args.duration is not None:
