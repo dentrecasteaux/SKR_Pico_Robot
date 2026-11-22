@@ -497,7 +497,9 @@ void syncBalance()
   if (current == Balance::State::Tripped && previous != Balance::State::Tripped) {
     const Balance::Reason reason = Balance::status().reason;
     telemetryLogger.freeze(Balance::reasonName(reason));
-    if (reason != Balance::Reason::Command) robot.setBalanceTripLockout();
+    // Every end of balancing leaves the robot on a training wheel, so lock
+    // out normal driving until CLEAR_ESTOP or the next BAL_ARM.
+    robot.setBalanceTripLockout();
   }
   if (robot.mode() == Robot::Mode::Balance && !Balance::active()) {
     robot.exitBalance();

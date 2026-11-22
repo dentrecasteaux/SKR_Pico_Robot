@@ -749,6 +749,8 @@ void RobotLink::sendStatus(uint32_t sequence)
   output.print(mode);
   output.print(" ESTOP=");
   output.print(status.estopLatched ? 1 : 0);
+  output.print(" DRIVE_LOCK=");
+  output.print(robot_.balanceTripLockout() ? 1 : 0);
   output.print(" FAULTS=");
   const bool driverFault =
       status.leftDriver.telemetry.hasFault() ||

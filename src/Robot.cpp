@@ -253,7 +253,6 @@ void Robot::stop()
   // While balancing, core 1 owns the steppers: the caller stops the balance
   // controller, and exitBalance() runs once it has released the motors.
   if (mode_ == Mode::Balance) return;
-  balanceTripLockout_ = false;   // STOP acknowledges a balance trip
   motionController_.stop();
   cancelActiveJob(JobResult::Stopped);
   velocityLeaseActive_ = false;
@@ -283,10 +282,12 @@ Robot::CommandResult Robot::clearEstop()
     return CommandResult::Busy;
   }
   if (!motionAllowed()) return CommandResult::DriverFault;
+  // CLEAR_ESTOP is also how an operator unlocks driving after balancing
+  // ended (STOP doesn't: robotd sends STOP on its own when a drive expires).
+  balanceTripLockout_ = false;
   if (!estopLatched_) return CommandResult::Accepted;
 
   estopLatched_ = false;
-  balanceTripLockout_ = false;
   mode_ = Mode::Idle;
   return CommandResult::Accepted;
 }

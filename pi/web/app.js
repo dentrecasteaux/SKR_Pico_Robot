@@ -33,6 +33,9 @@ async function api(payload) {
 }
 
 function showToast(message, error = false) {
+  if (error && String(message).includes("BALANCE_TRIPPED")) {
+    message = "Driving locked after balancing ended - press Clear E-stop to unlock";
+  }
   clearTimeout(toastTimer);
   toast.textContent = message;
   toast.classList.toggle("error", error);
@@ -121,7 +124,8 @@ function render(service) {
         ? "Available when idle"
         : "Unavailable";
   $("#apply-settings").disabled = !settingsAvailable || !settingsDirty;
-  $("#clear-estop").hidden = !estopped;
+  // Also shown when driving is locked after balancing ended.
+  $("#clear-estop").hidden = !(estopped || status.DRIVE_LOCK === "1");
 
   const job = status.JOB && status.JOB !== "0" ? `Job ${status.JOB}` : null;
   $("#job-label").textContent = job || "No active job";

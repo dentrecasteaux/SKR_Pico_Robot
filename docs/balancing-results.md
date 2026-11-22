@@ -249,10 +249,19 @@ Run `103528`: it balanced calmly for 28 s, then **balancing ended while upright*
 
 **Fixes:**
 - STOP while balancing now means "stop moving, keep balancing" (drive set points to zero). `BAL_STOP`/ESTOP end balancing; STOP during arming cancels.
-- **Trip lockout:** after a TILT/RUNAWAY/IMU/ARM_TIMEOUT trip, all motion commands are refused with `BALANCE_TRIPPED` until STOP, CLEAR_ESTOP or BAL_ARM.
+- **Trip lockout:** after a TILT/RUNAWAY/IMU/ARM_TIMEOUT trip, all motion commands are refused with `BALANCE_TRIPPED` until STOP, CLEAR_ESTOP or BAL_ARM. (Tightened after test 2: see below.)
 - `balance_run.py` ends any leftover balancing with BAL_STOP before starting.
 
 **Open points:** the VMAX headroom (0.55 m/s against 0.8 m/s stall unloaded; consider 0.65 after loaded tests); the l_eff regression needs a gyro-integrated angle; drive test from the web page still to do.
+
+### Web drive test 2 (run `104319`, black box `104648_bb_command`)
+
+- **Balanced for about 189 s** (best so far). It was ended by the operator's Ctrl-C (`BAL_STOP`, reason COMMAND, black box clean); the robot then dropped onto a training wheel (pitch +29°) as designed.
+- **Turns worked:** four turns of about 1–2 s at the 60 °/s web cap (wheel speeds ∓117 mm/s). Yaw changed 108° over the run.
+- **Forward/back did nothing:** the controller never saw a linear set point (no 1 s window with mean wheel speed above 15 mm/s; the model predicts about 0.4 m for a 1.5 s press). The same happened in test 1. The only firmware path that drops a linear command but passes a 60 °/s turn is the range check: `SET_VELOCITY V=400` (the web slider's default) is rejected with `OUT_OF_RANGE` unless the page clamps it to 250, which needs the page's status to read `MODE=BALANCE`. **Fix:** in balance mode, `SET_VELOCITY` is now clamped to ±300 mm/s and ±90 °/s instead of rejected, so it doesn't depend on any client.
+- **Motors ran after the fall:** web drive commands drove the fallen robot in normal velocity mode (mode 1 bursts, 201–203 s). A COMMAND end didn't set the lockout, and balance_run's STOP or robotd's hold-expiry STOP would have cleared it anyway. **Fix:** *every* end of balancing sets the drive lockout. STOP no longer clears it; only CLEAR_ESTOP or the next BAL_ARM do. `STATUS` reports `DRIVE_LOCK`, and the web page shows its Clear button while locked.
+- **Slow oscillation built up:** from about 150 s, a steady ~1 Hz oscillation in the black box: wheel speed ±20 mm/s, pitch ±0.35°, u ±0.5 m/s². Early in the run the wheel-speed sd was 3 mm/s; by the end it was 13 mm/s. The pitch it balanced at moved in steps (−3.8° → −2.0° → −0.5° → −2.4°), which is the IMU shifting on its tape again. To watch in the next runs (IMU mount, battery level).
+- **Logging:** at 500 Hz the Pico drops about 40 % of telemetry lines (`STREAM_DROPS`; all balance runs so far, the USB/Pi side can't keep up). The balance itself is unaffected. `balance_run.py` now logs at 250 Hz by default (`--div`).
 
 ## Actions arising
 

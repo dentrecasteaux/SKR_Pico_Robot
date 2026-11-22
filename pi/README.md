@@ -109,7 +109,7 @@ python3 robotdctl.py bal-arm [--dry]
 python3 robotdctl.py bal-stop          # ends balancing (as does ESTOP); STOP only stops it moving
 ```
 
-**Driving while balancing (Phase 10).** Once it's balancing, the web page's drive buttons (or `robotdctl velocity`) drive it, limited to 250 mm/s and 60 °/s from the web. Letting go of a drive button sends speed 0, and STOP while balancing also just stops it moving: the robot keeps balancing. `balance_run.py`'s Ctrl-C (`BAL_STOP`) or ESTOP ends balancing. After a balance trip, drive commands are refused (`BALANCE_TRIPPED`) until you press STOP or re-arm.
+**Driving while balancing (Phase 10).** Once it's balancing, the web page's drive buttons (or `robotdctl velocity`) drive it, limited to 250 mm/s and 60 °/s from the web. Letting go of a drive button sends speed 0, and STOP while balancing also just stops it moving: the robot keeps balancing. `balance_run.py`'s Ctrl-C (`BAL_STOP`) or ESTOP ends balancing. Whenever balancing ends (a trip or Ctrl-C), drive commands are refused (`BALANCE_TRIPPED`) until you press **Clear emergency stop** on the web page (shown while locked) or start another balance run. `balance_run.py` logs at 250 Hz by default (`--div 1` for 500 Hz, which drops about 40 % of lines).
 
 **`dryrun_check.py` (9.1, motors off).** Tilt the robot by hand forward and
 back. It checks u = KP·e + KD·θ̇ holds with the right sign (lean forward →

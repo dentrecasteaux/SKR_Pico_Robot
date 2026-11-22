@@ -41,13 +41,15 @@ def main() -> int:
                     help="wheels-up test (9.2): no tilt trips, short run")
     ap.add_argument("--seconds", type=float, default=60.0)
     ap.add_argument("--notes", default="")
+    ap.add_argument("--div", type=int, default=2,
+                    help="log every Nth IMU sample (2 = 250 Hz; 1 drops lines)")
     ap.add_argument("--force", action="store_true",
                     help="run even if KP looks implausibly low")
     args = ap.parse_args()
 
     call("bal_stop")      # end any balancing left running (STOP wouldn't)
     time.sleep(0.7)
-    call("stop")          # also clears a trip lockout
+    call("stop")
     time.sleep(0.3)
     base = balance_status()
     # Safety settings must be the defaults at the start of every run (a run
@@ -114,11 +116,14 @@ def run(args, base, saved, temp) -> int:
     input("Kill switch in reach? Press Enter to arm...")
 
     run = call("log_start", name="balance_stand" if args.stand else "balance",
-               div=1, duration_s=args.seconds + 30,
+               div=args.div, duration_s=args.seconds + 30,
                notes=f"balance_run.py {args.notes} gains {st['KP']}/{st['KD']} "
                      f"trim {st['TRIM']} scale {args.scale}")["run"]
     call("bal_arm")
     print("Armed. Lift towards upright..." if not args.stand else "Armed.")
+    if not args.stand:
+        print("(Ctrl-C ends balancing: the robot drops onto a training wheel. "
+              "Driving stays locked until Clear E-stop or the next run.)")
     state, engaged_at, ended_at = "", None, None
     t0 = time.monotonic()
     try:

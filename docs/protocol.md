@@ -325,16 +325,18 @@ Used for the free-fall and balance-angle tests. `LEASE` is 500–120000 ms
 
 The balance controller runs on core 1, straight after each 500 Hz IMU sample.
 While it is armed, core 1 owns the steppers, and the robot reports
-`MODE=BALANCE`. `SET_VELOCITY`, `MOVE`, `TURN`, `HOLD` and `CONFIGURE` are
-rejected with `BUSY`. **`STOP` while balancing means "stop moving and keep
+`MODE=BALANCE`. `MOVE`, `TURN`, `HOLD` and `CONFIGURE` are rejected with
+`BUSY` (`SET_VELOCITY` drives the controller; see below). **`STOP` while balancing means "stop moving and keep
 balancing"**: it zeroes the drive set points, because ending balancing would
 drop the robot. (`robotd` also sends STOP when a drive hold expires.) STOP
 during `ARMING` cancels. `BAL_STOP` and `ESTOP` end balancing.
 
-**Trip lockout:** after a balance trip with reason `TILT_*`, `RUNAWAY`, `IMU`
-or `ARM_TIMEOUT`, `SET_VELOCITY`, `MOVE`, `TURN` and `HOLD` are refused with
-`BALANCE_TRIPPED` until `STOP`, `CLEAR_ESTOP` or a new `BAL_ARM`, so stray drive
-commands can't move a fallen robot.
+**Drive lockout:** whenever balancing ends (any reason, `COMMAND` included),
+`SET_VELOCITY`, `MOVE`, `TURN` and `HOLD` are refused with `BALANCE_TRIPPED`
+until `CLEAR_ESTOP` or a new `BAL_ARM`, so stray drive commands can't move a
+fallen robot. `STOP` does not unlock (robotd sends STOP by itself when a drive
+hold expires). `STATUS` reports `DRIVE_LOCK=1` while locked, and the web page
+then shows its Clear button.
 
 All four commands reply with
 the balance status ACK:
@@ -350,7 +352,7 @@ R2W/1 ACK 60 OK BAL=RUNNING REASON=NONE DRY=0 THETA=-3.71 ERR=0.19 RATE=1.2 U=0.
 | `BAL_STOP` | Stop (`REASON=COMMAND`). |
 | `BAL_STATUS` | Report only. |
 
-**Driving while balancing (Phase 10):** `SET_VELOCITY V= W= LEASE=` is accepted in `MODE=BALANCE` and sets the controller's drive set points (|V| ≤ 300 mm/s, |W| ≤ 90 °/s, LEASE 100–2000 ms; else `OUT_OF_RANGE`). When the lease expires they return to zero. v_ref ramps at `DRIVE_ACCEL` m/s², and w_ref at 180 °/s². x_ref integrates v_ref. Turning adds −/+ w_ref·track/2 to the left/right wheel speeds (separate step generators per wheel).
+**Driving while balancing (Phase 10):** `SET_VELOCITY V= W= LEASE=` is accepted in `MODE=BALANCE` and sets the controller's drive set points (V is clamped to ±300 mm/s, W to ±90 °/s and LEASE to 100–2000 ms; only non-numbers are rejected). When the lease expires they return to zero. v_ref ramps at `DRIVE_ACCEL` m/s², and w_ref at 180 °/s². x_ref integrates v_ref. Turning adds −/+ w_ref·track/2 to the left/right wheel speeds (separate step generators per wheel).
 
 **Automatic trim (Phase 10):** with KX > 0, trim_est −= `TRIM_RATE`·(x − x_ref)·dt, within ±`TRIM_RANGE` of `TRIM` (and 2° inside the tilt limits). A wrong trim makes the robot settle off its target position. This walks the trim until that offset is gone, e.g. after the IMU mount shifts. Each engagement starts from `TRIM`; `TRIM_EST` reports the value in use.
 

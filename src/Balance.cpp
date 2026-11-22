@@ -268,13 +268,13 @@ void stop(Reason why)
 
 bool setDrive(float vMps, float wDps, uint32_t leaseMs)
 {
-  if (!std::isfinite(vMps) || !std::isfinite(wDps) ||
-      fabsf(vMps) > MAX_DRIVE_MPS || fabsf(wDps) > MAX_DRIVE_DPS ||
-      leaseMs < 100 || leaseMs > 2000) {
-    return false;
-  }
-  driveV = vMps;
-  driveW = wDps;
+  if (!std::isfinite(vMps) || !std::isfinite(wDps)) return false;
+  // Clamp rather than reject: every client (web page, robotdctl, scripts)
+  // gets the balance-mode limits without having to know them.
+  driveV = fmaxf(-MAX_DRIVE_MPS, fminf(MAX_DRIVE_MPS, vMps));
+  driveW = fmaxf(-MAX_DRIVE_DPS, fminf(MAX_DRIVE_DPS, wDps));
+  if (leaseMs < 100) leaseMs = 100;
+  if (leaseMs > 2000) leaseMs = 2000;
   driveUntilMs = millis() + leaseMs;
   return true;
 }
