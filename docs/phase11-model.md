@@ -65,3 +65,6 @@ Stop and go back to the defaults (power cycle) if the robot buzzes, wobbles more
 | 1 | 203054 | 20 | 2.58 Hz, ζ 0.20 (late kicks 2.6 Hz, ζ 0.15–0.20) | 2.49 Hz, ζ 0.09 / 2.31 Hz, ζ 0.31 | l 43.9 mm, delay 11.2 ms, as before; joints more damped (zero ζ 0.38, pole ζ 0.26). It reproduces the ring (2.57 Hz, ζ 0.18) and says the old gains would have given 2.40 Hz, ζ 0.14 in the same state. |
 
 Step 1: the frequency rose as predicted, and length and delay are unchanged at the new gains, so the model holds. The joints happened to be in a better-damped state than the settled reference, so damping alone can't be compared run to run. Compare frequency, and use the refit's old-gains figure.
+| 2 | 204006 | 20 | 2.88 Hz, ζ 0.34 (late kicks 2.8–2.9 Hz, ζ 0.25–0.30) | 2.61 Hz, ζ 0.14 settled; 2.75 Hz, ζ 0.23 with the step 1 refit (this evening's joints) | — |
+
+Step 2: better than predicted. Both the frequency and the damping rise faster with the gains than the model says, so the model is on the cautious side here. (Runs 203415 and 203707 were at step 1 gains: the new values weren't applied. They repeat step 1: 2.58 Hz, ζ 0.19–0.20.)
