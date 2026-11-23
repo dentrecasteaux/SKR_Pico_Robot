@@ -235,6 +235,8 @@ void RobotLink::processBalanceCommand(const Protocol::Command& command)
           p.accelComp = (v == 0.0F || v == 1.0F || v == 2.0F) ? static_cast<uint8_t>(v) : 99;
         else if (std::strcmp(k, "IMU_H") == 0) p.imuHeightM = v;
         else if (std::strcmp(k, "COMP_DELAY_MS") == 0) p.compDelayS = v * 0.001F;
+        else if (std::strcmp(k, "NOTCH_HZ") == 0) p.notchHz = v;
+        else if (std::strcmp(k, "NOTCH_Q") == 0) p.notchQ = v;
         else if (std::strcmp(k, "TRIM_RATE") == 0) p.trimRate = v;
         else if (std::strcmp(k, "TRIM_RANGE") == 0) p.trimRangeDeg = v;
         else if (std::strcmp(k, "DRIVE_ACCEL") == 0) p.driveAccel = v;
@@ -442,6 +444,8 @@ void RobotLink::sendBalanceStatus(uint32_t sequence)
   n("ACCEL_COMP", p.accelComp);
   f("IMU_H", p.imuHeightM, 3);
   f("COMP_DELAY_MS", p.compDelayS * 1000.0F, 1);
+  f("NOTCH_HZ", p.notchHz, 1);
+  f("NOTCH_Q", p.notchQ, 2);
   f("TRIM_RATE", p.trimRate, 2);
   f("TRIM_RANGE", p.trimRangeDeg, 1);
   f("DRIVE_ACCEL", p.driveAccel, 2);

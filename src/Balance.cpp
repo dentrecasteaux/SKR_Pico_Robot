@@ -71,6 +71,40 @@ float qdotRad = 0.0F;          // filtered pitch angular acceleration, rad/s^2
 float prevRateRad = 0.0F;
 bool havePrevRate = false;
 constexpr float QDOT_CUTOFF_HZ = 30.0F;
+// Optional notch on the feedback part of u (biquad at the 500 Hz loop rate).
+struct Notch
+{
+  float hz = 0.0F, q = 0.0F;
+  float b0 = 1.0F, b1 = 0.0F, b2 = 0.0F, a1 = 0.0F, a2 = 0.0F;
+  float x1 = 0.0F, x2 = 0.0F, y1 = 0.0F, y2 = 0.0F;
+  void design(float f, float quality)
+  {
+    hz = f;
+    q = quality;
+    if (f <= 0.0F) return;
+    const float w0 = 6.2831853F * f / 500.0F;
+    const float alpha = sinf(w0) / (2.0F * quality);
+    const float c = cosf(w0);
+    const float a0 = 1.0F + alpha;
+    b0 = 1.0F / a0;
+    b1 = -2.0F * c / a0;
+    b2 = 1.0F / a0;
+    a1 = -2.0F * c / a0;
+    a2 = (1.0F - alpha) / a0;
+  }
+  void reset() { x1 = x2 = y1 = y2 = 0.0F; }
+  float step(float in)
+  {
+    if (hz <= 0.0F) return in;
+    const float out = b0 * in + b1 * x1 + b2 * x2 - a1 * y1 - a2 * y2;
+    x2 = x1;
+    x1 = in;
+    y2 = y1;
+    y1 = out;
+    return out;
+  }
+};
+Notch notch;
 uint32_t pinnedSinceUs = 0;
 bool pinned = false;
 uint32_t engages = 0;
@@ -233,6 +267,7 @@ void takeParams()
 void resetMotion()
 {
   for (float& h : uHist) h = 0.0F;
+  notch.reset();
   qdotRad = 0.0F;
   v = 0.0F;
   x = 0.0F;
@@ -335,7 +370,9 @@ bool setParams(const Params& n)
       n.driveLeanDeg >= 0.0F && n.driveLeanDeg <= 5.0F &&
       n.accelComp <= 2 &&
       std::isfinite(n.imuHeightM) && n.imuHeightM >= 0.0F && n.imuHeightM <= 0.5F &&
-      std::isfinite(n.compDelayS) && n.compDelayS >= 0.0F && n.compDelayS <= 0.03F;
+      std::isfinite(n.compDelayS) && n.compDelayS >= 0.0F && n.compDelayS <= 0.03F &&
+      std::isfinite(n.notchHz) && (n.notchHz == 0.0F || (n.notchHz >= 5.0F && n.notchHz <= 100.0F)) &&
+      std::isfinite(n.notchQ) && n.notchQ >= 0.3F && n.notchQ <= 10.0F;
   if (!ok) return false;
   mutex_enter_blocking(&balanceMutex);
   pendingParams = n;
@@ -503,8 +540,13 @@ StepOutput step(uint32_t tUs, float pitchDeg, float rollDeg, float qDps,
   thetaRefDeg = p.driveFf * aRef / G * R2D + p.driveLeanDeg * tanhf(vRef / 0.05F);
   const float e = (lastError - thetaRefDeg) * D2R;
   const float edot = rateDps * D2R;
-  float cmd = p.kp * e + p.kd * edot + p.kv * (v - vRef) + p.kx * (x - xRef) +
-              p.driveFf * aRef;
+  if (p.notchHz != notch.hz || p.notchQ != notch.q) {
+    notch.design(p.notchHz, p.notchQ);
+    notch.reset();
+  }
+  const float feedback =
+      p.kp * e + p.kd * edot + p.kv * (v - vRef) + p.kx * (x - xRef);
+  float cmd = notch.step(feedback) + p.driveFf * aRef;
   if (kickRequest) {
     kickRequest = false;
     kickU = kickRequestU;

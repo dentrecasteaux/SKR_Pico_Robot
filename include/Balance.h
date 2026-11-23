@@ -87,6 +87,9 @@ struct Params
                              // (24 Nov, phase11-model.md)
   float imuHeightM = 0.098F; // IMU above the axle centreline (measured)
   float compDelayS = 0.010F; // command -> wheel acceleration delay (model fit)
+  float notchHz = 0.0F;      // notch on the feedback part of u; 0 = off.
+                             // For the ~20 Hz drive shake at speed (24 Nov)
+  float notchQ = 1.0F;       // notch quality factor (width = notchHz / Q)
   float trimRate = 0.25F;    // deg per (m*s); 0 = no automatic trim.
                              // Adapts only while calm (see Balance.cpp).
   float trimRangeDeg = 4.0F; // trim_est stays within trim +/- this

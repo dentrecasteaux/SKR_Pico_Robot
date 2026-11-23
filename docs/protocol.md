@@ -349,7 +349,7 @@ R2W/1 ACK 60 OK BAL=RUNNING REASON=NONE DRY=0 THETA=-3.71 ERR=0.19 RATE=1.2 U=0.
 
 | Command | Effect |
 |---|---|
-| `BAL_SET KEY=value ...` | Set parameters (allowed while balancing, for tuning). Keys: `KP` `KD` `KV` `KX` `TRIM` `AMAX` `VMAX` `SOFT` `TILT_FWD` `TILT_BACK` `ARM_WINDOW` `ARM_RATE` `ARM_TIMEOUT` `RUNAWAY` `ACCEL_COMP` `IMU_H` `COMP_DELAY_MS` (and `TRIM_RATE` `TRIM_RANGE` `DRIVE_ACCEL` `DRIVE_FF` `DRIVE_LEAN`). `OUT_OF_RANGE` if the result is invalid. Lost at reboot. |
+| `BAL_SET KEY=value ...` | Set parameters (allowed while balancing, for tuning). Keys: `KP` `KD` `KV` `KX` `TRIM` `AMAX` `VMAX` `SOFT` `TILT_FWD` `TILT_BACK` `ARM_WINDOW` `ARM_RATE` `ARM_TIMEOUT` `RUNAWAY` `ACCEL_COMP` `IMU_H` `COMP_DELAY_MS` `NOTCH_HZ` `NOTCH_Q` (and `TRIM_RATE` `TRIM_RANGE` `DRIVE_ACCEL` `DRIVE_FF` `DRIVE_LEAN`). `OUT_OF_RANGE` if the result is invalid. Lost at reboot. |
 | `BAL_ARM [DRY=1]` | Hand the motors to core 1 and arm. The drivers are enabled (wheels locked) and the controller engages once \|θ − TRIM\| ≤ `ARM_WINDOW` and \|θ̇\| ≤ `ARM_RATE`, i.e. when the robot is lifted upright. `DRY=1` runs the controller immediately with the drivers off. Also re-arms the black box. |
 | `BAL_STOP` | Stop (`REASON=COMMAND`). |
 | `TMC_PWM [OFS=0-255] [GRAD=0-255] [AUTOGRAD=0\|1] [AUTOSCALE=0\|1]` | StealthChop PWM settings for both drivers. Any field given is written to both. `AUTOSCALE=0` is StealthChop's forward-controlled mode (PWM amplitude = OFS + GRAD × speed, no current regulation). The reply reports, per driver (`X_`, `Y_`): `PWMCONF`, `OFS`, `GRAD`, `AUTOSCALE`, `AUTOGRAD`, the learned `OFS_AUTO` and `GRAD_AUTO` (PWM_AUTO), and `SCALE_SUM`, `SCALE_AUTO` (PWM_SCALE). Settings last until the SKR loses power; `Config::TMC_PWM_FIXED` makes fixed values the boot default. |
@@ -386,6 +386,10 @@ height above the axle, default 0.098) times the filtered pitch angular
 acceleration dq/dt. Because the IMU sits near l_eff, the wheel and rotation
 terms nearly cancel, so mode 1 (u/g) is wrong at 2-5 Hz and caused the 4-5 Hz
 mode seen at high gains (`phase11-model.md`). `ACCEL_COMP` accepts 0, 1 or 2.
+
+`NOTCH_HZ` (0 = off, else 5-100 Hz) puts a biquad notch of quality `NOTCH_Q`
+(0.3-10, default 1) on the feedback part of u (not on the drive feed-forward
+or kicks). Added 24 Nov for the ~20 Hz shake while driving above ~200 mm/s.
 
 In telemetry, balance samples carry `mode` 6 (BALANCE), flag 0x20
 (0x40 in a dry run), `u` in mm/s², and the commanded speed in `v_left` and
