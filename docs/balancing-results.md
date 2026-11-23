@@ -361,6 +361,9 @@ New trim and limits: it held its place (42 s, ended by Ctrl-C after the kicks). 
 - **Hypothesis: StealthChop's automatic tuning.** The driver learns its PWM amplitude and gradient (PWM_OFS_AUTO, PWM_GRAD_AUTO) while it runs, especially at steady medium speeds. The learned values are kept until the driver loses power. They had been learned all morning in the heat run, vibration test, limit tests and drives. After a power cycle they restart from the untuned initial values, and balancing (short, slow, reversing moves) hardly retunes them. The firmware sets only toff, current, microsteps, the chopper mode and pwm_autoscale; the rest of PWMCONF stays at power-on defaults.
 - **Test:** on the stand, run both wheels steadily at about 300 mm/s for a minute (StealthChop tuning needs steady motion), then repeat a short kick run. If the damping is back near 0.3, the hypothesis holds, and the fix is to configure and check the StealthChop settings explicitly at boot.
 
+- **Test result (run `163113`): confirmed.** After one minute of steady running on the stand at 300 mm/s (no power cycle in between), a 15-kick run gave **damping 0.50 at the first kick, 0.28–0.29 next, then falling to about 0.15 by kick 15; ring 2.2 Hz**, l_eff 72 mm. That is the morning's "good" behaviour again, and it was visibly steadier. So **StealthChop's automatic tuning, learned in steady motion, sets the damping of the 2.2 Hz mode**, and balancing's short reversing moves slowly detune it again (the decline within each run).
+- **Fix to build:** read the drivers' learned PWM values (PWM_AUTO: PWM_OFS_AUTO, PWM_GRAD_AUTO; PWM_SCALE) after a tuning run, then set them as fixed values with automatic gradient tuning off (pwm_autograd = 0) and write the whole PWMCONF at boot, so the drivers behave the same after every power-up and don't drift while balancing.
+
 ## Actions arising
 
 - Fit a LiPo voltage alarm on the balance lead (the SKR doesn't measure the battery).
