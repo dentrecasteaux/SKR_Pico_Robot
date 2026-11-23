@@ -176,6 +176,17 @@ J·θ̈ = m·g·l·θ − m·l·u  →  θ̈ = (g·θ − u) / l_eff
 
 ## Phase 11: Controller comparison: PID, LQR and others
 
+**11.0 First, find the lightly damped mode (23 Nov).** After every kick the robot rings at about 2.2–2.3 Hz with damping 0.13–0.27, and the damping falls during a run. The cart-pendulum model plus delay doesn't predict this, so LQR built on it would be wrong. `balance_run.py --kicks` now fits a damped sine to the pitch rate after each kick and reports the frequency and damping. The same 10-kick run is repeated with one thing changed each time:
+
+| Run | Change | If the ring moves… |
+|---|---|---|
+| A | baseline: StealthChop, 1.0 A | (reference; repeat for drift within and between runs) |
+| B | SpreadCycle, 1.0 A | the driver's current control is involved |
+| C | StealthChop, 1.3 A | the motors' magnetic stiffness is involved |
+| later | firmer tyres / IMU fixed by screws / a different floor | mechanical compliance |
+
+Then fit a model that includes the mode (pendulum + delay + a compliant link between commanded and real wheel motion) and check that it reproduces the kick responses before computing LQR gains.
+
 **State:** x = [wheel position, wheel speed, θ, θ̇], input *u* = wheel acceleration (the same plant as Phase 9).
 
 - **LQR:** linearise the model with the measured m, l, J, l_eff and the rotor and wheel inertia. Compute K on the Mac (Python `control` or `scipy`) for a few Q/R choices. The firmware runs u = −K·x, the same loop with a different gain line. Compare it against pole placement at the same closed-loop poles as a sanity check.

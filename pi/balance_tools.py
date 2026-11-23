@@ -132,10 +132,87 @@ def kick_l_eff(rows: list[dict[str, float]], pad_s: float = 0.012) -> dict:
         u_kick = statistics.fmean(act[k]["u_mm_s2"] for k in range(i, j + 1)) / 1000
         if abs(dq) < 1e-3:
             continue
+        ring = ring_after(act, t, j)
         results.append({"t_s": round(t[i], 2), "u_mean": round(u_kick, 2),
                         "dq_dps": round(dq / D2R, 1),
-                        "l_eff_mm": round(integral / dq * 1000, 1)})
+                        "l_eff_mm": round(integral / dq * 1000, 1), **ring})
     ls = [r["l_eff_mm"] for r in results]
+    hz = [r["ring_hz"] for r in results if r.get("ring_hz")]
+    zs = [r["ring_zeta"] for r in results if r.get("ring_zeta") is not None]
     return {"kicks": results,
+            "ring_hz": round(statistics.median(hz), 2) if hz else None,
+            "ring_zeta": round(statistics.median(zs), 3) if zs else None,
             "l_eff_mm": round(statistics.median(ls), 1) if ls else None,
             "spread_mm": (round(min(ls), 1), round(max(ls), 1)) if ls else None}
+
+
+def _solve3(a, b):
+    """Solve a 3x3 linear system (Gaussian elimination); None if singular."""
+    m = [row[:] + [v] for row, v in zip(a, b)]
+    for c in range(3):
+        piv = max(range(c, 3), key=lambda r: abs(m[r][c]))
+        if abs(m[piv][c]) < 1e-12:
+            return None
+        m[c], m[piv] = m[piv], m[c]
+        for r in range(3):
+            if r != c:
+                f = m[r][c] / m[c][c]
+                for k in range(c, 4):
+                    m[r][k] -= f * m[c][k]
+    return [m[r][3] / m[r][r] for r in range(3)]
+
+
+def ring_after(act: list[dict[str, float]], t: list[float], j: int,
+               start_s: float = 0.12, length_s: float = 1.4) -> dict:
+    """Frequency and damping of the pitch-rate ringing after a kick.
+
+    Least-squares fit of q = e^(-s·t)·(A·cos wt + B·sin wt) + c over
+    start_s .. start_s + length_s after the kick, searching f = 1.0-6.0 Hz
+    and s = 0-10 /s on a coarse grid, then a fine one (A, B, c solved linearly at each point).
+    zeta = s / sqrt(s^2 + w^2).
+    """
+    t0 = t[j] + start_s
+    idx = [k for k in range(j, len(act)) if t0 <= t[k] <= t0 + length_s]
+    if len(idx) < 30:
+        return {}
+    y = [act[k]["q_dps"] for k in idx]
+    tt = [t[k] - t0 for k in idx]
+    def fit(ws, sgs, best=None):
+        for w in ws:
+            cw = [math.cos(w * x) for x in tt]
+            sw = [math.sin(w * x) for x in tt]
+            for sg in sgs:
+                e = [math.exp(-sg * x) for x in tt]
+                c1 = [a * b for a, b in zip(e, cw)]
+                c2 = [a * b for a, b in zip(e, sw)]
+                s1, s2 = sum(c1), sum(c2)
+                ata = [[sum(p * p for p in c1), sum(p * q for p, q in zip(c1, c2)), s1],
+                       [0.0, sum(q * q for q in c2), s2],
+                       [s1, s2, float(len(tt))]]
+                ata[1][0] = ata[0][1]
+                atb = [sum(p * q for p, q in zip(c1, y)),
+                       sum(p * q for p, q in zip(c2, y)), sum(y)]
+                sol = _solve3(ata, atb)
+                if sol is None:
+                    continue
+                a, b, c = sol
+                res = sum((yy - (a * p + b * q + c)) ** 2
+                          for yy, p, q in zip(y, c1, c2))
+                if best is None or res < best[0]:
+                    best = (res, w, sg, math.hypot(a, b))
+        return best
+
+    tau = 2 * math.pi
+    best = fit([tau * (1.0 + 0.1 * i) for i in range(51)],
+               [0.5 * i for i in range(21)])
+    if best is not None:
+        f0, s0 = best[1] / tau, best[2]
+        best = fit([tau * (f0 + 0.02 * i) for i in range(-5, 6)],
+                   [max(0.0, s0 + 0.1 * i) for i in range(-5, 6)], best)
+    if best is None:
+        return {}
+    res, w, sg, amp = best
+    return {"ring_hz": round(w / (2 * math.pi), 2),
+            "ring_zeta": round(sg / math.hypot(sg, w), 3),
+            "ring_amp_dps": round(amp, 1),
+            "ring_rms_dps": round(math.sqrt(res / len(y)), 1)}

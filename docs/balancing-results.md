@@ -326,6 +326,11 @@ New trim and limits: it held its place (42 s, ended by Ctrl-C after the kicks). 
 
 **Phase 9.4 closed:** 94 Hz IMU filter; l_eff 75–90 mm with about 12 ms of loop delay (kick test); trim and cut-outs re-measured for the wedged IMU (+1.9°, +10.7° / −14.7°); gains kept. **Open item for Phase 11:** the lightly damped ~2.8 Hz mode, which isn't in the model (KD ≈ 4 damps it; smaller KD or larger KV/KX excite it). A model for LQR needs it.
 
+## 2026-11-23: Phase 11.0, the lightly damped mode
+
+- **Ringing after the kicks in run `124753`** (damped sine fitted to q from 0.12 to 1.5 s after each kick): **2.18–2.32 Hz, damping 0.27 at the first kick falling steadily to 0.13 at the tenth** (30 s later). The fit residual is about 3.5 °/s against a 13 °/s ring amplitude. The model (l = 90 mm, 12 ms delay, current gains) predicts no lightly damped mode at all. The falling damping matches the wobble growing during longer runs (`104319`, `130117`).
+- `balance_run.py --kicks` now reports the ring frequency and damping per kick and as medians (pure-Python grid fit; same results as the SciPy fit on `124753`).
+
 ## Actions arising
 
 - Fit a LiPo voltage alarm on the balance lead (the SKR doesn't measure the battery).

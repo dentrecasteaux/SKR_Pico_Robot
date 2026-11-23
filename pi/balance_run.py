@@ -208,9 +208,14 @@ def run(args, base, saved, temp) -> int:
         print(f"  kick test: l_eff {kick['l_eff_mm']} mm (median of "
               f"{len(kick['kicks'])} kicks, range {kick['spread_mm'][0]}.."
               f"{kick['spread_mm'][1]} mm)")
+        if kick.get("ring_hz"):
+            print(f"  ringing after kicks: {kick['ring_hz']} Hz, "
+                  f"damping {kick['ring_zeta']} (medians)")
         for k in kick["kicks"]:
+            ring = (f"  ring {k['ring_hz']:4.2f} Hz z {k['ring_zeta']:+.2f}"
+                    if k.get("ring_hz") else "")
             print(f"    t {k['t_s']:7.2f} s  u {k['u_mean']:+5.2f}  "
-                  f"dq {k['dq_dps']:+6.1f} °/s  l {k['l_eff_mm']:6.1f} mm")
+                  f"dq {k['dq_dps']:+6.1f} °/s  l {k['l_eff_mm']:6.1f} mm{ring}")
     elif args.kicks:
         print("  kick test: no usable kicks found in the log")
     if bb:
