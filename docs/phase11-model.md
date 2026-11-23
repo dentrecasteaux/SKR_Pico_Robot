@@ -125,3 +125,16 @@ A model with the filter in it (rigid l 94 mm, which matches the 95 mm measured i
 A longer filter time constant removes the fast mode and keeps the slow ring damped. `Config::IMU_FILTER_TAU_S` is now 2.0 s, which needs a build and flash. Until then, set it after each power cycle with `call("imu_set", tau=2.0)`. Next: steps 4 and 5 with τ 2.0, then a fresh model fit at τ 2.0, where the estimator loop matters much less and the plant should be close to the rigid model.
 
 **Run 215717: step 4 gains, τ 2.0 (new firmware build).** Kick ring 2.81 Hz, ζ 0.51 (0.40–0.53, very consistent). 3.8–5.2 Hz band 1.8 °/s; pitch std 0.17°; *u* std 0.46; wheel speed std 9.2 mm/s. At τ 0.5 the same gains gave a 4.8 Hz ring at ζ 0.02, a 7.1 °/s band, pitch std 0.44° and 18.8 mm/s.
+
+**Run 220023: step 5 (the LQR gains), τ 2.0. Best of all runs.** Stood 109 s, kick ring 3.5 Hz, ζ 0.43 (0.35–0.48 on every kick), 3.8–5.2 Hz band 1.8 °/s, pitch std 0.16°, *u* std 0.42, wheel speed std 8.4 mm/s. At τ 0.5 the same gains gave a 5.15 Hz shake, pitch std 0.58°, *u* std 0.88 and 25.4 mm/s. The Phase 11.1 prediction for these gains was a ring at 2.95 Hz, ζ 0.38: close in damping, 0.5 Hz low in frequency.
+
+### Summary, steps 3–5 at τ 2.0
+
+| Gains | Kick ring | Pitch std | Wheel speed std | *u* std |
+|---|---|---|---|---|
+| Step 2 at τ 0.5 (morning's best) | 2.88 Hz, ζ 0.30–0.34 | 0.34° | 14.5 mm/s | 0.49 |
+| Step 3 | 2.6 Hz, ζ 0.30 | 0.18° | 9.5 | 0.44 |
+| Step 4 | 2.8 Hz, ζ 0.51 | 0.17° | 9.2 | 0.46 |
+| **Step 5 = LQR** | **3.5 Hz, ζ 0.43** | **0.16°** | **8.4** | **0.42** |
+
+With the estimator fixed, the LQR gains from the rigid model are the best controller so far, and the motors work no harder. Still to check: driving and turning with these gains.
