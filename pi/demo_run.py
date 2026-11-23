@@ -2,7 +2,7 @@
 """Film sequence: a short, repeatable drive-and-turn demo, logged like a test.
 
   1. engage     lift the robot upright; it engages and soft-starts
-  2. settle     3 s, then a countdown ("rolling in 3, 2, 1") so you can start filming
+  2. settle     1 s (the soft start takes 0.3 s); --countdown adds "rolling in 3, 2, 1"
   3. out        forward 400 mm at 200 mm/s
   4. turn 1     360° one way (60 °/s)
   5. back       reverse to where it actually started
@@ -120,8 +120,10 @@ def main() -> int:
     ap.add_argument("--pause", type=float, default=0.5, help="pause after each move, s")
     ap.add_argument("--start-hold", type=float, default=0.0, help="still before moving, s")
     ap.add_argument("--end-hold", type=float, default=2.0, help="still at the end, s")
-    ap.add_argument("--settle", type=float, default=3.0,
-                    help="after engaging, before the countdown, s")
+    ap.add_argument("--settle", type=float, default=1.0,
+                    help="after engaging, before the first move, s")
+    ap.add_argument("--countdown", action="store_true",
+                    help="print a 3 s countdown before the first move")
     ap.add_argument("--no-wait", action="store_true",
                     help="stop balancing right after the end hold instead of waiting for Enter")
     ap.add_argument("--set", nargs="*", default=[], metavar="KEY=value",
@@ -176,7 +178,7 @@ def main() -> int:
 
 
 def run(args, base: dict[str, str], back_sign: int) -> int:
-    total = (args.settle + 3 + args.start_hold
+    total = (args.settle + (3 if args.countdown else 0) + args.start_hold
              + 2 * (args.distance / args.speed + 1.5 + args.turn / args.turn_rate + 1.0)
              + 4 * args.pause + args.end_hold)
     print(f"Gains KP {base['KP']} KD {base['KD']} KV {base['KV']} KX {base['KX']}, KI {args.ki:g}. "
@@ -202,9 +204,10 @@ def run(args, base: dict[str, str], back_sign: int) -> int:
         d.engaged = True
         d.mark("engaged")
         d.wait(args.settle)
-        for n in (3, 2, 1):
-            print(f"\n   rolling in {n}...", flush=True)
-            d.wait(1.0)
+        if args.countdown:
+            for n in (3, 2, 1):
+                print(f"\n   rolling in {n}...", flush=True)
+                d.wait(1.0)
         start = d.snapshot("start")
         x_start = float(start["X"])
         d.wait(args.start_hold)
