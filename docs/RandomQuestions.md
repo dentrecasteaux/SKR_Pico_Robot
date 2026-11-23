@@ -519,3 +519,46 @@ So it is the same problem in a harder operating region. A design that is "optima
 | 10. Robustness | +200 g, low battery, different floor, cold start | All gates above still pass |
 
 **In short:** get the mechanics, signs and estimator right before balancing; identify before you design; and treat standing and driving as two separate gates.
+
+## 29. How does our control system compare with Wouter Klop's balancingrobot?
+
+From his `Software/src/main.cpp` (ESP32, MPU6050, two DRV8825-type step-stick drivers on 24 V; the version in `~/Downloads/balancingrobot-master`).
+
+| | Klop | Ours |
+|---|---|---|
+| Processors | One ESP32 (control, Wi-Fi, web page, OTA) | SKR Pico RP2040 (control on core 1, motors and comms on core 0) plus Pi Zero 2 W (robotd, web, logging) |
+| Loop rate | 200 Hz (5 ms), polled in `loop()` | 500 Hz, driven by the IMU data-ready interrupt |
+| Controller structure | **Cascaded PIDs:** an outer loop gives an angle set point, and the inner angle PD gives a change in motor speed (an acceleration) | **One full-state law:** u = KP·θ + KD·θ̇ + KV·(v − v_ref) + KX·(x − x_ref) + feed-forward, with u the wheel acceleration |
+| Outer loop | **Two modes:** position PD (K 1, Td 1.2) when there's no input; speed PI (K 6, Ti 5) while driving, back to position 2 s after the input stops (the step counters reset at each switch) | Always both speed and position, against a moving reference (v_ref ramps, x_ref integrates) |
+| Inner loop | Angle PD (K 0.65, Td 0.075, derivative filter N 15), output limited to ±20; integrated into motor speed | The same idea: u is integrated into the wheel speed v |
+| Integral action | In the speed loop (Ti 5) | None in the gains; an automatic trim estimator walks the balance angle instead |
+| Driving | The stick input, low-pass filtered (0.9 per 5 ms), is the speed set point; no feed-forward | S-curve v_ref (jerk-limited), drive feed-forward (a_ref into u and a lean of a_ref/g), plus a drive lean for rolling drag |
+| Steering | ± steer added directly to the two wheel speeds (open loop) | The same in effect (w_ref ramp, ± per wheel), plus the gyro yaw-coupling correction |
+| Angle estimate | Complementary filter, α 0.996 at 200 Hz (τ ≈ 1.25 s); accelerometer from atan2(ay, az); **no acceleration compensation, no rejection** | Complementary filter, τ 0.5 s at 500 Hz, ACCEL_COMP mode 2 (the IMU's own acceleration), a ±0.15 g rejection gate, GYRO_QR turn correction |
+| IMU settings | ±500 °/s; DLPF left at the library default (wide band); 400 kHz I²C | ±500 °/s, ±4 g; DLPF 94 Hz; 400 kHz I²C |
+| Filters on the output | None | 20.5 Hz notch on the feedback part of u |
+| Stepping | **Variable microstepping:** 1/32 at low speed, halving (down to full step) as speed rises, with hysteresis (switch at 150·32/µ, back at 130·32/µ steps/s); µ set by the driver pins | Fixed 1/16 (TMC2209 interpolates to 1/256), PIO step generation up to 20 k steps/s, StealthChop, current set over UART |
+| Safety | Disable when tilted beyond 70°; re-enable when held within 0.5° of upright | Arming window and soft start, tilt limits at the training wheels, runaway trip, IMU-stale trip, drive lockout, leases on every drive command, e-stop, black box |
+| Tuning and testing | Live PID parameters and plots over a WebSocket; an optional **noise source** injected into the output for system identification | Live BAL_SET, saved start-up tuning, kicks for identification, 250 Hz logs on the Pi, offline model fits |
+
+**What's really the same:** a cascade of angle PD and position PD is also full-state feedback on angle, angle rate, position and speed. The inner output is integrated into wheel speed in both, so both command *acceleration*. The difference is in how it's parameterised and tuned. His cascade is intuitive to tune by hand, one loop at a time (inner first). Our single law fits model-based design (pole placement, LQR).
+
+**Where his choices answer problems we met:**
+1. **Separate speed and position modes.** While driving his robot has *no position loop*: just speed PI to an angle set point. That avoids "fighting the position error" at speed, which is what made our high-KX LQR set harsh while driving. The cost: a jump in behaviour at each mode switch (he resets the counters), and no position hold while driving.
+2. **Integral in the speed loop:** it absorbs rolling drag and balance-point errors automatically. We do the same with the drive lean and the trim estimator.
+3. **A longer filter time constant (1.25 s) with no compensation.** That is roughly where our τ 2.0 result pointed. It avoids the u/g compensation trap but drifts in sustained accelerations. With moderate gains and no high-gain angle loop, he probably never hit the 4–5 Hz estimator mode.
+4. **Variable microstepping:** this is about speed. On 24 V with DRV8825s he chases very high wheel speeds. Coarser steps at speed keep the pulse rate inside what the ESP32 timer can generate, and give more torque per step. We have neither problem: PIO hardware for the pulses, TMC2209 interpolation, and our top speed is modest.
+5. **A noise source for identification:** the same purpose as our kicks. Continuous noise gives a frequency response directly, which is a nice alternative to the kick ensemble.
+
+**Where ours goes further:**
+- **Model-based design and validation:** fitted model, predicted steps, LQR.
+- **Estimator:** correct acceleration compensation using the IMU height, rejection gate, turn coupling.
+- **Drive feed-forward and S-curve,** so the robot leans before it moves instead of after.
+- **The notch for the drive-train resonance.**
+- **Higher loop rate and lower delay:** 500 Hz with the 94 Hz DLPF, against 200 Hz on a wide-band DLPF, which also invites aliasing of motor vibration.
+- **Much more safety and logging.**
+
+**Worth borrowing:**
+1. **The speed-mode idea while driving:** reduce or freeze KX when v_ref ≠ 0 and restore it at standstill, with x_ref re-anchored to avoid a jump. That would probably let the stiffer standing gains (LQR) coexist with smooth driving.
+2. **A small integral term on speed** while driving.
+3. **A noise-injection option** for frequency-response identification.
