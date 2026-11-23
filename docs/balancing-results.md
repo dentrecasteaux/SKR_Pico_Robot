@@ -346,7 +346,9 @@ New trim and limits: it held its place (42 s, ended by Ctrl-C after the kicks). 
 - **What resets on each arming:** the drivers are disabled and re-enabled (StealthChop's automatic PWM regulation then restarts from its initial values and re-adapts while running), and the controller states (trim estimate, x, v) reset. The trim estimate and x barely move, which points at the drivers.
 - Run `142313` (labelled C) was a fourth StealthChop 1.0 A baseline: `configure 1300` was refused with DRIVER_FAULT. Same pattern: l_eff 71 mm, ring 2.25 Hz, damping 0.33 → 0.14.
 - **Why configure 1300 failed (both times):** the firmware checks the current read back from the driver against the request with a fixed 25 mA tolerance. The driver sets current in steps of about 55 mA, so 1300 mA reads back more than 25 mA away. The tolerance is now max(25 mA, 1/16 of the request).
-- Still to run: StealthChop at 1.3 A, and one long kick run to see whether the damping levels off or keeps falling.
+- **Run `142738` (StealthChop 1.3 A, confirmed at start):** steady for the full 60 s. The summary file is missing because the SKR was power-cycled while the script was finishing; analysed afterwards from data.csv. l_eff 81 mm (58–133), **ring 2.31 Hz, damping 0.17 → 0.09–0.10**: lower from the first kick than at 1.0 A (0.24–0.33), and still falling.
+- **So more current means less damping and a slightly higher ring frequency.** That fits the mode coming from the motor/driver link (a stiffer magnetic "spring" between commanded and real wheel position, with little damping), not from the IMU mount or the chassis. Caveat: this run came after many others, so the drivers were warmer, and temperature and time-in-run aren't separated yet.
+- Still to run: one long kick run (1.0 A) to see whether the damping levels off or keeps falling.
 
 ## Actions arising
 
