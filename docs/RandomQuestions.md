@@ -436,3 +436,29 @@ Yes. The Pi is the SKR's USB host (USB CDC serial), and the firmware uses the ar
 That would make "build on the Mac, flash over Wi-Fi" one script (`tools/flash-skr.sh`). Two cautions:
 - **Only flash with the robot off the floor or on its training wheels.** It resets mid-flash.
 - **If a bad build ever stops the USB port working,** the 1200-baud trick won't reach it. Then the BOOTSEL button (or a jumper) is the fallback, so keep that accessible.
+
+## 26. What is LQR meant to do?
+
+LQR stands for **Linear-Quadratic Regulator.** It's a way of *calculating* the controller's gains from a model of the robot, instead of tuning them by hand.
+
+**What it does:**
+- **The controller:** our robot already uses a full-state controller. It looks at four things, the angle, the angle rate, the wheel speed and the wheel position. Then it sets the wheel acceleration as one weighted sum: u = KP·θ + KD·θ̇ + KV·v + KX·x. LQR doesn't change that structure. It only chooses the four numbers.
+- **How it chooses them:** you tell it what you care about, with weights:
+  - **Q** says how much you dislike errors in each state. For example: "I really don't want the angle to wander", or "I don't mind drifting a few cm".
+  - **R** says how much you dislike using the motors, meaning large or jerky accelerations.
+
+  LQR then finds the gains that minimise the total "cost" over time, the sum of those weighted errors and that motor effort. For a linear model, the answer is exact and comes from one matrix equation (the Riccati equation).
+- **Why it's attractive:** all four gains are balanced against each other automatically. With hand tuning, changing KP usually means re-tuning KD, KV and KX. With LQR you adjust one intuitive weight, such as "care more about position", and it reworks all four consistently. It also guarantees a stable result with good margins, but only *for the model you gave it*.
+
+**For our robot:**
+- **Where the original gains came from:** they were designed by pole placement, which is choosing where the response should sit directly.
+- **What the LQR gains are:** KP 73.5, KD 4.63, KV 10, KX 11.8. They came from the rigid-pendulum model with Q = diag(10, 1, 300, 0.3) on [x, v, θ, θ̇] and R = 0.1. That means "care about the angle a lot, position moderately, and allow fairly brisk motor use". Compared with the old gains, they hold the angle and position much more firmly: the best standing run (23 Nov, τ 2.0) had half the pitch wander and wheel speed wander of step 2.
+- **The catch:** LQR is only as good as the model behind it. Ours treats the robot as rigid, with ideal sensing. It knows nothing about:
+  - the joint compliance (the 2.4 Hz wobble),
+  - the pitch estimator's own dynamics (the 4–5 Hz problem),
+  - the drive-train resonance (20 Hz),
+  - or the notch filter.
+
+  Firmer gains push the loop closer to those unmodelled effects. That has happened repeatedly with these gains: each time one missing piece is fixed, the higher gains run into the next. On 24 Nov it was a marginal ~5 Hz mode that the notch's small phase lag tipped over.
+
+**The comparison study** asks: for a fair test (the same push, the same speed step), does a model-based controller (LQR) beat a hand-tuned one (the step 2 gains), and by how much? Part of the answer is already in: on a messy real robot, a model-based design pays off only once the model includes the important real effects. Hence the work on the model and the estimator.
