@@ -96,3 +96,18 @@ Step 2 repeated after steps 3–5: the same as the first step 2 run (2.88 Hz, ζ
 **Test (a), run 211356: step 3 gains at 1.3 A, 220 s.** The fast mode stays at the same frequency (spectral peak 4.27 Hz, the same as at 1.0 A; kick rings 4.4–4.7 Hz). It is a little better damped: kick ζ 0.03–0.09 against 0.01–0.03; band RMS about 4.0 °/s against 5.3; *u* std 0.42 against 0.53. Motor stiffness doesn't set the frequency, so the motors are not the main cause, though more current helps a little. Next: test (b), ACCEL_COMP off.
 
 **Run 212054: step 2 gains at 1.3 A.** Kick ring 2.91 Hz, ζ 0.25 (1.0 A: 2.88 Hz, ζ 0.30–0.34). 4–5 Hz band 2.75 °/s (1.0 A: 2.9–3.1); *u* std 0.47 (the same). At step 2, 1.3 A makes no useful difference, so 1.0 A stays the everyday current: cooler motors and drivers.
+
+**Test (b), run 212700: step 3 gains, 1.0 A, ACCEL_COMP off. The fast mode is gone.**
+
+| Step 3 gains | Comp on (204308) | Comp off (212700) |
+|---|---|---|
+| Pitch rate RMS, 3.8–5.2 Hz band | 5.2 °/s | **1.5** |
+| *u* std | 0.53 m/s² | **0.37** |
+| Pitch std | 0.44° | **0.20°** |
+| Kick ring | 4.4 Hz, ζ 0.03 | 2.12 Hz, ζ 0.08 (joint mode, less damped) |
+
+**The 4–5 Hz mode comes from the pitch estimator's acceleration compensation.** The earlier "only 1/16 as strong at 5 Hz" argument ignored the gain. The accelerometer path enters as roughly KP·u/(g·τ·ω), about 0.4 per m/s² at 5 Hz with KP 59, so it closes a second loop of real strength. Without compensation the accelerometer still sees the IMU's own acceleration (the wheel acceleration plus h·θ̈), which makes a different, slower loop. That is probably also part of what the fitted joint "dipole" stood for.
+
+A model with the filter in it (rigid l 94 mm, which matches the 95 mm measured in Phase 1, a 7.8 ms delay and the IMU 170 mm above the axle) reproduces the fast mode's rise with gain (4.5, 4.8, 5.1 Hz against the measured 4.4, 4.8, 5.15). It does not yet also reproduce the 2–3 Hz joint ring (`est_model.py`, `est2*.py` in the session workspace).
+
+**Next test (c): step 3 gains, comp on, filter τ 2.0 s instead of 0.5 s.** This weakens the accelerometer loop about 4 times whichever way it is compensated. If both the fast mode and the slow ring improve, the fix is a longer filter time constant, or a better compensation: subtract the IMU's actual acceleration, the delayed u plus h·θ̈, instead of u.
