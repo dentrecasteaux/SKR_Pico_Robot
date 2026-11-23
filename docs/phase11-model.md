@@ -219,3 +219,16 @@ The new compensation removes the 4–5 Hz mode at τ 0.5 and keeps the slow ring
 - **Comparing the three settings:** τ 2.0 + comp 1 shook, this morning's τ 0.5 + comp 1 (also sustained >260 mm/s for 24 s) did not, and τ 0.5 + comp 2 shook.
 - **What that suggests:** the 20 Hz mode at speed is marginal under all settings and small differences tip it. A plausible contributor for comp 2: the h·dq/dt term reaches *u* at 20 Hz with a gain of roughly KP·h/(g·τ) ≈ 1, at −90°, next to KD ≈ 4.4.
 - **Robust fix:** a notch at 20.5 Hz on the feedback part of *u* (`NOTCH_HZ`, `NOTCH_Q`, firmware below, default off). At Q = 2 it costs about 4° of phase at 3 Hz and 7° at 5 Hz.
+
+### 24 Nov test 3: notch 20.5 Hz, Q 2, with ACCEL_COMP=2, τ 0.5, step 2 gains, driving (run 064053): pass
+
+| 16–25 Hz band by wheel speed | 0–100 | 100–200 | 200–260 | >260 mm/s |
+|---|---|---|---|---|
+| τ 0.5, comp 1 (060114) | 1.8 | 1.6 | 2.0 | 4.6 °/s |
+| τ 0.5, comp 2 (062717) | 2.5 | 9.2 | 12.1 | 16.9 |
+| **τ 0.5, comp 2, notch (064053)** | **1.1** | **0.7** | **0.5** | **0.8** |
+| *u* sd, notch run | 0.28 | 0.19 | 0.15 | 0.17 m/s² |
+
+The notch removes the 20 Hz shake entirely: 13 s above 260 mm/s, *u* sd ≤ 0.28 m/s², no accelerometer rejects, and the 4–5 Hz band below 1.6 °/s. Smoothest drive so far.
+
+**New firmware defaults:** ACCEL_COMP 2 (IMU_H 0.098, COMP_DELAY_MS 10), NOTCH_HZ 20.5, NOTCH_Q 2, IMU filter τ 0.5. The Pi's `balance_tools.DEFAULTS` and `check_config.py` are updated to match. Next: the LQR gains, standing with kicks and then driving, on these defaults.

@@ -15,7 +15,7 @@ from balance_tools import DEFAULTS, call
 import tuning
 
 # Best known configuration. Balance parameters: firmware defaults.
-EXPECTED_BAL = {**DEFAULTS, **tuning.TUNING_DEFAULTS, "ACCEL_COMP": 1}
+EXPECTED_BAL = {**DEFAULTS, **tuning.TUNING_DEFAULTS, "ACCEL_COMP": 2, "NOTCH_HZ": 20.5, "NOTCH_Q": 2.0}
 # Drivers: StealthChop, 1.0 A, 1/16, automatic PWM scaling and gradient on.
 EXPECTED_STATUS = {"RUN_CURRENT_MA": 1000, "MICROSTEPS": 16,
                    "X_TMC_MODE": "STEALTHCHOP", "Y_TMC_MODE": "STEALTHCHOP",
