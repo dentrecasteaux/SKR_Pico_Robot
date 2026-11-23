@@ -385,6 +385,32 @@ New trim and limits: it held its place (42 s, ended by Ctrl-C after the kicks). 
 - **The damping fell during this run too, with the driver state constant.** So the decline is tied to time since arming, not to the drivers. Between kicks the quiet rocking grows over the run. One reading: the mode is lightly damped and a small self-sustained wobble (limit cycle) builds up after each arming, adding to each kick's ring and making it look less damped. To check next session: fit the ring with a decay towards a steady wobble, and look at the quiet wobble on its own.
 - The web page can now change the number of kicks during a run.
 
+### Wobble analysis: is the falling damping real? (no new runs)
+
+Method (12 kick runs): (a) **quiet wobble** = RMS of the 1.2–4 Hz band-passed pitch rate between kicks; (b) **ensemble average** of the kick responses, aligned to each kick and sign-normalised, for the first five and last five kicks. A random-phase background wobble averages out of (b), so its damping is free of the pollution suggested above.
+
+| Run | Quiet wobble (°/s rms), start → end | Single-kick damping, first 5 → last 5 | Ensemble damping, first 5 → last 5 (all) | Ring |
+|---|---|---|---|---|
+| `140536` A | 0.52 → 1.25 | 0.27 → 0.19 | 0.27 → 0.20 (0.24) | 2.15 Hz |
+| `141645` | 0.53 → 1.34 | 0.24 → 0.16 | 0.24 → 0.17 (0.20) | 2.24 Hz |
+| `141826` | 0.90 → 1.52 | 0.24 → 0.18 | 0.23 → 0.18 (0.20) | 2.21 Hz |
+| `142313` | 0.81 → 1.18 | 0.21 → 0.17 | 0.22 → 0.17 (0.19) | 2.23 Hz |
+| `142738` 1.3 A | 1.08 → 1.35 | 0.16 → 0.12 | 0.16 → 0.13 (0.15) | 2.29 Hz |
+| `143358` long | 1.39 → 2.96 | 0.10 → 0.07 | 0.10 → 0.07 (0.09) | 2.37 Hz |
+| `161333` cold, full battery | 3.05 → 4.46 | 0.07 → 0.05 | 0.09 → 0.06 (0.08) | 2.35 Hz |
+| `163113` after stand run | 0.77 → 0.88 | 0.27 → 0.17 | 0.27 → 0.17 (0.21) | 2.21 Hz |
+| `164338` after stand run | 0.63 → 0.98 | 0.24 → 0.15 | 0.25 → 0.15 (0.19) | 2.23 Hz |
+| `164939` GRAD fixed | 1.65 → 2.43 | 0.13 → 0.11 | 0.14 → 0.11 (0.12) | 2.30 Hz |
+| `165859` forward mode | 1.98 → 2.55 | 0.18 → 0.15 | 0.18 → 0.15 (0.16) | 2.43 Hz |
+| `170714` KD 4.6 | 0.56 → 1.19 | 0.15 → 0.11 | 0.15 → 0.11 (0.12) | 2.27 Hz |
+
+(SciPy fits; the Pi's grid fit gives somewhat lower damping for some runs, but the same trends.)
+
+- **The falling damping is real.** The ensemble averages fall exactly as the single-kick fits do, so the background wobble isn't fooling the measurement. The quiet wobble grows with it, as you'd expect if the damping really falls; in long runs both settle after about 1 minute (wobble about 3 °/s in `143358`, about 4 °/s in `161333`).
+- **There are two levels:** about 0.2 (early session, after a stand run) and about 0.08–0.12 (after a power cycle, or settled). Within every run the damping falls by about 25–40 % over the first minute.
+- **Ruled out so far:** battery voltage, motor/driver temperature, StealthChop OFS_AUTO and GRAD_AUTO (forward mode with fixed PWM still falls), background-wobble pollution.
+- **New candidates:** something mechanical that changes while the robot stands nearly still on the floor and recovers when the wheels turn a lot. Examples: the tyres taking a set (flat spot) where they rest, or bearing/hub friction. The stand run turns the wheels many times; the power-up cases had the robot resting on its training wheel. **Discriminating tests:** (1) after a power cycle, turn the wheels by hand (motors off) or drive a few metres, then do a kick run. If it's well damped, the cause is mechanical, not the drivers. (2) Partway through a run, drive about 1 m forward and back, then continue kicking. If the damping recovers, it depends on the wheel position or contact patch.
+
 ## Actions arising
 
 - Fit a LiPo voltage alarm on the balance lead (the SKR doesn't measure the battery).
