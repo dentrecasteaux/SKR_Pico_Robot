@@ -101,6 +101,14 @@ struct Params
                              // a_ref to u (0 = off, as before 23 Nov)
   float driveLeanDeg = 2.0F; // extra lean while moving, for rolling drag:
                              // DRIVE_LEAN * tanh(v_ref / 0.05 m/s)
+  // Profiled moves while balancing (MOVE / TURN, 24 Nov): cruise speeds.
+  float moveSpeed = 0.2F;    // m/s (MOVE_V)
+  float turnRateDps = 60.0F; // deg/s (TURN_W)
+  // Position integral (KI, 24 Nov; 0 = off): u += KI * integral(x - x_ref) dt,
+  // only while not driving forwards or backwards (standing, turning), reset
+  // when a drive starts, |KI * integral| <= KI_LIMIT. Pulls the robot out of
+  // the tyre contact band back to x_ref. Same sign convention as KX.
+  float ki = 0.0F;           // m/s^2 per (m*s)
 };
 
 struct Status
@@ -125,6 +133,9 @@ struct Status
   float maxAbsU = 0.0F;           // since engaging
   float maxAbsErrorDeg = 0.0F;
   uint32_t stepRateSps = 0;       // current step rate (left wheel)
+  uint8_t moving = 0;             // profiled move: bit 0 MOVE, bit 1 TURN
+  float headingDeg = 0.0F;        // integrated IMU yaw rate since engaging
+  float xInt = 0.0F;              // position integral term KI*int (m/s^2)
 };
 
 // ---- core 0 (setup) ----
@@ -161,6 +172,13 @@ bool setParams(const Params& params);      // false if a value is invalid
 // Drive set points while balancing (from SET_VELOCITY). Returns false if out
 // of range. They fall back to zero when the lease expires.
 bool setDrive(float vMps, float wDps, uint32_t leaseMs);
+// Profiled moves while Running (MOVE DIST= / TURN ANGLE= while balancing).
+// The firmware ramps up to MOVE_V / TURN_W and brakes onto the target:
+// distance on x_ref, angle on the integrated IMU yaw rate (real rotation).
+// Any drive command (SET_VELOCITY, STOP) cancels them. False unless Running
+// or out of range (|dist| <= 2 m, |angle| <= 1080 deg).
+bool moveBy(float distM);
+bool turnBy(float angleDeg);
 
 // Identification kick (Phase 9.4): add uMps2 to the controller's output for
 // durationMs, while Running. |u| <= 4 m/s^2, 10-200 ms. False if not running.

@@ -95,6 +95,18 @@ void RobotLink::processLine(char* line)
     }
     case Protocol::CommandType::Move:
     case Protocol::CommandType::Turn: {
+      // While balancing, MOVE / TURN are profiled moves of the balance
+      // controller (MOVE_V / TURN_W); completion shows as MOVING=0.
+      if (robot_.mode() == Robot::Mode::Balance) {
+        const bool ok = command.type == Protocol::CommandType::Move
+                            ? Balance::moveBy(command.distanceMm / 1000.0F)
+                            : Balance::turnBy(command.angleDegrees);
+        if (ok) sendAck(command.sequence);
+        else sendError(command.sequence,
+                       Balance::currentState() == Balance::State::Running
+                           ? "OUT_OF_RANGE" : "NOT_BALANCING");
+        return;
+      }
       uint32_t jobId = 0;
       const Robot::CommandResult commandResult =
           command.type == Protocol::CommandType::Move
@@ -242,6 +254,9 @@ void RobotLink::processBalanceCommand(const Protocol::Command& command)
         else if (std::strcmp(k, "DRIVE_ACCEL") == 0) p.driveAccel = v;
         else if (std::strcmp(k, "DRIVE_FF") == 0) p.driveFf = v;
         else if (std::strcmp(k, "DRIVE_LEAN") == 0) p.driveLeanDeg = v;
+        else if (std::strcmp(k, "MOVE_V") == 0) p.moveSpeed = v;
+        else if (std::strcmp(k, "TURN_W") == 0) p.turnRateDps = v;
+        else if (std::strcmp(k, "KI") == 0) p.ki = v;
         else {
           sendError(sequence, "UNKNOWN_FIELD");
           return;
@@ -451,6 +466,12 @@ void RobotLink::sendBalanceStatus(uint32_t sequence)
   f("DRIVE_ACCEL", p.driveAccel, 2);
   f("DRIVE_FF", p.driveFf, 2);
   f("DRIVE_LEAN", p.driveLeanDeg, 2);
+  f("MOVE_V", p.moveSpeed, 3);
+  f("TURN_W", p.turnRateDps, 1);
+  f("KI", p.ki, 2);
+  n("MOVING", s.moving);
+  f("HEADING", s.headingDeg, 1);
+  f("XINT", s.xInt, 3);
   o.println();
 }
 

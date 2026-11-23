@@ -125,7 +125,7 @@ ssh -t robot@r2w-pi.local 'cd r2w && python3 compare_run.py --label everyday'
 ssh -t robot@r2w-pi.local 'cd r2w && python3 compare_run.py --label pole-placement --set KP=36.7 KD=4.19 KV=4.81 KX=2.94'
 ```
 
-**`demo_run.py` (film sequence).** A short logged demo with the live settings: settle and a countdown, then straight into forward 400 mm at 200 mm/s, turn 360°, reverse 400 mm back to the start, turn 360° the other way, 2 s still, then it keeps balancing until you press Enter. Options: `--distance`, `--speed`, `--turn` (180 for an about-face, so the return leg drives forwards), `--turn-rate`, `--pause`, `--start-hold`, `--end-hold`, `--no-wait`. Legs stop on the reference position (X_REF) and the return aims for the actual start; turns stop on the IMU yaw. It writes `demo.json` (event times, position and angle turned after each move) and prints where the robot ended up.
+**`demo_run.py` (film sequence).** A short logged demo: settle and a countdown, then forward 400 mm at 200 mm/s, turn 360°, reverse back to where it actually started, turn 360° the other way, 2 s still, then it keeps balancing until you press Enter. The moves are the firmware's profiled `MOVE` / `TURN` while balancing (needs the 24 Nov firmware), so they stop on target whatever the Pi's delays. It sets `MOVE_V`, `TURN_W` and the position integral `KI` (default 2) for the run only. Options: `--distance`, `--speed`, `--turn` (180 for an about-face, so the return leg drives forwards), `--turn-rate`, `--ki` (0 = off), `--pause`, `--start-hold`, `--end-hold`, `--no-wait`. It writes `demo.json` (event times, position, heading and turned angle after each move) and prints where the robot ended up.
 
 ```text
 ssh -t robot@r2w-pi.local 'cd r2w && python3 demo_run.py'

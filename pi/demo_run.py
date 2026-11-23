@@ -3,60 +3,42 @@
 
   1. engage     lift the robot upright; it engages and soft-starts
   2. settle     3 s, then a countdown ("rolling in 3, 2, 1") so you can start filming
-  3. go         straight into the first move (--start-hold to add a pause)
-  4. out        forward 400 mm at 200 mm/s, then a short pause
-  5. turn 1     360° one way (60 °/s), then a short pause
-  6. back       reverse 400 mm at 200 mm/s, to the start point, then a pause
-  7. turn 2     360° the other way, then a pause
-  8. finish     2 s still, then it keeps balancing until you press Enter
+  3. out        forward 400 mm at 200 mm/s
+  4. turn 1     360° one way (60 °/s)
+  5. back       reverse to where it actually started
+  6. turn 2     360° the other way
+  7. finish     2 s still, then it keeps balancing until you press Enter
                 (so the clip doesn't end with it dropping onto a training wheel)
 
-Each move is closed on a measurement, not timed:
-  - legs: the drive is stopped when the reference position X_REF is one
-    stopping distance (simulated from the firmware's own S-curve ramp) short
-    of the target. The return leg aims for where the robot actually started
-    (X), so any creep during the turn is taken out on the way back.
-  - turns: the turn is stopped from the IMU yaw (the real body rotation, so
-    wheel slip and track-width error don't matter), one ramp-down angle
-    (w²/2·180 °/s²) short of the target.
-After each stop it checks that V_REF and W_REF really reach zero, and sends
-STOP again if not. The log, plus demo.json with the event times, position
-(X, X_REF) and turned angle after each move, is saved like any other run.
+The moves are profiled by the firmware (MOVE / TURN while balancing, from
+24 Nov): it ramps up to MOVE_V / TURN_W and brakes onto the target itself,
+the distance on x_ref and the angle on the integrated IMU yaw rate. So the
+Pi's round-trip delays no longer decide where it stops. The script only
+waits for MOVING=0 between moves.
+
+A position integral (KI, default 2 here; firmware default 0 = off) pulls the
+robot back to its reference after a stop or a turn, instead of leaving it
+parked in the tyre contact band. MOVE_V, TURN_W and KI are set for this run
+only and put back at the end.
 
     ssh -t robot@r2w-pi.local 'cd r2w && python3 demo_run.py'
     python3 demo_run.py --turn 180          # about-face: the return leg drives forwards
+    python3 demo_run.py --ki 0              # without the position integral
     python3 demo_run.py --distance 300 --speed 150 --turn-rate 45
 
-It uses whatever controller settings are live (the everyday defaults).
-Leave 0.6 m clear in front, behind and around. Ctrl-C ends balancing at
-any time (the robot drops onto a training wheel) and still saves the log.
+Needs firmware with MOVE / TURN while balancing (BAL_STATUS shows MOVE_V).
+Leave 0.6 m clear in front, behind and around. Ctrl-C ends balancing at any
+time (the robot drops onto a training wheel) and still saves the log.
 """
 from __future__ import annotations
 
 import argparse
 import json
+import select
+import sys
 import time
 
 from balance_tools import DEFAULTS, RUNS_DIR, SAFETY_KEYS, balance_status, call
-
-LEASE_MS, HOLD_MS, RENEW_S = 1000, 1500, 0.2
-# Firmware ramp constants (src/Balance.cpp)
-DRIVE_JERK, DRIVE_APPROACH, TURN_ACCEL_DPS2, FW_DT = 4.0, 4.0, 180.0, 0.002
-LATENCY_S = 0.03       # status poll + STOP round trip
-
-
-def stop_distance(v: float, drive_accel: float) -> float:
-    """Reference travel (m) after STOP from cruise at v (m/s), as the firmware ramps it."""
-    v_ref, a_ref, x = abs(v), 0.0, 0.0
-    for _ in range(int(10 / FW_DT)):
-        a_want = max(-drive_accel, min(drive_accel, DRIVE_APPROACH * (0.0 - v_ref)))
-        dj = DRIVE_JERK * FW_DT
-        a_ref += max(-dj, min(dj, a_want - a_ref))
-        v_ref += a_ref * FW_DT
-        x += v_ref * FW_DT
-        if v_ref <= 1e-4 and abs(a_ref) < 1e-3:
-            break
-    return x
 
 
 class Aborted(Exception):
@@ -89,105 +71,39 @@ class Demo:
             s = self.status()
             print(f"\r   err {float(s['ERR']):+6.2f}°  v {float(s['V']):+5.2f} m/s  "
                   f"x {float(s['X']):+5.3f} m   ", end="", flush=True)
-            time.sleep(0.1)
+            time.sleep(0.05)
 
-    def renew(self, linear_mm_s: float, angular_dps: float) -> None:
-        call("velocity", linear=linear_mm_s, angular=angular_dps,
-             lease_ms=LEASE_MS, hold_ms=HOLD_MS)
-
-    def stop_and_confirm(self) -> None:
-        """STOP, then make sure the drive set points really ramp to zero."""
-        call("stop")              # balancing: zero drive, keep balancing
-        end = time.monotonic() + 3.0
-        resent = False
+    def until_done(self, timeout: float) -> None:
+        """Wait for the firmware's profiled move to finish (MOVING=0)."""
+        time.sleep(0.05)
+        end = time.monotonic() + timeout
         while time.monotonic() < end:
             s = self.status()
-            if abs(float(s["V_REF"])) < 0.01 and abs(float(s["W_REF"])) < 2.0:
+            if int(float(s.get("MOVING", 0))) == 0:
                 return
-            if not resent and time.monotonic() > end - 1.5:
-                call("stop")
-                resent = True
-                self.mark("stop_resent", v_ref=float(s["V_REF"]), w_ref=float(s["W_REF"]))
+            print(f"\r   x {float(s['X']):+5.3f} m  heading {float(s['HEADING']):+7.1f}°   ",
+                  end="", flush=True)
             time.sleep(0.05)
-        self.mark("stop_not_confirmed")
+        self.mark("move_timeout")
+        call("stop")
 
-    def leg(self, target_ref_m: float, speed_mm_s: float, drive_accel: float) -> None:
-        """Drive until X_REF reaches target_ref_m (stopping on the ramp)."""
-        x0 = float(self.status()["X_REF"])
-        sign = 1.0 if target_ref_m > x0 else -1.0
-        v = sign * speed_mm_s / 1000.0
-        brake = stop_distance(v, drive_accel) + abs(v) * LATENCY_S
-        t_end = time.monotonic() + abs(target_ref_m - x0) / abs(v) + 3.0   # safety timeout
-        next_renew = 0.0
-        while time.monotonic() < t_end:
-            now = time.monotonic()
-            if now >= next_renew:
-                self.renew(v * 1000.0, 0.0)
-                next_renew = now + RENEW_S
-            remaining = sign * (target_ref_m - float(self.status()["X_REF"]))
-            if remaining <= brake:
-                break
-            time.sleep(0.01)
-        else:
-            self.mark("leg_timeout")
-        self.stop_and_confirm()
+    def move(self, mm: float, speed: float) -> None:
+        self.mark("move", mm=round(mm, 1))
+        call("move", distance=mm)
+        self.until_done(abs(mm) / speed + 6.0)
 
-    def yaw(self) -> float | None:
-        try:
-            return float(call("imu")["service"]["imu"].get("YAW"))
-        except (RuntimeError, TypeError, ValueError, KeyError):
-            return None
-
-    def turn(self, degrees: float, rate_dps: float) -> float | None:
-        """Turn `degrees` (sign = direction) by the IMU yaw; returns the angle turned."""
-        w = rate_dps if degrees > 0 else -rate_dps
-        brake = w * w / (2 * TURN_ACCEL_DPS2) + abs(w) * LATENCY_S
-        last = self.yaw()
-        turned = 0.0
-        t_end = time.monotonic() + abs(degrees) / rate_dps * 1.5 + 2.0
-        next_renew, n = 0.0, 0
-        if last is None:          # no IMU yaw: fall back to timing (symmetric ramps)
-            self.mark("turn_timed_no_imu")
-            t_stop = time.monotonic() + abs(degrees) / rate_dps
-            while time.monotonic() < t_stop:
-                self.renew(0.0, w)
-                self.status()
-                time.sleep(min(RENEW_S, max(0.0, t_stop - time.monotonic())))
-            self.stop_and_confirm()
-            return None
-        while time.monotonic() < t_end:
-            now = time.monotonic()
-            if now >= next_renew:
-                self.renew(0.0, w)
-                next_renew = now + RENEW_S
-            y = self.yaw()
-            if y is not None:
-                d = (y - last + 180.0) % 360.0 - 180.0      # unwrap
-                turned += d
-                last = y
-            n += 1
-            if n % 5 == 0:
-                self.status()     # trip check
-            if abs(turned) >= abs(degrees) - brake:
-                break
-            time.sleep(0.005)
-        else:
-            self.mark("turn_timeout")
-        self.stop_and_confirm()
-        # add the ramp-down actually turned
-        end = time.monotonic() + 0.15
-        while time.monotonic() < end:
-            y = self.yaw()
-            if y is not None:
-                turned += (y - last + 180.0) % 360.0 - 180.0
-                last = y
-            time.sleep(0.02)
-        return turned
+    def turn(self, deg: float, rate: float) -> float:
+        h0 = float(self.status()["HEADING"])
+        self.mark("turn", deg=deg)
+        call("turn", angle=deg)
+        self.until_done(abs(deg) / rate + 6.0)
+        return float(self.status()["HEADING"]) - h0
 
     def snapshot(self, name: str, **extra) -> dict[str, str]:
         s = self.status()
         self.mark(name, x=float(s["X"]), x_ref=float(s["X_REF"]),
-                  pitch_err=float(s["ERR"]), imu_yaw=self.yaw(), **extra)
+                  heading=float(s["HEADING"]), pitch_err=float(s["ERR"]),
+                  xint=float(s.get("XINT", 0)), **extra)
         return s
 
 
@@ -199,20 +115,25 @@ def main() -> int:
     ap.add_argument("--turn", type=float, default=360.0,
                     help="each turn, degrees: 360 (return leg in reverse) or 180 (about-face)")
     ap.add_argument("--turn-rate", type=float, default=60.0, help="turn rate, °/s (<= 90)")
+    ap.add_argument("--ki", type=float, default=2.0,
+                    help="position integral for this run (0 = off; firmware default 0)")
     ap.add_argument("--pause", type=float, default=0.5, help="pause after each move, s")
     ap.add_argument("--start-hold", type=float, default=0.0, help="still before moving, s")
     ap.add_argument("--end-hold", type=float, default=2.0, help="still at the end, s")
-    ap.add_argument("--settle", type=float, default=3.0, help="after engaging, before the countdown, s")
+    ap.add_argument("--settle", type=float, default=3.0,
+                    help="after engaging, before the countdown, s")
     ap.add_argument("--no-wait", action="store_true",
                     help="stop balancing right after the end hold instead of waiting for Enter")
     ap.add_argument("--notes", default="")
     args = ap.parse_args()
-    if not 0 < args.speed <= 300:
-        raise SystemExit("--speed must be 0-300 mm/s")
+    if not 20 <= args.speed <= 300:
+        raise SystemExit("--speed must be 20-300 mm/s")
     if not 0 < args.distance <= 1000:
         raise SystemExit("--distance must be 0-1000 mm")
-    if not 0 < args.turn_rate <= 90:
-        raise SystemExit("--turn-rate must be 0-90 °/s")
+    if not 5 <= args.turn_rate <= 90:
+        raise SystemExit("--turn-rate must be 5-90 °/s")
+    if not 0 <= args.ki <= 20:
+        raise SystemExit("--ki must be 0-20")
     turn_mod = args.turn % 360
     if turn_mod not in (0.0, 180.0) or args.turn <= 0:
         raise SystemExit("--turn must be a multiple of 180°")
@@ -223,31 +144,48 @@ def main() -> int:
     call("stop")
     time.sleep(0.3)
     base = balance_status()
+    if "MOVE_V" not in base:
+        raise SystemExit("This firmware has no MOVE/TURN while balancing: build and flash "
+                         "the current firmware first.")
     wrong = {k: DEFAULTS[k] for k in SAFETY_KEYS if abs(float(base[k]) - DEFAULTS[k]) > 1e-3}
     if wrong:
         print("Resetting safety settings to defaults: "
               + ", ".join(f"{k} {base[k]} -> {v:g}" for k, v in wrong.items()))
         call("bal_set", set=wrong)
         base = balance_status()
+    temp = {"MOVE_V": args.speed / 1000.0, "TURN_W": args.turn_rate, "KI": args.ki}
+    restore = {k: float(base[k]) for k in temp}
+    call("bal_set", set=temp)
+    try:
+        return run(args, base, back_sign)
+    finally:
+        try:
+            call("bal_stop")
+            time.sleep(0.7)
+            call("bal_set", set=restore)
+        except Exception as error:  # noqa: BLE001
+            print(f"WARNING: could not restore settings ({error}); check with "
+                  "check_config.py or power-cycle the SKR")
 
-    drive_s = args.distance / args.speed
-    turn_s = args.turn / args.turn_rate
-    drive_accel = float(base.get("DRIVE_ACCEL", 0.8))
-    total = (args.settle + 3 + args.start_hold + 2 * (drive_s + turn_s) + 4 * args.pause
-             + args.end_hold + 2)
-    print(f"Gains KP {base['KP']} KD {base['KD']} KV {base['KV']} KX {base['KX']}. "
+
+def run(args, base: dict[str, str], back_sign: int) -> int:
+    total = (args.settle + 3 + args.start_hold
+             + 2 * (args.distance / args.speed + 1.5 + args.turn / args.turn_rate + 1.0)
+             + 4 * args.pause + args.end_hold)
+    print(f"Gains KP {base['KP']} KD {base['KD']} KV {base['KV']} KX {base['KX']}, KI {args.ki:g}. "
           f"Sequence about {total:.0f} s after engaging: {args.distance:.0f} mm at "
           f"{args.speed:.0f} mm/s, {args.turn:.0f}° at {args.turn_rate:.0f} °/s, and back.")
     print("Leave 0.6 m clear in front, behind and around.")
     input("Kill switch in reach? Press Enter to arm, then lift it upright...")
 
     reply = call("log_start", name="demo", div=2, duration_s=total + 120,
-                 notes=f"demo_run.py {args.notes}".strip())
+                 notes=f"demo_run.py ki={args.ki:g} {args.notes}".strip())
     run_name = reply["run"]
     d = Demo(time.monotonic())
     call("bal_arm")
     d.mark("armed")
     result = "complete"
+    turned: dict[str, float] = {}
     try:
         deadline = time.monotonic() + 25
         while balance_status()["BAL"] != "RUNNING":
@@ -257,45 +195,33 @@ def main() -> int:
         d.engaged = True
         d.mark("engaged")
         d.wait(args.settle)
-        try:
-            call("imu_zero_yaw")
-        except RuntimeError:
-            pass
         for n in (3, 2, 1):
             print(f"\n   rolling in {n}...", flush=True)
             d.wait(1.0)
         start = d.snapshot("start")
-        x_start, ref_start = float(start["X"]), float(start["X_REF"])
+        x_start = float(start["X"])
         d.wait(args.start_hold)
 
-        d.mark("out", mm=args.distance, mm_s=args.speed)
-        d.leg(ref_start + args.distance / 1000.0, args.speed, drive_accel)
+        d.move(args.distance, args.speed)
         d.wait(args.pause)
         d.snapshot("out_done")
 
-        d.mark("turn1", deg=args.turn, dps=args.turn_rate)
-        t1 = d.turn(args.turn, args.turn_rate)
+        turned["turn1"] = d.turn(args.turn, args.turn_rate)
         d.wait(args.pause)
-        s = d.snapshot("turn1_done", turned=t1)
+        s = d.snapshot("turn1_done", turned=turned["turn1"])
 
         # Back to where the robot actually started (by X), whatever it crept in
         # the turn. After an about-face, driving forwards (X increasing) returns it.
-        x_now, ref_now = float(s["X"]), float(s["X_REF"])
-        target = ref_now + back_sign * (x_now - x_start)
-        d.mark("back", mm_s=back_sign * args.speed, ref_target=round(target, 3))
-        d.leg(target, args.speed, drive_accel)
+        d.move(back_sign * (float(s["X"]) - x_start) * 1000.0, args.speed)
         d.wait(args.pause)
         d.snapshot("back_done")
 
-        d.mark("turn2", deg=-args.turn, dps=-args.turn_rate)
-        t2 = d.turn(-args.turn, args.turn_rate)
+        turned["turn2"] = d.turn(-args.turn, args.turn_rate)
         d.wait(args.end_hold)
-        d.snapshot("finish", turned=t2)
+        d.snapshot("finish", turned=turned["turn2"])
         print("\n\nSequence done. Cut!")
         if not args.no_wait:
             print("Still balancing. Catch it, then press Enter to stop (Ctrl-C works too).")
-            import select
-            import sys
             while True:                       # keep the trip check running while waiting
                 if select.select([sys.stdin], [], [], 0.2)[0]:
                     sys.stdin.readline()
@@ -331,9 +257,9 @@ def main() -> int:
         for name in ("out_done", "turn1_done", "back_done", "finish"):
             if name in snaps:
                 e = snaps[name]
-                turned = f", turned {e['turned']:+.0f}°" if e.get("turned") is not None else ""
+                t = f", turned {e['turned']:+.0f}°" if e.get("turned") is not None else ""
                 print(f"  {name:11s} x {1000 * (e['x'] - x0):+5.0f} mm "
-                      f"(ref {1000 * (e['x_ref'] - r0):+5.0f}){turned}")
+                      f"(ref {1000 * (e['x_ref'] - r0):+5.0f}){t}")
     print(f"\nRun {run_name}: {result}. Saved demo.json"
           + (f"; black box {bb}" if bb else "") + ".")
     return 0

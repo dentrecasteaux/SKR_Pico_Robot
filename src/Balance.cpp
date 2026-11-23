@@ -23,6 +23,9 @@ constexpr float HALF_TRACK_M = Config::WHEEL_TRACK_MM / 2000.0F;
 constexpr float TURN_ACCEL_DPS2 = 180.0F;
 constexpr float DRIVE_JERK = 4.0F;      // m/s^3
 constexpr float DRIVE_APPROACH = 4.0F;  // 1/s
+constexpr float MOVE_DECEL = 0.4F;      // m/s^2, braking profile for MOVE
+constexpr float TURN_DECEL_DPS2 = 144.0F;  // braking profile for TURN (< TURN_ACCEL)
+constexpr float KI_LIMIT = 1.0F;        // m/s^2, anti-windup on KI * integral
 
 Stepper* leftStepper = nullptr;
 Stepper* rightStepper = nullptr;
@@ -38,6 +41,11 @@ volatile bool stopRequest = false;
 volatile float driveV = 0.0F;           // m/s target
 volatile float driveW = 0.0F;           // deg/s target
 volatile uint32_t driveUntilMs = 0;     // lease end (millis)
+volatile bool moveRequest = false;      // profiled moves (core 0 -> core 1)
+volatile float moveRequestM = 0.0F;
+volatile bool turnRequest = false;
+volatile float turnRequestDeg = 0.0F;
+volatile bool profileCancel = false;
 volatile Reason stopReason = Reason::Command;
 Params pendingParams;                   // under balanceMutex
 volatile uint32_t paramsVersion = 1;
@@ -126,6 +134,14 @@ bool kickOn = false;
 float thetaRefDeg = 0.0F;
 float wRef = 0.0F;      // deg/s
 float xRef = 0.0F;
+bool moveActive = false;
+float moveTarget = 0.0F;       // x_ref target, m
+uint32_t moveDeadlineUs = 0;
+bool turnActive = false;
+float turnTarget = 0.0F;       // heading target, deg
+uint32_t turnDeadlineUs = 0;
+float headingDeg = 0.0F;       // integrated IMU yaw rate
+float xInt = 0.0F;             // integral of (x - x_ref), m*s
 
 // One step generator per wheel.
 struct Generator
@@ -252,6 +268,9 @@ void publish(uint32_t nowUs)
   s.maxAbsU = maxAbsU;
   s.maxAbsErrorDeg = maxAbsError;
   s.stepRateSps = leftGen.running ? leftGen.rate : 0;
+  s.moving = (moveActive ? 1 : 0) | (turnActive ? 2 : 0);
+  s.headingDeg = headingDeg;
+  s.xInt = p.ki * xInt;
   mutex_exit(&balanceMutex);
 }
 
@@ -277,6 +296,10 @@ void resetMotion()
   thetaRefDeg = 0.0F;
   wRef = 0.0F;
   xRef = 0.0F;
+  moveActive = false;
+  turnActive = false;
+  headingDeg = 0.0F;
+  xInt = 0.0F;
   trimEst = p.trimDeg;
 }
 
@@ -323,9 +346,31 @@ void stop(Reason why)
   stopRequest = true;
 }
 
+bool moveBy(float distM)
+{
+  if (sharedState != State::Running || !std::isfinite(distM) || fabsf(distM) > 2.0F)
+    return false;
+  driveUntilMs = millis();     // end any leased drive
+  moveRequestM = distM;
+  moveRequest = true;
+  return true;
+}
+
+bool turnBy(float angleDeg)
+{
+  if (sharedState != State::Running || !std::isfinite(angleDeg) ||
+      fabsf(angleDeg) > 1080.0F)
+    return false;
+  driveUntilMs = millis();
+  turnRequestDeg = angleDeg;
+  turnRequest = true;
+  return true;
+}
+
 bool setDrive(float vMps, float wDps, uint32_t leaseMs)
 {
   if (!std::isfinite(vMps) || !std::isfinite(wDps)) return false;
+  profileCancel = true;        // any drive command ends a profiled move
   // Clamp rather than reject: every client (web page, robotdctl, scripts)
   // gets the balance-mode limits without having to know them.
   driveV = fmaxf(-MAX_DRIVE_MPS, fminf(MAX_DRIVE_MPS, vMps));
@@ -368,6 +413,9 @@ bool setParams(const Params& n)
       n.driveAccel > 0.0F && n.driveAccel <= 3.0F &&
       n.driveFf >= 0.0F && n.driveFf <= 2.0F &&
       n.driveLeanDeg >= 0.0F && n.driveLeanDeg <= 5.0F &&
+      std::isfinite(n.moveSpeed) && n.moveSpeed >= 0.02F && n.moveSpeed <= MAX_DRIVE_MPS &&
+      std::isfinite(n.turnRateDps) && n.turnRateDps >= 5.0F && n.turnRateDps <= MAX_DRIVE_DPS &&
+      std::isfinite(n.ki) && n.ki >= 0.0F && n.ki <= 20.0F &&
       n.accelComp <= 2 &&
       std::isfinite(n.imuHeightM) && n.imuHeightM >= 0.0F && n.imuHeightM <= 0.5F &&
       std::isfinite(n.compDelayS) && n.compDelayS >= 0.0F && n.compDelayS <= 0.03F &&
@@ -502,14 +550,65 @@ StepOutput step(uint32_t tUs, float pitchDeg, float rollDeg, float qDps,
   const float runS = (tUs - engageUs) * 1e-6F;
   scale = p.softStartS > 0.0F ? fminf(1.0F, runS / p.softStartS) : 1.0F;
 
+  headingDeg += rDps * dt;
+
+  // Profiled moves (MOVE / TURN while balancing).
+  if (profileCancel) {
+    profileCancel = false;
+    moveActive = false;
+    turnActive = false;
+  }
+  if (moveRequest) {
+    moveRequest = false;
+    moveActive = true;
+    moveTarget = xRef + moveRequestM;
+    moveDeadlineUs = tUs + static_cast<uint32_t>(
+        (fabsf(moveRequestM) / p.moveSpeed + 5.0F) * 1e6F);
+  }
+  if (turnRequest) {
+    turnRequest = false;
+    turnActive = true;
+    turnTarget = headingDeg + turnRequestDeg;
+    turnDeadlineUs = tUs + static_cast<uint32_t>(
+        (fabsf(turnRequestDeg) / p.turnRateDps + 5.0F) * 1e6F);
+  }
+
   // Drive set points: zero when the lease has expired; ramped.
   const bool leased = static_cast<int32_t>(driveUntilMs - millis()) > 0;
-  const float vTarget = leased ? driveV : 0.0F;
-  const float wTarget = leased ? driveW : 0.0F;
+  float vTarget = leased ? driveV : 0.0F;
+  float wTarget = leased ? driveW : 0.0F;
+  float aFf = 0.0F;             // profile deceleration, fed forward
+  if (moveActive) {
+    const float rem = moveTarget - xRef;
+    const float vBrake = sqrtf(2.0F * MOVE_DECEL * fabsf(rem));
+    const float vAbs = fminf(p.moveSpeed, vBrake);
+    vTarget = rem >= 0.0F ? vAbs : -vAbs;
+    // On the braking branch the target falls at MOVE_DECEL: feed that
+    // forward so v_ref doesn't lag it (the approach law alone overshoots).
+    if (vBrake < p.moveSpeed) aFf = rem >= 0.0F ? -MOVE_DECEL : MOVE_DECEL;
+    if ((fabsf(rem) < 0.002F && fabsf(vRef) < 0.005F) ||
+        static_cast<int32_t>(tUs - moveDeadlineUs) >= 0) {
+      moveActive = false;
+      vTarget = 0.0F;
+      aFf = 0.0F;
+    }
+  }
+  if (turnActive) {
+    const float rem = turnTarget - headingDeg;
+    const float wAbs = fminf(p.turnRateDps,
+                             sqrtf(2.0F * TURN_DECEL_DPS2 * fabsf(rem)));
+    wTarget = rem >= 0.0F ? wAbs : -wAbs;
+    if ((fabsf(rem) < 0.5F && fabsf(wRef) < 2.0F) ||
+        static_cast<int32_t>(tUs - turnDeadlineUs) >= 0) {
+      turnActive = false;
+      wTarget = 0.0F;
+    }
+  }
   // S-curve: a_ref heads for the acceleration that closes the speed gap
   // (at most DRIVE_ACCEL), changing at most DRIVE_JERK per second.
   const float aWant = fmaxf(-p.driveAccel,
-                            fminf(p.driveAccel, DRIVE_APPROACH * (vTarget - vRef)));
+                            fminf(p.driveAccel,
+                                  aFf + DRIVE_APPROACH * (vTarget - vRef)));
   const float dj = DRIVE_JERK * dt;
   aRef += fmaxf(-dj, fminf(dj, aWant - aRef));
   vRef += aRef * dt;
@@ -544,8 +643,18 @@ StepOutput step(uint32_t tUs, float pitchDeg, float rollDeg, float qDps,
     notch.design(p.notchHz, p.notchQ);
     notch.reset();
   }
+  // Position integral: only while not driving forwards or backwards.
+  const bool driving = fabsf(vRef) > 0.005F || fabsf(vTarget) > 0.0F;
+  if (p.ki > 0.0F && state == State::Running && !driving) {
+    xInt += (x - xRef) * dt;
+    const float lim = KI_LIMIT / p.ki;
+    if (xInt > lim) xInt = lim;
+    if (xInt < -lim) xInt = -lim;
+  } else if (driving || p.ki <= 0.0F) {
+    xInt = 0.0F;
+  }
   const float feedback =
-      p.kp * e + p.kd * edot + p.kv * (v - vRef) + p.kx * (x - xRef);
+      p.kp * e + p.kd * edot + p.kv * (v - vRef) + p.kx * (x - xRef) + p.ki * xInt;
   float cmd = notch.step(feedback) + p.driveFf * aRef;
   if (kickRequest) {
     kickRequest = false;

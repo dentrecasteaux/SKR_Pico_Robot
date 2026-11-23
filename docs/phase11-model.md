@@ -404,3 +404,14 @@ Standing and pushes repeat session 2 closely: LQR pitch RMS 0.058°, push recove
 - **Stop overshoot rose,** from 87 to 142 mm.
 - **Kick damping:** this run measured 0.46, against 0.22 before. That is the usual joint-state variation, not the trim rate.
 - **Decision:** keep TRIM_RATE 0.25. Accurate stopping needs a direct position integral on u (with anti-windup, active only when stopped), or a small dither to break the band. That is a firmware feature to add for all controllers equally.
+
+### 24 Nov: film demo, and why timed moves from the Pi overshoot (runs 092848, 093503)
+
+- **The Pi is too slow to time moves:** in the demo runs, each robotd request took about 0.3–1 s while logging at 250 Hz. Moves timed from the Pi ran long:
+  - The first leg ran 444–557 mm instead of 400, and the return 588.
+  - Drive renewals arrived more than 1 s apart, so the firmware lease expired mid-turn and the turns paused for about 0.3 s every 1.8 s.
+- **Turn creep:** during a 360° turn at 60 °/s the robot crept about +180 mm (first turn) and −130 mm (opposite turn), and then stayed there. The creep is signed with the turn direction. An offset like this can persist because the tyre contact band allows the robot to rest up to about KP·2°/KX ≈ 0.28 m from x_ref.
+- **Fixes in firmware:**
+  - **Profiled moves:** `MOVE` / `TURN` while balancing, with the firmware braking onto the target itself. The distance is taken on x_ref; the angle on the integrated IMU yaw rate.
+  - **Position integral:** `KI`, default 0 (off). The demo uses 2, equivalent to a trim walk at about 2.2 °/(m·s), but active during turns and reset at each drive.
+- **`demo_run.py`** now uses both.

@@ -297,6 +297,9 @@ All `BAL_SET` keys are live (also while balancing) and are lost at reboot unless
 | `DRIVE_ACCEL` | 0.8 | m/s² | 0–3 | Drive S-curve acceleration |
 | `DRIVE_FF` | 1.0 | – | 0–2 | Drive feed-forward weight |
 | `DRIVE_LEAN` | 2.0 | ° | 0–5 | Lean while moving (rolling drag) |
+| `MOVE_V` | 0.2 | m/s | 0.02–0.3 | Cruise speed of a profiled `MOVE` while balancing |
+| `TURN_W` | 60 | °/s | 5–90 | Turn rate of a profiled `TURN` while balancing (stops on the IMU heading) |
+| `KI` | 0 (off) | m/s² per m·s | 0–20 | Position integral while not driving (standing, turning), ±1 m/s² limit; experimental, 2 used for the film demo |
 | `ACCEL_COMP` | 2 | – | 0, 1, 2 | Accelerometer compensation mode |
 | `IMU_H` | 0.098 | m | 0–0.5 | IMU height above the axle (mode 2) |
 | `COMP_DELAY_MS` | 10 | ms | 0–30 | Command-to-wheel delay (mode 2) |
