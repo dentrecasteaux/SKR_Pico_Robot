@@ -378,6 +378,13 @@ New trim and limits: it held its place (42 s, ended by Ctrl-C after the kicks). 
 - **Forward-controlled test (run `165859`, after a power cycle; AUTOSCALE 0, OFS 36, GRAD 20; recorded unchanged at the start and end): not better.** Ring 2.54 Hz, damping 0.14 → 0.07 over 15 kicks, l_eff 86 mm. The damping still fell during the run with the PWM amplitude held fixed, so **OFS_AUTO climbing is not the cause of the decline either**. Forward mode also raised the ring frequency (2.5 against 2.2 Hz).
 - **What is solid so far:** (1) one minute of steady running on the stand, with automatic scaling on, gives a well-damped start (0.3–0.5) in the next run (`163113`, `164338`). (2) In every mode the damping then falls over about 30–60 s, then settles low (0.04–0.06 over 8 minutes in `161333`). (3) SpreadCycle is far worse. The mechanism of (1) and (2) isn't identified yet. The steady, settled state (auto scaling on, after about a minute of balancing) is at least repeatable, which is what a controller comparison needs.
 
+### KD 4.6 in the settled state (runs `170543`, `170714`)
+
+- Power cycle, about 1 min of balancing (driver OFS_AUTO 36 → 111/112, GRAD_AUTO 14 → 16), then KD 4.19 → 4.6 and a new run with 15 kicks. The new run started with the drivers already settled (OFS_AUTO 111/112) and they stayed there.
+- **Damping 0.13 → 0.075 (median 0.10), ring 2.28 Hz, l_eff 73 mm.** That's slightly better than the settled KD 4.19 runs (0.06 in `161333`; 0.13 → 0.07 in `164939`), but within the scatter, so it's inconclusive.
+- **The damping fell during this run too, with the driver state constant.** So the decline is tied to time since arming, not to the drivers. Between kicks the quiet rocking grows over the run. One reading: the mode is lightly damped and a small self-sustained wobble (limit cycle) builds up after each arming, adding to each kick's ring and making it look less damped. To check next session: fit the ring with a decay towards a steady wobble, and look at the quiet wobble on its own.
+- The web page can now change the number of kicks during a run.
+
 ## Actions arising
 
 - Fit a LiPo voltage alarm on the balance lead (the SKR doesn't measure the battery).

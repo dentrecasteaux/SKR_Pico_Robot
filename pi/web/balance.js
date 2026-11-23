@@ -546,6 +546,17 @@ $("#clear-lock").addEventListener("click", () => {
   if (!window.confirm("Clear the drive lock / emergency stop? Only do this with the robot safe.")) return;
   command({action: "clear_estop"}).then(() => showToast("Cleared")).catch((e) => showToast(e.message, true));
 });
+$("#run-kicks").addEventListener("change", () => {
+  // The kick count can be changed during a run: kicks start (or stop)
+  // straight away once it is balancing.
+  if (!runActive) return;
+  const wanted = Math.max(0, Math.min(200, parseInt($("#run-kicks").value || "0", 10)));
+  kick.wanted = wanted;
+  if (kick.engagedAt !== null) {
+    kick.next = Math.min(kick.next, performance.now() / 1000 + 1);
+    setProgress(wanted > kick.done ? `Kicks: ${kick.done}/${wanted}` : `Kicks stopped at ${kick.done}.`);
+  }
+});
 $("#run-start").addEventListener("click", startRun);
 $("#run-stop").addEventListener("click", stopRun);
 $("#tune-apply").addEventListener("click", applyTuning);
