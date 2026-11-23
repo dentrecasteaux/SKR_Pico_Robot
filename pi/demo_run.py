@@ -102,9 +102,9 @@ class Demo:
         resent = False
         while time.monotonic() < end:
             s = self.status()
-            if abs(float(s["V_REF"])) < 1e-3 and abs(float(s["W_REF"])) < 0.5:
+            if abs(float(s["V_REF"])) < 0.01 and abs(float(s["W_REF"])) < 2.0:
                 return
-            if not resent and time.monotonic() > end - 2.0:
+            if not resent and time.monotonic() > end - 1.5:
                 call("stop")
                 resent = True
                 self.mark("stop_resent", v_ref=float(s["V_REF"]), w_ref=float(s["W_REF"]))
@@ -175,7 +175,7 @@ class Demo:
             self.mark("turn_timeout")
         self.stop_and_confirm()
         # add the ramp-down actually turned
-        end = time.monotonic() + 0.3
+        end = time.monotonic() + 0.15
         while time.monotonic() < end:
             y = self.yaw()
             if y is not None:
@@ -199,7 +199,7 @@ def main() -> int:
     ap.add_argument("--turn", type=float, default=360.0,
                     help="each turn, degrees: 360 (return leg in reverse) or 180 (about-face)")
     ap.add_argument("--turn-rate", type=float, default=60.0, help="turn rate, °/s (<= 90)")
-    ap.add_argument("--pause", type=float, default=1.5, help="pause after each move, s")
+    ap.add_argument("--pause", type=float, default=0.5, help="pause after each move, s")
     ap.add_argument("--start-hold", type=float, default=0.0, help="still before moving, s")
     ap.add_argument("--end-hold", type=float, default=2.0, help="still at the end, s")
     ap.add_argument("--settle", type=float, default=3.0, help="after engaging, before the countdown, s")
