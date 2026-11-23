@@ -386,3 +386,21 @@ Standing and pushes repeat session 2 closely: LQR pitch RMS 0.058°, push recove
 - **Ranking:** LQR (stiffest position loop) falls shortest by the least, and pole placement (softest KX) by the most.
 
 **Conclusion for the comparison:** stopping accuracy is set by the tyre contact band and the slow position loop, the same for every controller. The controller-level differences that hold up are standing, pushes and smoothness while moving. To make stopping accurate, the position loop needs integral action. The cheapest test is a faster trim walk (`TRIM_RATE` 1.0 instead of 0.25): the trim walk *is* a slow position integral.
+
+### 24 Nov: TRIM_RATE 1.0 test (everyday, forward first; run 091740)
+
+| | TRIM_RATE 0.25 (084955) | TRIM_RATE 1.0 (091740) |
+|---|---|---|
+| Final error after 10 s, fwd / rev | +16 / −228 mm | −9 / −167 mm |
+| Pitch offset left, fwd / rev | 0.0° / −1.9° | +0.4° / −2.1° |
+| Stop overshoot (mean) | 87 mm | 142 mm |
+| Stand pitch RMS / pushes recovery | 0.116° / 0.92 s | 0.112° / 0.62 s |
+
+- **Not much effect:** the faster trim walk only partly helped.
+- **What happened in the pause after the reverse step:**
+  - The trim walked the pitch steadily, by about −0.15 °/s.
+  - The robot moved only 11 mm in 10 s, because it stays put in the tyre band until the lean reaches the band's edge.
+  - At 1.0 it would need about 15–25 s to cross the band.
+- **Stop overshoot rose,** from 87 to 142 mm.
+- **Kick damping:** this run measured 0.46, against 0.22 before. That is the usual joint-state variation, not the trim rate.
+- **Decision:** keep TRIM_RATE 0.25. Accurate stopping needs a direct position integral on u (with anti-windup, active only when stopped), or a small dither to break the band. That is a firmware feature to add for all controllers equally.
