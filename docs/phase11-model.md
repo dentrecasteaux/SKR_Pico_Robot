@@ -428,3 +428,22 @@ Standing and pushes repeat session 2 closely: LQR pitch RMS 0.058°, push recove
   - The controller's pitch rate used cos(roll)·q − sin(roll)·r, so every turn added a fake pitch rate of 2–3 °/s.
   - Changed to q − GYRO_QR·r, the same rate the attitude filter integrates.
 - **KI limit:** now the setting `KI_MAX` (default 2.5). The demo uses KI 3.
+
+### 24 Nov: the "one wheel" turns (all runs with turns, `analysis/turns.py`)
+
+- **What it is:** in a turn on the spot the controller adds a forward or backward speed to the turn. It often reaches the turn speed itself (ratio ≈ 1). Then one wheel stands still and the other does all the turning, so it pivots on one wheel.
+  - Example: run 110119 at 118 s: left −230 mm/s, right −10 to +50 mm/s for 2 s.
+- **It isn't tied to the turn direction:** left and right turns drift either way, in every run since 23 Nov.
+- **The commands match the measured turn:** the measured yaw rate equals the commanded one (60.3 for 60 °/s), so the motors aren't skipping. The controller itself commands one wheel to stop.
+- **Why it runs all the way to one wheel:** while both wheels roll in opposite directions, their rolling drags are equal and opposite and cancel, whatever the forward speed. So nothing physical resists a drift, only KV and KX.
+  - Any steady bias during a turn makes the robot creep until |v| reaches the turn speed.
+  - At that point one wheel stops, its drag drops out, and the uncancelled drag of the other wheel balances the bias.
+- **Biases found:**
+  - **Fake pitch rate:** cos(roll)·q − sin(roll)·r, with the roll estimate drifting 2–3° in spins, gave +1.4 to +4 °/s. Through KD that is 0.1–0.3 m/s².
+  - **Spin lean:** the IMU's own pitch reading shifts by about 0.38°·r² (unsigned).
+  - **Tyre contact band:** it lets the real lean settle anywhere within about ±2°.
+- **Fixes in the 24 Nov build:**
+  - The pitch rate now has no roll term.
+  - The position integral KI (limit 2.5 m/s²) holds x during turns, so v stays near 0 and the wheels stay symmetric.
+- **Check:** after flashing, turn on the spot a few times each way and run `analysis/turns.py`. The ratio should stay near 0 for the whole turn.
+- **If it doesn't:** add a turn feed-forward, or harder, narrower tyres to shrink the band.
