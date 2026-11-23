@@ -21,6 +21,8 @@ constexpr uint32_t MIN_INTERVAL_US = 20;        // 50 kHz ceiling
 constexpr uint32_t RESTART_IF_INTERVAL_OVER_US = 2000;
 constexpr float HALF_TRACK_M = Config::WHEEL_TRACK_MM / 2000.0F;
 constexpr float TURN_ACCEL_DPS2 = 180.0F;
+constexpr float DRIVE_JERK = 4.0F;      // m/s^3
+constexpr float DRIVE_APPROACH = 4.0F;  // 1/s
 
 Stepper* leftStepper = nullptr;
 Stepper* rightStepper = nullptr;
@@ -72,6 +74,8 @@ float lastError = 0.0F;
 float lastRate = 0.0F;
 float trimEst = 0.0F;
 float vRef = 0.0F;
+float aRef = 0.0F;      // m/s^2, drive acceleration set point
+float thetaRefDeg = 0.0F;
 float wRef = 0.0F;      // deg/s
 float xRef = 0.0F;
 
@@ -218,6 +222,8 @@ void resetMotion()
   x = 0.0F;
   u = 0.0F;
   vRef = 0.0F;
+  aRef = 0.0F;
+  thetaRefDeg = 0.0F;
   wRef = 0.0F;
   xRef = 0.0F;
   trimEst = p.trimDeg;
@@ -296,7 +302,9 @@ bool setParams(const Params& n)
       n.runawayS >= 0.05F && n.runawayS <= 5.0F &&
       n.trimRate >= 0.0F && n.trimRate <= 10.0F &&
       n.trimRangeDeg >= 0.0F && n.trimRangeDeg <= 10.0F &&
-      n.driveAccel > 0.0F && n.driveAccel <= 3.0F;
+      n.driveAccel > 0.0F && n.driveAccel <= 3.0F &&
+      n.driveFf >= 0.0F && n.driveFf <= 2.0F &&
+      n.driveLeanDeg >= 0.0F && n.driveLeanDeg <= 5.0F;
   if (!ok) return false;
   mutex_enter_blocking(&balanceMutex);
   pendingParams = n;
@@ -420,8 +428,13 @@ StepOutput step(uint32_t tUs, float pitchDeg, float rollDeg, float qDps,
   const bool leased = static_cast<int32_t>(driveUntilMs - millis()) > 0;
   const float vTarget = leased ? driveV : 0.0F;
   const float wTarget = leased ? driveW : 0.0F;
-  const float dv = p.driveAccel * dt;
-  vRef += fmaxf(-dv, fminf(dv, vTarget - vRef));
+  // S-curve: a_ref heads for the acceleration that closes the speed gap
+  // (at most DRIVE_ACCEL), changing at most DRIVE_JERK per second.
+  const float aWant = fmaxf(-p.driveAccel,
+                            fminf(p.driveAccel, DRIVE_APPROACH * (vTarget - vRef)));
+  const float dj = DRIVE_JERK * dt;
+  aRef += fmaxf(-dj, fminf(dj, aWant - aRef));
+  vRef += aRef * dt;
   const float dw = TURN_ACCEL_DPS2 * dt;
   wRef += fmaxf(-dw, fminf(dw, wTarget - wRef));
   xRef += vRef * dt;
@@ -439,9 +452,16 @@ StepOutput step(uint32_t tUs, float pitchDeg, float rollDeg, float qDps,
     lastError = pitchDeg - trimEst;
   }
 
-  const float e = lastError * D2R;
+  // Drive feed-forward (23 Nov, run 111831): the robot needs a lean of
+  // a/g to accelerate, plus a steady lean of about 1.5-2.5 deg while moving
+  // (rolling drag reacts on the body through the motors). Without these
+  // the lean only comes from the speed and position errors, so it lags
+  // its set point by seconds.
+  thetaRefDeg = p.driveFf * aRef / G * R2D + p.driveLeanDeg * tanhf(vRef / 0.05F);
+  const float e = (lastError - thetaRefDeg) * D2R;
   const float edot = rateDps * D2R;
-  float cmd = p.kp * e + p.kd * edot + p.kv * (v - vRef) + p.kx * (x - xRef);
+  float cmd = p.kp * e + p.kd * edot + p.kv * (v - vRef) + p.kx * (x - xRef) +
+              p.driveFf * aRef;
   cmd *= scale;
   if (cmd > p.aMax) cmd = p.aMax;
   if (cmd < -p.aMax) cmd = -p.aMax;

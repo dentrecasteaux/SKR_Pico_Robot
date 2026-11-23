@@ -25,7 +25,8 @@ import argparse
 import json
 import time
 
-from balance_tools import (DEFAULTS, RUNS_DIR, SAFETY_KEYS, balance_status, call,
+from balance_tools import (BACK_STOP_DEG, DEFAULTS, RUNS_DIR, SAFETY_KEYS,
+                           balance_status, call,
                            l_eff_estimate, load)
 
 
@@ -61,6 +62,12 @@ def main() -> int:
               + ", ".join(f"{k} {base[k]} -> {v:g}" for k, v in wrong.items()))
         call("bal_set", set=wrong)
         base = balance_status()
+    theta = float(base["THETA"])
+    if not args.stand and theta < -12 and abs(theta - BACK_STOP_DEG) > 2:
+        print(f"WARNING: resting on the back training wheel the IMU reads "
+              f"{theta:.1f} deg (it read {BACK_STOP_DEG} when the tilt limits "
+              "were set). The IMU or the battery has probably moved: the "
+              "tilt trips may now come early on one side.")
     saved = {k: float(base[k]) for k in
              ("KP", "KD", "TRIM", "TILT_FWD", "TILT_BACK", "ARM_WINDOW", "VMAX",
               "RUNAWAY")}

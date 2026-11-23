@@ -270,6 +270,13 @@ Run `103528`: it balanced calmly for 28 s, then **balancing ended while upright*
 - **Slow to get going:** the speed ramps over 2.5–4 s although v_ref reaches 250 mm/s in 0.5 s. That's the slow outer (speed and position) loop: its poles were placed at 1.2 rad/s, i.e. a time constant of about 1 s. Faster options: outer poles at 1.6 rad/s (KP 39.4, KD 4.70, KV 6.60, KX 5.22; settable live with `BAL_SET`), at the cost of damping if l_eff is really above 0.3 m; or an acceleration feed-forward in the drive set point.
 - **Small oscillation at rest:** pitch sd 0.15–0.21°, wheel speed sd 4–5 mm/s, peak at 2.6–2.9 Hz. Acceptable.
 
+### Drive test 4 (run `111831`): turns fixed; forward/back still slow
+
+- **Turns:** after the first turn (which started while the robot was still catching up after a forward drive), the forward speed stayed within ±25 mm/s during turns, against ±115 mm/s before the gyro fix. Balanced 209 s.
+- **Why forward/back is slow:** the lean comes quickly (pitch +2° within 0.6 s), but the robot then **holds a 2.5° forward lean (3.5° back) while accelerating at only about 0.13 m/s²**. The gyro-integrated angle confirms the lean is real. A frictionless pendulum would need only 0.8° for that. The extra steady lean (about 1.5–2.5°) is what the motors' reaction torque needs to push against rolling drag. In the full-state controller that lean can only come from speed and position errors, so the robot falls about 0.3 m behind its set point and creeps up to speed over 2.5–4 s. (The same lag explains the first turn: the robot was still catching up when the turn began.)
+- **Fix: drive feed-forward.** The drive set point is now an S-curve (acceleration a_ref, jerk-limited), and the controller targets a lean of a_ref/g + DRIVE_LEAN·tanh(v_ref/0.05) and adds a_ref to u. In the model the robot reaches 250 mm/s in about 0.5 s instead of 1.5 s. `DRIVE_FF` (0 = old behaviour) and `DRIVE_LEAN` (default 1.5°) are settable live.
+- **The IMU (or the battery) is still moving:** the balance pitch went from −3.6° to +1.1° during this run, and resting on the back training wheel now reads −18.5° (−22.6° when the tilt limits were set). The tilt trips are absolute IMU angles, so forward trips could now come early. `balance_run.py` now warns when the back-stop reading is more than 2° off. Securing the IMU and battery, then re-measuring both stops, is overdue.
+
 ## Actions arising
 
 - Fit a LiPo voltage alarm on the balance lead (the SKR doesn't measure the battery).

@@ -231,6 +231,8 @@ void RobotLink::processBalanceCommand(const Protocol::Command& command)
         else if (std::strcmp(k, "TRIM_RATE") == 0) p.trimRate = v;
         else if (std::strcmp(k, "TRIM_RANGE") == 0) p.trimRangeDeg = v;
         else if (std::strcmp(k, "DRIVE_ACCEL") == 0) p.driveAccel = v;
+        else if (std::strcmp(k, "DRIVE_FF") == 0) p.driveFf = v;
+        else if (std::strcmp(k, "DRIVE_LEAN") == 0) p.driveLeanDeg = v;
         else {
           sendError(sequence, "UNKNOWN_FIELD");
           return;
@@ -348,6 +350,8 @@ void RobotLink::sendBalanceStatus(uint32_t sequence)
   f("TRIM_RATE", p.trimRate, 2);
   f("TRIM_RANGE", p.trimRangeDeg, 1);
   f("DRIVE_ACCEL", p.driveAccel, 2);
+  f("DRIVE_FF", p.driveFf, 2);
+  f("DRIVE_LEAN", p.driveLeanDeg, 2);
   o.println();
 }
 
