@@ -252,3 +252,9 @@ Step 2 gains (saved) remain the practical everyday setting.
 The narrower notch is only a little better than Q 2. **Decision (24 Nov): stop chasing the LQR gains.**
 - **Everyday setting (standing and driving):** step 2 gains on the firmware defaults: comp 2, τ 0.5, notch 20.5 Hz Q 2.
 - **Best standing-only setting:** LQR gains with comp 1, τ 2.0, notch off (run 220023). Don't drive on it.
+
+### 24 Nov: everyday set, 20 kicks then a drive at 300 (run 070917; synced before the end, 96 of 109 s)
+
+- **Standing:** kick ensemble (same damped-sine fit for each run) 2.34 Hz, ζ 0.43, against 2.94 Hz, ζ 0.27 for step 2 on 23 Nov with comp 1 at τ 0.5 (runs 204006, 205340). Mode 2 also improves the slow ring.
+- **Driving:** up to 377 mm/s, 8 s above 200 mm/s. 16–25 Hz band ≤ 1.4 °/s and *u* sd ≤ 0.24 m/s² at speed.
+- **The LQR comparison run (071220)** lasted only 2.7 s, and still at step 2 gains (the LQR `bal-set` hadn't been applied), so it isn't usable.
