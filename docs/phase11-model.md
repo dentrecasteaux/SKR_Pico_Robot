@@ -68,3 +68,6 @@ Step 1: the frequency rose as predicted, and length and delay are unchanged at t
 | 2 | 204006 | 20 | 2.88 Hz, ζ 0.34 (late kicks 2.8–2.9 Hz, ζ 0.25–0.30) | 2.61 Hz, ζ 0.14 settled; 2.75 Hz, ζ 0.23 with the step 1 refit (this evening's joints) | — |
 
 Step 2: better than predicted. Both the frequency and the damping rise faster with the gains than the model says, so the model is on the cautious side here. (Runs 203415 and 203707 were at step 1 gains: the new values weren't applied. They repeat step 1: 2.58 Hz, ζ 0.19–0.20.)
+| 3 | 204308 | 20 | **New mode at 4.2–4.6 Hz, ζ 0.00–0.05** (the 2.8–3.9 Hz ring still ζ 0.35) | 2.98 Hz, ζ 0.29; no 4–5 Hz mode in the model | — |
+
+**Step 3: stopped here.** A second mode at 4–5 Hz grows with the gains. It isn't in the model: it was well damped and small at the old gains, so the kick fits never saw it. RMS pitch rate in the 3.8–5.2 Hz band during balancing: step 1 about 2.2 °/s, step 2 about 3.0, step 3 about 5.3 and still rising through the run, at ζ ≈ 0. Step 2 is the best gain set so far. Next: add the 4–5 Hz mode to the model, fitted from run 204308, where it is strongly excited, then redesign.
