@@ -462,3 +462,60 @@ LQR stands for **Linear-Quadratic Regulator.** It's a way of *calculating* the c
   Firmer gains push the loop closer to those unmodelled effects. That has happened repeatedly with these gains: each time one missing piece is fixed, the higher gains run into the next. On 24 Nov it was a marginal ~5 Hz mode that the notch's small phase lag tipped over.
 
 **The comparison study** asks: for a fair test (the same push, the same speed step), does a model-based controller (LQR) beat a hand-tuned one (the step 2 gains), and by how much? Part of the answer is already in: on a messy real robot, a model-based design pays off only once the model includes the important real effects. Hence the work on the model and the estimator.
+
+## 27. Is the LQR model close? Is it only for static balancing? Is driving a fundamentally different problem?
+
+**Is the model close?** For standing, the fitted model (11.1) was good. It reproduced the 2.4 Hz ring and its damping in four runs, predicted that the earlier redesign would be unstable, and tracked the trend through steps 1–2. But the model used to *design* the LQR gains was simpler: a rigid pendulum with ideal sensing and no delay. That is where it fell short. It knows nothing of:
+- the 10 ms delay,
+- the joint compliance,
+- the estimator's own loop (the 4–5 Hz mode),
+- the drive-train resonance (20 Hz),
+- the notch.
+
+Its gains were right in shape (much more KP, KV and KX; about the same KD), and they worked standing once the estimator was fixed. They had little margin, because the effects it left out all sit just above the bandwidth the gains asked for.
+
+**Is it only for static balancing?** Mathematically LQR is a *regulator*: it drives the state to a set point (here x = x_ref, v = v_ref, θ = θ_ref). Driving is handled the same way, by moving the set point (v_ref ramps, x_ref integrates, plus the feed-forward lean and acceleration). So the same gains are meant to cover driving: the controller sees driving as "standing still relative to a moving reference". The LQR weights do decide how hard it tracks that reference. Our Q weighted position heavily, which makes the robot fight any lag in following v_ref. That is fine standing still, but harsh at speed.
+
+**Is driving fundamentally different?** Not in the control law, but in the *plant*. These things change at speed, and none of them is in a standing-still model:
+- **The motors:** steppers lose torque and damping as they speed up, and drive-train resonances (our 20 Hz) get excited.
+- **Rolling drag and the drive lean:** the robot must hold a steady lean against drag.
+- **The estimator:** it sees sustained accelerations and vibration (accelerometer rejects, τ trade-offs).
+- **Turns:** they add yaw coupling into the gyro and shift the balance point (0.38°·r²).
+- **The non-minimum-phase nature:** to go forward you must first roll back, so speed changes can't be instant and the speed loop is inherently slow.
+
+So it is the same problem in a harder operating region. A design that is "optimal" standing can be fragile at speed, which is exactly what we saw. A robust design either includes those effects in the model, or deliberately keeps margin (softer gains, filters) where the model is weak.
+
+## 28. If starting again with another balancing device: what have we learnt, what would make it easier, what order, and what tests before moving on?
+
+**What we learnt:**
+1. **Most of the hard problems were not the control law.** They were sign conventions, the balance angle, the estimator (the accelerometer compensation and τ), delay, mechanical compliance and drive-train resonance. Gain tuning was the easy part once those were right.
+2. **Measure before modelling, and model before redesigning.** The kick test plus an ensemble fit was the single most useful tool. It turned vague "it wobbles" into numbers (frequency, damping, l_eff, delay) that could be compared run to run.
+3. **Change one thing per run, and log everything.** The bands-by-speed tables and kick fits only worked because every run had the same structure. Record every parameter in the run's meta, including estimator and filter settings, and not just the gains. We lacked ACCEL_COMP and the notch in the logs.
+4. **The robot changes during a session** (joint damping 0.07–0.43). Compare runs within one session, and repeat the baseline.
+5. **Know where the IMU is.** Its height relative to l_eff decided whether the acceleration compensation was right. Measure it on day one.
+6. **Standing and driving must both be tested** before a setting is called "best".
+7. **A rigid, repeatable mechanical build is worth more than clever control:** IMU screwed down, battery strapped, motor mounts tight.
+
+**What would make it easier:**
+- A rigid frame and IMU mount, the IMU near the axle or at a known height, and wheel encoders (or BLDC motors with encoders) so the wheels' real motion can be checked against the command.
+- A test stand: a pendulum "hammer" for repeatable pushes, and a way to hold the robot near upright.
+- From the start, a firmware structure where every controller, estimator and filter parameter is runtime-settable and logged, with A/B switches (as ACCEL_COMP 0/1/2 and the notch ended up).
+- Flashing from the Pi (question 25), so firmware iterations don't need the robot at the Mac.
+- An analysis script for the standard plots and tables: kick ensemble and fit, band RMS by speed, estimate against accelerometer pitch, turn episodes.
+
+**Sequence, and the gate to pass before moving on:**
+
+| Stage | What to do | Gate (must pass) |
+|---|---|---|
+| 1. Mechanics | Rigid build; measure mass, CoM height, wheel diameter, IMU position (height above the axle, offset) | Nothing moves when shaken; numbers recorded |
+| 2. Motors | Directions, steps/m, current, chopper mode; run to speed on a stand | A commanded move goes exactly that distance; no stalls up to max speed under load |
+| 3. IMU | Axes and signs, noise, bias; filter type and τ; acceleration compensation with the measured IMU height | Correct signs; pitch matches a protractor; the estimate tracks the accelerometer within 0.2° while the robot is pushed around by hand |
+| 4. Model | Balance angle, l_eff (swing test), loop delay | Values consistent between two methods |
+| 5. First balance | Conservative gains from the model; arming window, soft start, tilt limits, runaway trip, black box | Stands 60 s; trips safely in every direction |
+| 6. Identify | Kick tests; fit the model, delay and any modes | The model reproduces the kick response (frequency within 10 %, damping within ±0.05) |
+| 7. Tune or design | Pole placement or LQR on the fitted model; step toward the new gains with a prediction per step | Each step measured within its prediction; no new mode appears |
+| 8. Drive | Feed-forward, lean, speed ramp; drive tests at increasing speed | No new oscillation up to max speed (band RMS by speed); estimate within 0.3° of the accelerometer while driving |
+| 9. Turn | Turn rate ramp, yaw coupling, turn lean | Forward speed stays near zero in a spin on the spot; no inner-wheel stall |
+| 10. Robustness | +200 g, low battery, different floor, cold start | All gates above still pass |
+
+**In short:** get the mechanics, signs and estimator right before balancing; identify before you design; and treat standing and driving as two separate gates.
