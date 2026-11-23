@@ -94,3 +94,5 @@ Step 2 repeated after steps 3–5: the same as the first step 2 run (2.88 Hz, ζ
   - **(b) ACCEL_COMP off, only if (a) changes nothing.** An estimator cause should remove or move the mode.
 
 **Test (a), run 211356: step 3 gains at 1.3 A, 220 s.** The fast mode stays at the same frequency (spectral peak 4.27 Hz, the same as at 1.0 A; kick rings 4.4–4.7 Hz). It is a little better damped: kick ζ 0.03–0.09 against 0.01–0.03; band RMS about 4.0 °/s against 5.3; *u* std 0.42 against 0.53. Motor stiffness doesn't set the frequency, so the motors are not the main cause, though more current helps a little. Next: test (b), ACCEL_COMP off.
+
+**Run 212054: step 2 gains at 1.3 A.** Kick ring 2.91 Hz, ζ 0.25 (1.0 A: 2.88 Hz, ζ 0.30–0.34). 4–5 Hz band 2.75 °/s (1.0 A: 2.9–3.1); *u* std 0.47 (the same). At step 2, 1.3 A makes no useful difference, so 1.0 A stays the everyday current: cooler motors and drivers.
