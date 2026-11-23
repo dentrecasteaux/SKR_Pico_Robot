@@ -71,3 +71,6 @@ Step 2: better than predicted. Both the frequency and the damping rise faster wi
 | 3 | 204308 | 20 | **New mode at 4.2–4.6 Hz, ζ 0.00–0.05** (the 2.8–3.9 Hz ring still ζ 0.35) | 2.98 Hz, ζ 0.29; no 4–5 Hz mode in the model | — |
 
 **Step 3: stopped here.** A second mode at 4–5 Hz grows with the gains. It isn't in the model: it was well damped and small at the old gains, so the kick fits never saw it. RMS pitch rate in the 3.8–5.2 Hz band during balancing: step 1 about 2.2 °/s, step 2 about 3.0, step 3 about 5.3 and still rising through the run, at ζ ≈ 0. Step 2 is the best gain set so far. Next: add the 4–5 Hz mode to the model, fitted from run 204308, where it is strongly excited, then redesign.
+| 4 | 204602 | 20 | 4.7–4.9 Hz, ζ 0.00–0.04 on every kick | 2.85 Hz, ζ 0.27 | — |
+
+Step 4 confirms step 3: the 4–5 Hz mode moves up in frequency with the gains (4.4 → 4.8 Hz) and stays almost undamped. The band RMS is about 7 °/s through the whole run, a sustained shake. Step 5 was not run. Step 2 is the configuration to use.
