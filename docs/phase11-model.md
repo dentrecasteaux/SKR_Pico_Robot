@@ -199,3 +199,15 @@ At 150–600 mm/s forward, the accelerometer pitch was 6.1° at τ 2.0 against 4
 **The underlying fault is the acceleration compensation.** The IMU sits about 0.16 m above the axle, higher than l_eff (about 0.094 m). It feels the wheel acceleration *delayed* by about 10 ms, plus h·θ̈, and the h·θ̈ term largely cancels and reverses the wheel term. Subtracting the commanded *u* is therefore wrong at 2–5 Hz.
 
 **Proposed fix (ACCEL_COMP = 2):** subtract the IMU's own acceleration, A = u delayed 10 ms + h·dq/dt, where dq/dt is the gyro rate's derivative. It is noisy, but the filter's accelerometer path averages it heavily. Keep a quicker τ (0.5 s) for an accurate estimate. Make it selectable at runtime for A/B runs. Interim alternative: schedule τ (2.0 standing, 0.5 driving).
+
+### 24 Nov test 1: ACCEL_COMP=2, τ 0.5, step 3 gains, standing with 20 kicks (run 061900): pass
+
+| Step 3 gains | Comp 1, τ 0.5 | Comp off, τ 0.5 | Comp 1, τ 2.0 | **Comp 2, τ 0.5** |
+|---|---|---|---|---|
+| 3.8–5.2 Hz band | 5.2 °/s | 1.5 | 1.8 | **1.8** |
+| Kick ring | 4.4 Hz, ζ 0.03 | 2.12 Hz, ζ 0.08 | 2.6 Hz, ζ 0.30 | **2.59 Hz, ζ 0.26** |
+| Pitch std | 0.44° | 0.20 | 0.18 | 0.21 |
+| *u* std | 0.56 | 0.38 | 0.44 | 0.47 |
+| Wheel speed std | 16.7 | 11.4 | 9.5 | 10.5 |
+
+The new compensation removes the 4–5 Hz mode at τ 0.5 and keeps the slow ring damped, much the same as τ 2.0 with the old compensation. That confirms the cause was the u/g compensation mismatch (IMU at 98 mm ≈ l_eff). Next: test 2, driving.
