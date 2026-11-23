@@ -416,6 +416,19 @@ Method (12 kick runs): (a) **quiet wobble** = RMS of the 1.2–4 Hz band-passed 
 - **Test 2 result (run `172551`): not where the tyres rest.** The run started well damped. At 50–66 s it drove 0.73 m out and back (up to 290 mm/s, about 3.7 wheel turns under power). Ensemble damping: 0.30 (kicks 1–5) → 0.23 (kicks 6–9, before the drive) → **0.23 just after the drive** → 0.17 (last four). The drive didn't restore anything, so a flat spot or set at the resting position is unlikely. The difference from test 1: there the robot was lifted and handled and the motors were unpowered while the wheels turned. **Next suspects:** something that lifting/handling resets and the robot's rocking slowly changes. For example: the battery or IMU settling on its mount, a cable, or the rotors' rest position against the magnetic detents when unpowered.
 - The 1.2–4 Hz wobble during the drive (3.3 °/s RMS) was not smaller than while standing (1.9 °/s), so the mode isn't only a standing-still effect.
 
+### Handling tests (runs `173835`–`174503`)
+
+| Run | What was done just before | Damping, first kick → last (median) | Ring |
+|---|---|---|---|
+| `173835` A | Power cycle, no handling | 0.08 → 0.06, flat (0.073) | 2.40 Hz |
+| `174056` B | Robot lifted for 10 s, wheels kept still | 0.32 → 0.10 (0.125) | 2.28 Hz |
+| `174254` C | Battery pressed and wiggled, no lift | 0.23 → 0.15 (0.157) | 2.30 Hz |
+| `174503` D | Motor mounts wiggled | 0.18 → 0.10 (0.112) | 2.32 Hz |
+
+- **Every mechanical disturbance raises the damping for a while, and it then decays** over about a minute towards the settled value (about 0.07). No single part stands out: lifting, the battery and the motor mounts all help partly. Driving under power doesn't help (test 2).
+- **Interpretation:** this behaves like **friction damping in the structure's joints.** When disturbed, a joint (screws, strap, standoffs, hub grub screws, the IMU wedge) can micro-slip and dissipate energy. While the robot rocks gently in place it beds in and stops slipping, so the damping falls. This is a common effect in bolted structures. It can't be fixed in software; it can only be made consistent.
+- **Practical decision:** treat the settled state (damping about 0.07, ring about 2.35 Hz) as the design condition for Phase 11. It's repeatable and the worst case, so a controller that handles it handles the rest. When convenient, check and tighten the mechanical joints (plan items 1.3 and 1.4: battery strap, IMU fixed with screws, motor mounts, hub grub screws). That could raise the settled damping or at least make it more consistent.
+
 ## Actions arising
 
 - Fit a LiPo voltage alarm on the balance lead (the SKR doesn't measure the battery).
