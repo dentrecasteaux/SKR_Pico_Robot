@@ -247,3 +247,8 @@ At the LQR gains there is a marginal mode at about 5–6 Hz. With comp 2 alone i
 3. **Accept slightly softer gains,** between step 3 and LQR.
 
 Step 2 gains (saved) remain the practical everyday setting.
+| Comp 2, τ 0.5, notch Q 4 (070154) | 5.0–6.1 Hz, ζ 0–0.03 on 14 of 20 kicks; the rest 2.6–3.3 Hz, ζ 0.28–0.53 | | | | |
+
+The narrower notch is only a little better than Q 2. **Decision (24 Nov): stop chasing the LQR gains.**
+- **Everyday setting (standing and driving):** step 2 gains on the firmware defaults: comp 2, τ 0.5, notch 20.5 Hz Q 2.
+- **Best standing-only setting:** LQR gains with comp 1, τ 2.0, notch off (run 220023). Don't drive on it.
