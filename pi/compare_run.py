@@ -7,7 +7,9 @@ The same test sequence for every controller, so runs compare directly:
   2. stand      60 s quiet standing                   -> RMS angle, rate, u, drift
   3. kicks      10 standard kicks, ±2 m/s², 40 ms     -> ring frequency, damping
   4. pushes     4 large kicks, ±3 m/s², 60 ms         -> peak angle, distance, recovery
-  5. steps      speed steps +V, 0, −V, 0              -> tracking, overshoot, settling
+  5. steps      speed steps +V 5 s, 0 10 s, −V 5 s, 0 10 s
+                                                      -> tracking, overshoot, settling,
+                                                         final position error
   6. end        balancing stops, the log and black box are saved
 
 Every setting that matters is written to the run's compare.json at the
@@ -20,9 +22,9 @@ segment in the log's own clock. analysis/compare.py computes the metrics.
         ACCEL_COMP=1 NOTCH_HZ=0 --tau 2.0
 
 --set and --tau changes last for this run only: they are put back at the end.
-The speed step defaults to 150 mm/s (--speed), which every controller tried
-so far can do; it drives about 0.4 m out and back, so leave 1 m clear on both
-sides. Ctrl-C at any time ends balancing (the robot drops onto a training
+The speed step defaults to 150 mm/s (--speed; 100 is a good common value).
+Each step drives for 5 s, so at 100 mm/s it goes about 0.5 m out and back:
+leave 1 m clear in front and behind. Ctrl-C at any time ends balancing (the robot drops onto a training
 wheel) and still saves everything recorded so far.
 """
 from __future__ import annotations
@@ -39,7 +41,7 @@ KICKS = 10
 KICK_U, KICK_MS, KICK_GAP_S = 2.0, 40, 3.0
 PUSHES = 4
 PUSH_U, PUSH_MS, PUSH_GAP_S = 3.0, 60, 5.0
-STEP_ON_S, STEP_OFF_S = 2.5, 4.0
+STEP_ON_S, STEP_OFF_S = 5.0, 10.0   # long enough to reach speed and settle
 STEP_HOLD_MS, STEP_LEASE_MS, STEP_RENEW_S = 1500, 1000, 0.2
 
 
@@ -197,7 +199,8 @@ def run(args) -> int:
     print(f"Controller '{args.label}': KP {b['KP']} KD {b['KD']} KV {b['KV']} KX {b['KX']} "
           f"ACCEL_COMP {b.get('ACCEL_COMP')} NOTCH {b.get('NOTCH_HZ')}/{b.get('NOTCH_Q')} "
           f"TAU {settings.get('imu', {}).get('service', {}).get('imu', {}).get('TAU')}")
-    total = SETTLE_S + STAND_S + KICKS * 4 + PUSHES * 6 + (0 if args.no_steps else 14) + 30
+    total = (SETTLE_S + STAND_S + KICKS * 4 + PUSHES * 6
+             + (0 if args.no_steps else 2 * (STEP_ON_S + STEP_OFF_S)) + 30)
     print(f"About {total / 60:.1f} min. Leave 1 m clear in front and behind.")
     input("Kill switch in reach? Press Enter to arm, then lift it upright...")
 
