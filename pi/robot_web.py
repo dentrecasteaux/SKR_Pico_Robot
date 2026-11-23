@@ -124,9 +124,21 @@ class BalanceSession:
                     reply = _call(sock, "log_start", name="balance", div=2,
                                   duration_s=900, notes=note)
                 self.run = reply["run"]
+            self.pwm_start = self._pwm(sock)
             _call(sock, "bal_arm")
             return {"ok": True, "run": self.run, "reset": wrong,
                     "gains": self.gains}
+
+    @staticmethod
+    def _pwm(sock: Path) -> dict[str, str]:
+        """Drivers' StealthChop PWM state (learned values included)."""
+        try:
+            pwm = _call(sock, "tmc_pwm").get("pwm", {})
+        except (RuntimeError, OSError):
+            return {}
+        keep = ("OFS", "GRAD", "AUTOSCALE", "AUTOGRAD", "OFS_AUTO", "GRAD_AUTO",
+                "SCALE_SUM")
+        return {k: v for k, v in pwm.items() if k[2:] in keep}
 
     def stop(self, sock: Path) -> dict[str, Any]:
         from balance_tools import kick_l_eff, load
@@ -146,6 +158,8 @@ class BalanceSession:
             except (RuntimeError, KeyError):
                 pass
             summary: dict[str, Any] = {
+                "tmc_pwm_start": getattr(self, "pwm_start", {}),
+                "tmc_pwm_end": self._pwm(sock),
                 "run": run, "blackbox": bb, "source": "web",
                 "stood_s": None,
                 "end_reason": final.get("REASON"),

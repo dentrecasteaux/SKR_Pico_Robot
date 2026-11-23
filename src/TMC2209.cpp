@@ -45,9 +45,15 @@ TMC2209::PwmInfo TMC2209::pwmInfo()
   return info;
 }
 
-bool TMC2209::setPwm(int ofs, int grad, int autograd)
+bool TMC2209::setPwm(int ofs, int grad, int autograd, int autoscale)
 {
-  if (!isConnected() || ofs > 255 || grad > 255 || autograd > 1) return false;
+  if (!isConnected() || ofs > 255 || grad > 255 || autograd > 1 ||
+      autoscale > 1) {
+    return false;
+  }
+  // AUTOSCALE=0 is StealthChop's "forward controlled" mode: the PWM
+  // amplitude is simply OFS + GRAD x speed, with no current regulation.
+  if (autoscale >= 0) driver_.pwm_autoscale(autoscale == 1);
   if (ofs >= 0) driver_.pwm_ofs(static_cast<uint8_t>(ofs));
   if (grad >= 0) driver_.pwm_grad(static_cast<uint8_t>(grad));
   if (autograd >= 0) driver_.pwm_autograd(autograd == 1);

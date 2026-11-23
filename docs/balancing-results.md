@@ -364,6 +364,18 @@ New trim and limits: it held its place (42 s, ended by Ctrl-C after the kicks). 
 - **Test result (run `163113`): confirmed.** After one minute of steady running on the stand at 300 mm/s (no power cycle in between), a 15-kick run gave **damping 0.50 at the first kick, 0.28–0.29 next, then falling to about 0.15 by kick 15; ring 2.2 Hz**, l_eff 72 mm. That is the morning's "good" behaviour again, and it was visibly steadier. So **StealthChop's automatic tuning, learned in steady motion, sets the damping of the 2.2 Hz mode**, and balancing's short reversing moves slowly detune it again (the decline within each run).
 - **Fix to build:** read the drivers' learned PWM values (PWM_AUTO: PWM_OFS_AUTO, PWM_GRAD_AUTO; PWM_SCALE) after a tuning run, then set them as fixed values with automatic gradient tuning off (pwm_autograd = 0) and write the whole PWMCONF at boot, so the drivers behave the same after every power-up and don't drift while balancing.
 
+### StealthChop PWM read-outs (TMC_PWM) and what moves
+
+| When | GRAD_AUTO (X/Y) | OFS_AUTO (X/Y) | Damping in the next kick run |
+|---|---|---|---|
+| After power-up | 14 / 14 | 36 / 36 | (`161333`: 0.06 from the start) |
+| After 1 min at 300 mm/s on the stand | 20 / 20 | 36 / 36 | `164338`: 0.31–0.35 at the start, falling to 0.12 |
+| After that balancing run | 24 / 26 | **110 / 113** | — |
+| GRAD fixed at 20, AUTOGRAD 0 (no power cycle, so OFS_AUTO still about 110) | 20 / 20 | (not read) | `164939`: 0.13 → 0.07–0.10 |
+
+- **The learned amplitude OFS_AUTO is the main mover.** While balancing, the motors spend most of their time near standstill, and StealthChop's automatic scaling raises OFS_AUTO (36 → about 110) until the full run current flows at low speed. More low-speed current means a stiffer, less damped motor link. That is the same effect as the 1.3 A run, and it explains the damping falling during every run. After a power-up the driver tunes OFS at standstill straight away, so balancing started in the "stiff" state. After the stand run the motors had just been running at speed, where OFS stays at its starting value.
+- **Next test: forward-controlled StealthChop** (`AUTOSCALE=0`, OFS 36, GRAD 20), so the amplitude stays fixed. Web runs now record the drivers' PWM state at the start and end in `balance_summary.json`.
+
 ## Actions arising
 
 - Fit a LiPo voltage alarm on the balance lead (the SKR doesn't measure the battery).

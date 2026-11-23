@@ -308,7 +308,7 @@ class RobotController:
                 if not isinstance(values, dict):
                     raise ValueError("tmc_pwm 'set' must be an object")
                 for key, value in values.items():
-                    if key not in ("OFS", "GRAD", "AUTOGRAD") or isinstance(
+                    if key not in ("OFS", "GRAD", "AUTOGRAD", "AUTOSCALE") or isinstance(
                             value, bool) or not isinstance(value, int):
                         raise ValueError(f"bad TMC_PWM field {key!r}")
                     fields.append(f"{key}={value}")

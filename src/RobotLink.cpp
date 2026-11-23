@@ -313,13 +313,13 @@ void RobotLink::processBalanceCommand(const Protocol::Command& command)
   }
 }
 
-// TMC_PWM [OFS=0-255] [GRAD=0-255] [AUTOGRAD=0|1]: set the StealthChop PWM
+// TMC_PWM [OFS=0-255] [GRAD=0-255] [AUTOGRAD=0|1] [AUTOSCALE=0|1]: set the StealthChop PWM
 // settings on both drivers (any field given), then report both drivers'
 // configured and learned PWM values.
 void RobotLink::processTmcPwm(const Protocol::Command& command)
 {
   const uint32_t sequence = command.sequence;
-  int ofs = -1, grad = -1, autograd = -1;
+  int ofs = -1, grad = -1, autograd = -1, autoscale = -1;
   for (size_t i = 0; i < command.pairCount; ++i) {
     const char* k = command.pairs[i].key;
     const float v = command.pairs[i].value;
@@ -328,16 +328,19 @@ void RobotLink::processTmcPwm(const Protocol::Command& command)
     else if (std::strcmp(k, "GRAD") == 0 && byteValue) grad = static_cast<int>(v);
     else if (std::strcmp(k, "AUTOGRAD") == 0 && (v == 0.0F || v == 1.0F)) {
       autograd = static_cast<int>(v);
+    } else if (std::strcmp(k, "AUTOSCALE") == 0 && (v == 0.0F || v == 1.0F)) {
+      autoscale = static_cast<int>(v);
     } else {
       sendError(sequence, std::strcmp(k, "OFS") == 0 || std::strcmp(k, "GRAD") == 0 ||
-                              std::strcmp(k, "AUTOGRAD") == 0
+                              std::strcmp(k, "AUTOGRAD") == 0 ||
+                              std::strcmp(k, "AUTOSCALE") == 0
                           ? "OUT_OF_RANGE" : "UNKNOWN_FIELD");
       return;
     }
   }
   if (command.pairCount > 0 &&
-      !(robot_.driver(false).setPwm(ofs, grad, autograd) &&
-        robot_.driver(true).setPwm(ofs, grad, autograd))) {
+      !(robot_.driver(false).setPwm(ofs, grad, autograd, autoscale) &&
+        robot_.driver(true).setPwm(ofs, grad, autograd, autoscale))) {
     sendError(sequence, "DRIVER_FAULT");
     return;
   }

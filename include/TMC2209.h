@@ -60,7 +60,7 @@ public:
   Settings settings();
   PwmInfo pwmInfo();
   // Negative arguments leave that field unchanged.
-  bool setPwm(int ofs, int grad, int autograd);
+  bool setPwm(int ofs, int grad, int autograd, int autoscale = -1);
 
   static Status decodeStatus(uint32_t raw, bool connected = true);
   static bool validMicrosteps(uint16_t microsteps);
