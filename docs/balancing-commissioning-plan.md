@@ -105,7 +105,7 @@ A closed-loop "42A08EC" also exists (2.8 A, 8 mm shaft, encoder). If the motor h
 | 5.3 | Tilt span between the stops matches the protractor (within about 2°). | |
 | 5.4 | **Vibration** (`pi/vibe_test.py`): wheels up, 0–3 rev/s in both chopper modes. | Gyro noise < 0.5 dps RMS; pitch estimate steady |
 | 5.5 | **Accelerometer and motion:** when the wheels accelerate at *a*, the accelerometer reads it as a tilt error of about a/g rad (1.7 m/s² ≈ 10°). The complementary filter (τ = 0.5 s) and the 0.15 g gate limit this, but it still biases the angle during sustained acceleration. **Stepper advantage:** firmware knows the commanded wheel acceleration, so it can subtract it from the accelerometer X axis before the correction step. Add this as an option (`IMU_ACCEL_COMP`) and compare it against no compensation in Phase 9. | Implemented as a switch |
-| 5.6 | **Filter delay:** the current DLPF setting (CONFIG 0x03, about 44 Hz) adds about 5 ms of group delay. Try 0x02 (about 94 Hz, about 3 ms). Delay matters more than noise in a fast balancer. | Record the chosen setting |
+| 5.6 | **Filter delay:** the current DLPF setting (CONFIG 0x03, about 44 Hz) adds about 5 ms of group delay. Try 0x02 (about 94 Hz, about 3 ms). Delay matters more than noise in a fast balancer. | Record the chosen setting. **Switched to 0x02 on 23 Nov (firmware `IMU: DLPF 94 Hz`), checked in 9.4.** |
 | 5.7 | **IMU height:** the accelerometer also sees θ̈ × (height above the axle) during fast corrections. 5.5 removes the larger cart-acceleration term. Lower the IMU later if logs show the angular-acceleration term matters. | Note |
 
 ## Phase 6: Telemetry and logging (before any balancing)
@@ -163,6 +163,7 @@ J·θ̈ = m·g·l·θ − m·l·u  →  θ̈ = (g·θ − u) / l_eff
 | 9.1 | **Dry run, motors disabled:** arm, tilt by hand, read the logged *u*. Tilting forward must give *u* > 0 (wheels accelerate forward, under the CoM). | **Sign of the loop checked** (the most important test in the plan) |
 | 9.2 | **Wheels up, motors on, Kp at 30%:** tilt forward by hand; the wheels spin forward. | Right way |
 | 9.3 | **On the floor, hand guarding:** hands either side, not touching. Arm upright. Expect it to stand for a few seconds and then drift away in one direction (PD on angle alone has no position hold). That counts as success. | Stands 3–10 s; log every run |
+| 9.4b | **l_eff by kicks:** `balance_run.py --kicks 10` adds alternating ±2 m/s² pulses of 40 ms while balancing; l = ∫(g(θ − θ₀) − u)dt / Δq over each kick. Redesign the gains for the measured l_eff. | Consistent l_eff (spread within ±20%) |
 | 9.4 | Tune from the logs, not by eye: oscillation of about 3–8 Hz → raise Kd or reduce delay (5.6); slow toppling → raise Kp; drift always the same way → fix θ_trim. | |
 
 ## Phase 10: Outer loops (position and speed hold), then driving

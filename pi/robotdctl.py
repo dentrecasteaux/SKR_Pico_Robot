@@ -60,6 +60,10 @@ def build_parser() -> argparse.ArgumentParser:
     bal_arm.add_argument("--dry", action="store_true",
                          help="controller only, motors off (sign checks)")
     subparsers.add_parser("bal-stop")
+    bal_kick = subparsers.add_parser(
+        "bal-kick", help="add a short acceleration pulse while balancing (9.4)")
+    bal_kick.add_argument("u", type=float, help="m/s^2, |u| <= 4")
+    bal_kick.add_argument("--ms", type=int, default=40, help="10-200 ms")
     subparsers.add_parser("bal-status")
 
     hold = subparsers.add_parser(
@@ -109,6 +113,9 @@ def payload(args: argparse.Namespace) -> dict[str, Any]:
         result["set"] = values
     elif args.action == "bal-arm":
         result["dry"] = args.dry
+    elif args.action == "bal-kick":
+        result["u"] = args.u
+        result["ms"] = args.ms
     elif args.action == "hold":
         result["lease_ms"] = args.lease
     elif args.action == "log-start":

@@ -283,6 +283,12 @@ Run `103528`: it balanced calmly for 28 s, then **balancing ended while upright*
 - Run `113258` ended on **TILT_FWD** at the start of a forward drive. The balance pitch had drifted up to about −0.4° (the IMU moving again), and the forward lean of a_ref/g + DRIVE_LEAN (up to about 6.7° at 0.8 m/s²) crossed the absolute 5° limit. With the IMU back at its original position (balance −3.9°) the same lean peaks near +2.8°, inside the limit. Securing the IMU is now needed before driving harder.
 - Two quick attempts to get l_eff from these drive logs (θ̈ regression with a fitted offset; short-horizon gyro prediction) gave no usable answer (r² < 0.1): in closed loop, u and θ move together and the rolling-drag lean biases the offset. l_eff needs a dedicated test.
 
+### Phase 9.4 completion: built (23 Nov)
+
+- **IMU filter 94 Hz** (CONFIG 0x02, about 3 ms delay instead of 4.9 ms). To compare with the 44 Hz quiet-standing figures above (pitch sd 0.15–0.21°, wheel speed sd 4–5 mm/s, peak 2.6–2.9 Hz).
+- **Kick test for l_eff:** `BAL_KICK U= MS=` adds a short acceleration pulse to the controller output (telemetry flag 0x80 while balancing). `balance_run.py --kicks N` fires alternating ±2 m/s², 40 ms kicks when calm and computes l = ∫(g(θ − θ₀) − u)dt / Δq per kick. Checked on simulated closed-loop data at 250 Hz: l = 0.20 m recovered as 0.207 m (4 ms actuation delay) and 0.35 m as 0.355 m, spread ±4%.
+- The user has wedged the IMU between the top platform and the battery. The trim and both tilt limits need re-measuring before the next balance run.
+
 ## Actions arising
 
 - Fit a LiPo voltage alarm on the balance lead (the SKR doesn't measure the battery).

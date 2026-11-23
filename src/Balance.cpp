@@ -75,6 +75,12 @@ float lastRate = 0.0F;
 float trimEst = 0.0F;
 float vRef = 0.0F;
 float aRef = 0.0F;      // m/s^2, drive acceleration set point
+volatile bool kickRequest = false;   // core 0 -> core 1
+volatile float kickRequestU = 0.0F;
+volatile uint32_t kickRequestMs = 0;
+float kickU = 0.0F;
+uint32_t kickEndUs = 0;
+bool kickOn = false;
 float thetaRefDeg = 0.0F;
 float wRef = 0.0F;      // deg/s
 float xRef = 0.0F;
@@ -285,6 +291,18 @@ bool setDrive(float vMps, float wDps, uint32_t leaseMs)
   return true;
 }
 
+bool kick(float uMps2, uint32_t durationMs)
+{
+  if (!std::isfinite(uMps2) || fabsf(uMps2) > 4.0F || durationMs < 10 ||
+      durationMs > 200 || currentState() != State::Running) {
+    return false;
+  }
+  kickRequestU = uMps2;
+  kickRequestMs = durationMs;
+  kickRequest = true;
+  return true;
+}
+
 bool setParams(const Params& n)
 {
   const bool ok =
@@ -462,6 +480,14 @@ StepOutput step(uint32_t tUs, float pitchDeg, float rollDeg, float qDps,
   const float edot = rateDps * D2R;
   float cmd = p.kp * e + p.kd * edot + p.kv * (v - vRef) + p.kx * (x - xRef) +
               p.driveFf * aRef;
+  if (kickRequest) {
+    kickRequest = false;
+    kickU = kickRequestU;
+    kickEndUs = tUs + kickRequestMs * 1000U;
+    kickOn = true;
+  }
+  if (kickOn && static_cast<int32_t>(tUs - kickEndUs) >= 0) kickOn = false;
+  if (kickOn) cmd += kickU / (scale > 0.0F ? scale : 1.0F);
   cmd *= scale;
   if (cmd > p.aMax) cmd = p.aMax;
   if (cmd < -p.aMax) cmd = -p.aMax;
@@ -493,7 +519,7 @@ StepOutput step(uint32_t tUs, float pitchDeg, float rollDeg, float qDps,
   if (state == State::Running) {
     driveWheel(leftGen, vLeft);
     driveWheel(rightGen, vRight);
-    out.flags = FLAG_ACTIVE;
+    out.flags = FLAG_ACTIVE | (kickOn ? FLAG_KICK : 0);
   } else {
     out.flags = FLAG_ACTIVE | FLAG_DRY;
   }

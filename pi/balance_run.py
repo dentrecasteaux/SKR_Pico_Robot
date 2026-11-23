@@ -26,6 +26,7 @@ import json
 import time
 
 from balance_tools import (BACK_STOP_DEG, DEFAULTS, RUNS_DIR, SAFETY_KEYS,
+                           kick_l_eff,
                            balance_status, call,
                            l_eff_estimate, load)
 
@@ -44,6 +45,11 @@ def main() -> int:
     ap.add_argument("--notes", default="")
     ap.add_argument("--div", type=int, default=2,
                     help="log every Nth IMU sample (2 = 250 Hz; 1 drops lines)")
+    ap.add_argument("--kicks", type=int, default=0,
+                    help="identification kicks (9.4): N alternating pulses, "
+                         "one every 3 s once it has balanced for 8 s")
+    ap.add_argument("--kick-u", type=float, default=2.0, help="m/s^2 (<= 4)")
+    ap.add_argument("--kick-ms", type=int, default=40, help="10-200 ms")
     ap.add_argument("--force", action="store_true",
                     help="run even if KP looks implausibly low")
     args = ap.parse_args()
@@ -132,6 +138,7 @@ def run(args, base, saved, temp) -> int:
         print("(Ctrl-C ends balancing: the robot drops onto a training wheel. "
               "Driving stays locked until Clear E-stop or the next run.)")
     state, engaged_at, ended_at = "", None, None
+    kicks_done, next_kick = 0, None
     t0 = time.monotonic()
     try:
         while time.monotonic() - t0 < args.seconds:
@@ -146,6 +153,21 @@ def run(args, base, saved, temp) -> int:
                     ended_at = time.monotonic()
             if state in ("TRIPPED", "OFF"):
                 break
+            if (args.kicks and state == "RUNNING" and engaged_at
+                    and kicks_done < args.kicks):
+                now = time.monotonic()
+                if next_kick is None:
+                    next_kick = engaged_at + 8.0
+                calm = abs(float(s["ERR"])) < 1.5 and abs(float(s["V"])) < 0.1
+                if now >= next_kick and calm:
+                    sign = 1 if kicks_done % 2 == 0 else -1
+                    call("bal_kick", u=sign * args.kick_u, ms=args.kick_ms)
+                    kicks_done += 1
+                    next_kick = now + 3.0
+                    print(f"\n  kick {kicks_done}/{args.kicks} "
+                          f"({sign * args.kick_u:+g} m/s², {args.kick_ms} ms)")
+                    if kicks_done == args.kicks:
+                        print("  kicks done; Ctrl-C when ready")
             print(f"\r   err {float(s['ERR']):+6.2f}°  u {float(s['U']):+5.2f}  "
                   f"v {float(s['V']):+5.2f} m/s  x {float(s['X']):+5.2f} m   ",
                   end="", flush=True)
@@ -169,7 +191,9 @@ def run(args, base, saved, temp) -> int:
 
     rows = load(run)
     est = l_eff_estimate(rows, float(final["TRIM"]))
+    kick = kick_l_eff(rows) if args.kicks else None
     summary = {
+        "kick": kick,
         "run": run, "blackbox": bb, "stood_s": round(stood, 2),
         "end_reason": final["REASON"], "max_err_deg": final["MAX_ERR"],
         "max_u": final["MAX_U"], "l_eff": est,
@@ -180,6 +204,15 @@ def run(args, base, saved, temp) -> int:
           f"max |u| {final['MAX_U']} m/s²")
     if est["l_eff_mm"]:
         print(f"  l_eff estimate {est['l_eff_mm']} mm (r = {est['r']}, {est['samples']} samples)")
+    if kick and kick["l_eff_mm"]:
+        print(f"  kick test: l_eff {kick['l_eff_mm']} mm (median of "
+              f"{len(kick['kicks'])} kicks, range {kick['spread_mm'][0]}.."
+              f"{kick['spread_mm'][1]} mm)")
+        for k in kick["kicks"]:
+            print(f"    t {k['t_s']:7.2f} s  u {k['u_mean']:+5.2f}  "
+                  f"dq {k['dq_dps']:+6.1f} °/s  l {k['l_eff_mm']:6.1f} mm")
+    elif args.kicks:
+        print("  kick test: no usable kicks found in the log")
     if bb:
         print(f"  black box saved: {bb}")
     (RUNS_DIR / run / "balance_summary.json").write_text(json.dumps(summary, indent=2))

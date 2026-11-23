@@ -33,7 +33,8 @@ enum class CommandType
   BalSet,
   BalArm,
   BalStop,
-  BalStatus
+  BalStatus,
+  BalKick
 };
 
 // BAL_SET / BAL_ARM carry generic KEY=number pairs, checked by RobotLink.

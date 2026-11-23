@@ -352,6 +352,7 @@ R2W/1 ACK 60 OK BAL=RUNNING REASON=NONE DRY=0 THETA=-3.71 ERR=0.19 RATE=1.2 U=0.
 | `BAL_SET KEY=value ...` | Set parameters (allowed while balancing, for tuning). Keys: `KP` `KD` `KV` `KX` `TRIM` `AMAX` `VMAX` `SOFT` `TILT_FWD` `TILT_BACK` `ARM_WINDOW` `ARM_RATE` `ARM_TIMEOUT` `RUNAWAY` `ACCEL_COMP`. `OUT_OF_RANGE` if the result is invalid. Lost at reboot. |
 | `BAL_ARM [DRY=1]` | Hand the motors to core 1 and arm. The drivers are enabled (wheels locked) and the controller engages once \|θ − TRIM\| ≤ `ARM_WINDOW` and \|θ̇\| ≤ `ARM_RATE`, i.e. when the robot is lifted upright. `DRY=1` runs the controller immediately with the drivers off. Also re-arms the black box. |
 | `BAL_STOP` | Stop (`REASON=COMMAND`). |
+| `BAL_KICK U=<m/s²> [MS=<ms>]` | Identification kick (plan 9.4): adds U (|U| ≤ 4) to the controller output for MS ms (10–200, default 40). Only while `RUNNING` (else `NOT_BALANCING`). Telemetry sets flag 0x80 on kick samples. |
 | `BAL_STATUS` | Report only. |
 
 **Driving while balancing (Phase 10):** `SET_VELOCITY V= W= LEASE=` is accepted in `MODE=BALANCE` and sets the controller's drive set points (V is clamped to ±300 mm/s, W to ±90 °/s and LEASE to 100–2000 ms; only non-numbers are rejected). When the lease expires they return to zero. v_ref follows an S-curve: a_ref heads for 4·(V − v_ref), limited to ±`DRIVE_ACCEL` m/s² and changing at most 4 m/s³; w_ref ramps at 180 °/s². **Drive feed-forward:** the controller targets a lean θ_ref = `DRIVE_FF`·a_ref/g + `DRIVE_LEAN`·tanh(v_ref/0.05 m/s) and adds `DRIVE_FF`·a_ref to u, so it leans and accelerates straight away instead of waiting for speed and position errors to build up (`DRIVE_FF` default 1, 0–2; `DRIVE_LEAN` default 2.0°, 0–5°, the steady lean needed against rolling drag). x_ref integrates v_ref. Turning adds −/+ w_ref·track/2 to the left/right wheel speeds (separate step generators per wheel).
@@ -421,7 +422,7 @@ R2W/1 BBEND COUNT=1024 REASON=ESTOP FROZEN_T_US=123456789
 | `u` | Commanded wheel acceleration, mm/s² (balance controller; 0 otherwise) |
 | `v_left`, `v_right` | Wheel speed in steps/s, forward positive (velocity mode only; 0 during MOVE/TURN) |
 | `mode` | 0 IDLE, 1 VELOCITY, 2 MOVE, 3 TURN, 4 ESTOP, 5 HOLD, 6 BALANCE |
-| `flags` | 0x01 late sample, 0x02 stall read, 0x04 accel correction rejected, 0x08 calibrating, 0x10 attitude not valid, 0x20 balance active, 0x40 balance dry run, 0x80 motors busy |
+| `flags` | 0x01 late sample, 0x02 stall read, 0x04 accel correction rejected, 0x08 calibrating, 0x10 attitude not valid, 0x20 balance active, 0x40 balance dry run, 0x80 motors busy (with 0x20: a balance kick is applied) |
 
 The firmware writes these lines only when the USB transmit buffer has room,
 so a slow reader never blocks the control loop. The stream can lag by up to

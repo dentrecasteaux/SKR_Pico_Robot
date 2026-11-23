@@ -136,6 +136,8 @@ State currentState();           // latest state (cheap, no lock)
 
 constexpr uint8_t FLAG_ACTIVE = 0x20;  // telemetry flag: balance engaged
 constexpr uint8_t FLAG_DRY = 0x40;     // telemetry flag: dry run
+constexpr uint8_t FLAG_KICK = 0x80;    // with FLAG_ACTIVE: a kick is applied
+                                       // (0x80 means "motors busy" otherwise)
 
 // ---- core 0 API ----
 // arm(): request arming. stepsPerMetre from the current microstepping and
@@ -146,6 +148,10 @@ bool setParams(const Params& params);      // false if a value is invalid
 // Drive set points while balancing (from SET_VELOCITY). Returns false if out
 // of range. They fall back to zero when the lease expires.
 bool setDrive(float vMps, float wDps, uint32_t leaseMs);
+
+// Identification kick (Phase 9.4): add uMps2 to the controller's output for
+// durationMs, while Running. |u| <= 4 m/s^2, 10-200 ms. False if not running.
+bool kick(float uMps2, uint32_t durationMs);
 constexpr float MAX_DRIVE_MPS = 0.3F;
 constexpr float MAX_DRIVE_DPS = 90.0F;
 Params params();

@@ -46,6 +46,7 @@ ALLOWED_ACTIONS = {
     "bal_arm",
     "bal_stop",
     "bal_status",
+    "bal_kick",
 }
 RUNS_DIR = Path.home() / "runs"
 RUN_FILES = {"data.csv": "text/csv", "meta.json": "application/json"}

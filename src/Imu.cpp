@@ -14,7 +14,7 @@
 #include "pico/mutex.h"
 
 // Implementation notes (proven in the skr-pico-mpu6050-test project):
-// - 500 Hz output, DLPF ~44 Hz, +/-4 g, +/-500 deg/s, latched data-ready INT
+// - 500 Hz output, DLPF ~94 Hz, +/-4 g, +/-500 deg/s, latched data-ready INT
 //   that any read clears.
 // - Samples are read with a non-blocking burst on the I2C0 FIFO: 1 register
 //   write + 14 reads (15 of 16 TX FIFO entries), then polled from loop1().
@@ -68,7 +68,8 @@ constexpr uint8_t WHO_AM_I = 0x75;
 struct RegInit { uint8_t reg; uint8_t value; };
 constexpr RegInit INIT_SEQUENCE[] = {
     {Reg::PWR_MGMT_1, 0x01},    // wake, gyro X clock
-    {Reg::CONFIG, 0x03},        // DLPF ~44 Hz, 1 kHz internal rate
+    {Reg::CONFIG, 0x02},        // DLPF ~94 Hz (3 ms delay; was 0x03, 44 Hz,
+                                // 4.9 ms), 1 kHz internal rate
     {Reg::SMPLRT_DIV, 0x01},    // 1 kHz / 2 = 500 Hz
     {Reg::GYRO_CONFIG, 0x08},   // +/-500 deg/s
     {Reg::ACCEL_CONFIG, 0x08},  // +/-4 g

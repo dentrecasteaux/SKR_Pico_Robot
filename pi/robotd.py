@@ -189,7 +189,8 @@ class RobotController:
                 if not fields:
                     raise ValueError("imu_set needs tau and/or auto_bias")
                 reply = client.command("IMU_SET", *fields)
-            elif action in ("bal_set", "bal_arm", "bal_stop", "bal_status"):
+            elif action in ("bal_set", "bal_arm", "bal_stop", "bal_status",
+                            "bal_kick"):
                 fields: list[str] = []
                 if action == "bal_set":
                     values = request.get("set")
@@ -202,6 +203,9 @@ class RobotController:
                                 or not isinstance(value, (int, float))):
                             raise ValueError(f"bad balance parameter {key!r}")
                         fields.append(f"{key.upper()}={value:g}")
+                if action == "bal_kick":
+                    fields.append(f"U={self._number(request, 'u'):g}")
+                    fields.append(f"MS={self._integer(request, 'ms', 40)}")
                 if action == "bal_arm":
                     self._clear_velocity()
                     if request.get("dry"):

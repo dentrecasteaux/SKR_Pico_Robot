@@ -54,7 +54,8 @@ void Logger::update(const Robot& robot, Print& out)
       record.vRight = vRight;
       record.mode = mode;
     }
-    record.flags = sample.flags | (busy ? FLAG_MOTORS_BUSY : 0);
+    record.flags = sample.flags;
+    if (!(sample.flags & Balance::FLAG_ACTIVE) && busy) record.flags |= FLAG_MOTORS_BUSY;
     lastTUs_ = sample.tUs;
     lastSampleN_ = sample.n;
     ++seq_;

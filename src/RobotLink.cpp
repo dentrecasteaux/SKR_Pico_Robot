@@ -193,6 +193,7 @@ void RobotLink::processLine(char* line)
     case Protocol::CommandType::BalArm:
     case Protocol::CommandType::BalStop:
     case Protocol::CommandType::BalStatus:
+    case Protocol::CommandType::BalKick:
       processBalanceCommand(command);
       return;
   }
@@ -283,6 +284,26 @@ void RobotLink::processBalanceCommand(const Protocol::Command& command)
     case Protocol::CommandType::BalStatus:
       sendBalanceStatus(sequence);
       return;
+    case Protocol::CommandType::BalKick: {
+      float u = 0.0F, ms = 40.0F;
+      for (size_t i = 0; i < command.pairCount; ++i) {
+        const char* k = command.pairs[i].key;
+        if (std::strcmp(k, "U") == 0) u = command.pairs[i].value;
+        else if (std::strcmp(k, "MS") == 0) ms = command.pairs[i].value;
+        else {
+          sendError(sequence, "UNKNOWN_FIELD");
+          return;
+        }
+      }
+      if (!(ms >= 10.0F && ms <= 200.0F) ||
+          !Balance::kick(u, static_cast<uint32_t>(ms))) {
+        sendError(sequence, Balance::currentState() == Balance::State::Running
+                                ? "OUT_OF_RANGE" : "NOT_BALANCING");
+        return;
+      }
+      sendAck(sequence);
+      return;
+    }
     default:
       sendError(sequence, "UNKNOWN_COMMAND");
       return;
