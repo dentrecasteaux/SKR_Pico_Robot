@@ -270,3 +270,17 @@ The narrower notch is only a little better than Q 2. **Decision (24 Nov): stop c
 | Drive | Out and back, up to 377 mm/s, clean | Shake from about 200 mm/s; TILT_FWD at 88 s |
 
 **Conclusion:** standing, the two are nearly equal (the same damping; LQR holds the angle slightly tighter), but only the everyday set can drive. **The everyday set is the controller to use and the baseline for the comparison protocol.**
+
+### 24 Nov: changes after the head-to-head
+
+- **Firmware defaults are now the everyday gains:** KP 51.4, KD 4.37, KV 6.89, KX 6.48 (`Balance.h`). The Pi's `tuning.TUNING_DEFAULTS` and `balance_tools.DEFAULTS` match.
+- **GYRO_QR learning:**
+  - It now learns only while balancing (state RUNNING) and turning (|r| > 30 °/s).
+  - It uses a least-squares estimate ⟨q·r⟩/⟨r²⟩ with a 3 s time constant. That is insensitive to real pitch motion in the turn, unlike the old per-sample q/r.
+  - The value is limited to ±0.06 and resets to −0.0177 whenever balancing isn't running.
+  - Before, it learned while the robot was carried, and read +0.035 one morning.
+- **Web drive (iPhone dropouts):**
+  - robotd stops the drive `hold_ms` after the page's last renewal. That was 600 ms, so one slow phone request stopped the drive. It is now 1500 ms.
+  - One failed renewal is retried.
+  - A status reply without a balance state no longer ends the drive or disables the buttons.
+  - Any drive that ends other than by releasing the button shows why (request failed, touch cancelled, capture lost, page hidden or lost focus, balancing stopped).

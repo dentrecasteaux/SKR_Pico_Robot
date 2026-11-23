@@ -64,10 +64,13 @@ struct Params
   // Full-state pole placement (l_eff 0.20 m; poles 10 rad/s zeta 0.7 and
   // 1.2 rad/s zeta 0.9), robust for l_eff 0.12-0.30 m. Phase 9 PD was
   // KP 39 KD 2.9 KV 0 KX 0.
-  float kp = 36.7F;          // m/s^2 per rad
-  float kd = 4.19F;          // m/s^2 per rad/s
-  float kv = 4.81F;          // m/s^2 per m/s
-  float kx = 2.94F;          // m/s^2 per m
+  // "Everyday" gains (Phase 11 step 2, 24 Nov): with ACCEL_COMP=2, tau 0.5
+  // and the 20.5 Hz notch, kick ring 2.3 Hz zeta 0.43 and clean driving to
+  // 0.38 m/s. Before 24 Nov: 36.7 / 4.19 / 4.81 / 2.94 (pole placement).
+  float kp = 51.4F;          // m/s^2 per rad
+  float kd = 4.37F;          // m/s^2 per rad/s
+  float kv = 6.89F;          // m/s^2 per m/s
+  float kx = 6.48F;          // m/s^2 per m
   float trimDeg = 1.9F;      // IMU pitch at the balance point (IMU wedged
                              // under the top plate, 23 Nov; was -3.9)
   float aMax = 6.0F;         // m/s^2

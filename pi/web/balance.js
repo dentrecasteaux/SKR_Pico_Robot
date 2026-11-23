@@ -104,8 +104,9 @@ function render() {
     ? "Emergency stop is latched." : "Driving is locked after balancing ended.";
 
   const running = state === "RUNNING";
-  document.querySelectorAll(".drive-button").forEach((b) => { b.disabled = !running; });
-  if (!running && drive) endDrive(false);
+  if (bal.BAL) document.querySelectorAll(".drive-button").forEach((b) => { b.disabled = !running; });
+  // Only a real state ends a drive; a status without BAL (a glitch) doesn't.
+  if (!running && drive && bal.BAL) endDrive(false, `balancing is ${state}`);
   const balancing = state === "RUNNING" || state === "ARMING";
   $("#run-start").disabled = balancing || !service.connected;
   $("#run-stop").disabled = !balancing && !runActive;
@@ -224,16 +225,29 @@ const driveVectors = {
   right: () => [0, -Number($("#turn").value)],
 };
 
+// Drive renewal. robotd keeps re-sending the command to the robot until
+// hold_ms after the last renewal from this page, then sends STOP (in balance
+// mode: zero drive, keep balancing). hold_ms was 600 ms, so one slow phone
+// request (Wi-Fi power saving, a busy Pi) stopped the drive: the iPhone
+// "drives for 4-8 s then stops" problem (24 Nov). Now 1500 ms, and one failed
+// renewal is retried before giving up.
+const DRIVE_HOLD_MS = 1500;
+const DRIVE_RENEW_MS = 200;
+
 async function renewDrive(session) {
   if (drive !== session) return;
   const [linear, angular] = driveVectors[session.direction]();
   try {
-    await command({action: "velocity", linear, angular, lease_ms: 1000, hold_ms: 600});
-    if (drive === session) session.timer = setTimeout(() => renewDrive(session), 200);
+    await command({action: "velocity", linear, angular, lease_ms: 1000, hold_ms: DRIVE_HOLD_MS});
+    session.failures = 0;
   } catch (error) {
-    showToast(error.message, true);
-    endDrive(false);
+    session.failures = (session.failures || 0) + 1;
+    if (session.failures >= 2) {
+      endDrive(false, `request failed (${error.message})`);
+      return;
+    }
   }
+  if (drive === session) session.timer = setTimeout(() => renewDrive(session), DRIVE_RENEW_MS);
 }
 
 function beginDrive(event) {
@@ -243,12 +257,17 @@ function beginDrive(event) {
   const button = event.currentTarget;
   if (button.setPointerCapture) button.setPointerCapture(event.pointerId);
   button.classList.add("active");
-  drive = {direction: button.dataset.drive, button, timer: null};
+  drive = {direction: button.dataset.drive, button, timer: null, failures: 0, started: Date.now()};
   renewDrive(drive);
 }
 
-function endDrive(sendZero = true) {
+// reason: why the drive ended, shown briefly when it wasn't a normal release.
+function endDrive(sendZero = true, reason = "") {
   const was = drive !== null;
+  if (was && reason) {
+    const held = ((Date.now() - drive.started) / 1000).toFixed(1);
+    showToast(`Drive ended after ${held} s: ${reason}`, true);
+  }
   if (drive) {
     clearTimeout(drive.timer);
     drive.button.classList.remove("active");
@@ -525,12 +544,12 @@ function drawPlot(t, series, kicks) {
 document.querySelectorAll(".drive-button").forEach((button) => {
   button.addEventListener("pointerdown", beginDrive);
   button.addEventListener("pointerup", () => endDrive());
-  button.addEventListener("pointercancel", () => endDrive());
-  button.addEventListener("lostpointercapture", () => endDrive());
+  button.addEventListener("pointercancel", () => endDrive(true, "touch cancelled by the browser"));
+  button.addEventListener("lostpointercapture", () => endDrive(true, "touch capture lost"));
   button.addEventListener("contextmenu", (event) => event.preventDefault());
 });
-window.addEventListener("blur", () => endDrive());
-document.addEventListener("visibilitychange", () => { if (document.hidden) endDrive(); });
+window.addEventListener("blur", () => endDrive(true, "page lost focus"));
+document.addEventListener("visibilitychange", () => { if (document.hidden) endDrive(true, "page hidden"); });
 
 $("#speed").addEventListener("input", () => { $("#speed-out").textContent = `${$("#speed").value} mm/s`; });
 $("#turn").addEventListener("input", () => { $("#turn-out").textContent = `${$("#turn").value} °/s`; });

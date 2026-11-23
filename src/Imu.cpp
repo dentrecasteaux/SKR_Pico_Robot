@@ -203,6 +203,14 @@ constexpr float YAW_PITCH_COUPLING_DEFAULT = -0.0177F;
 constexpr float COUPLING_LEARN_MIN_DPS = 30.0F;
 constexpr float COUPLING_LEARN_TAU_S = 3.0F;
 volatile float gyroQr = YAW_PITCH_COUPLING_DEFAULT;
+// Least-squares learning of gyroQr: c = <q*r> / <r*r>, averaged with time
+// constant COUPLING_LEARN_TAU_S. Only while balancing (not while the robot is
+// carried) and only while turning; reset to the default whenever balancing
+// is not running, so each run starts from the measured value (24 Nov: it had
+// learned +0.035 from handling, which brought back the one-wheel turns).
+float couplingQr = 0.0F;
+float couplingRr = 0.0F;
+constexpr float COUPLING_LIMIT = 0.06F;
 uint32_t accRejects = 0;
 uint32_t autoUpdates = 0;
 RunStat autoStat[3];
@@ -395,12 +403,22 @@ void attitudeStep(float dt, float p, float q, float r, float ax, float ay,
   if (fabsf(cp) < 0.05F) cp = copysignf(0.05F, cp);
   const float tp = sinf(pitch * D2R) / cp;
 
-  if (fabsf(r) > COUPLING_LEARN_MIN_DPS) {
-    float c = gyroQr;
-    c += dt / (COUPLING_LEARN_TAU_S + dt) * (q / r - c);
-    if (c > 0.1F) c = 0.1F;
-    if (c < -0.1F) c = -0.1F;
-    gyroQr = c;
+  if (Balance::currentState() != Balance::State::Running) {
+    couplingQr = 0.0F;
+    couplingRr = 0.0F;
+    gyroQr = YAW_PITCH_COUPLING_DEFAULT;
+  } else if (fabsf(r) > COUPLING_LEARN_MIN_DPS) {
+    const float a = dt / (COUPLING_LEARN_TAU_S + dt);
+    couplingQr += a * (q * r - couplingQr);
+    couplingRr += a * (r * r - couplingRr);
+    // Use the estimate once about one time constant of turning has been
+    // averaged (couplingRr starts at 0 and climbs towards r^2).
+    if (couplingRr > 0.5F * COUPLING_LEARN_MIN_DPS * COUPLING_LEARN_MIN_DPS) {
+      float c = couplingQr / couplingRr;
+      if (c > COUPLING_LIMIT) c = COUPLING_LIMIT;
+      if (c < -COUPLING_LIMIT) c = -COUPLING_LIMIT;
+      gyroQr = c;
+    }
   }
 
   roll = wrap180(roll + (p + sr * tp * q + cr * tp * r) * dt);
