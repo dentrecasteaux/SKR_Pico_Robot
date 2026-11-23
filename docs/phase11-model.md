@@ -138,3 +138,14 @@ A longer filter time constant removes the fast mode and keeps the slow ring damp
 | **Step 5 = LQR** | **3.5 Hz, ζ 0.43** | **0.16°** | **8.4** | **0.42** |
 
 With the estimator fixed, the LQR gains from the rigid model are the best controller so far, and the motors work no harder. Still to check: driving and turning with these gains.
+
+### Drive test with the LQR gains at τ 2.0: lost control in a turn (runs 221152, 221218 black box)
+
+- **Forward drive, t ≈ 11.8–15.5 s:** reached about 290 mm/s, with a 1–1.5 Hz pitch oscillation of ±50 °/s (*u* ±3.8 m/s²). The accelerometer was rejected for much of it (flag 0x04).
+- **Turn, t ≈ 16.0–18.4 s, about 90 °/s:** the robot's forward speed ran away from about 50 to 460 mm/s, with a steady *u* of about +0.2 m/s² and the pitch reading going from +5° to −4°. The inner (right) wheel sat near zero, so it looked like one wheel had stopped. This is the same symptom as the 23 Nov yaw-coupling bug (balancing-results.md), but about four times larger.
+- **After the turn:** braking, then the collision with the desk at about t = 19.8 s. Leaning on it at 7–10° for about 3 s while oscillating, then TILT_FWD at 23.3 s. The run ended with "link lost".
+- **Leading hypothesis:** with τ = 2 s, the accelerometer corrects pitch errors four times more slowly, so any yaw-coupling error left after the learned GYRO_QR correction (and the centripetal pull on the off-centre IMU) builds up four times larger during a turn. The higher KV and KX then turn the false lean into forward speed.
+- **To separate the two changes, on open floor, gentle turns first:**
+  1. Step 2 gains at τ 2.0, which isolates τ.
+  2. LQR gains at τ 0.5 with turns only, short and slow.
+- **If τ is the cause, the likely fix:** shorten τ only while turning (|r| > 30 °/s), or improve the coupling correction.
