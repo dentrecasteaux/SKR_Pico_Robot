@@ -429,6 +429,25 @@ Method (12 kick runs): (a) **quiet wobble** = RMS of the 1.2–4 Hz band-passed 
 - **Interpretation:** this behaves like **friction damping in the structure's joints.** When disturbed, a joint (screws, strap, standoffs, hub grub screws, the IMU wedge) can micro-slip and dissipate energy. While the robot rocks gently in place it beds in and stops slipping, so the damping falls. This is a common effect in bolted structures. It can't be fixed in software; it can only be made consistent.
 - **Practical decision:** treat the settled state (damping about 0.07, ring about 2.35 Hz) as the design condition for Phase 11. It's repeatable and the worst case, so a controller that handles it handles the rest. When convenient, check and tighten the mechanical joints (plan items 1.3 and 1.4: battery strap, IMU fixed with screws, motor mounts, hub grub screws). That could raise the settled damping or at least make it more consistent.
 
+### Phase 11.1–11.3: model, LQR steps, filter fix, drive tests (evening 23 Nov)
+
+Full details, tables and run numbers: [phase11-model.md](phase11-model.md). In short:
+
+- **Model (11.1):** a pendulum plus about 10 ms delay plus a lightly damped joint pole/zero pair, fitted to the kick ensembles. It reproduces the 2.37 Hz ring and its damping in four runs, and predicted that the earlier redesign would be unstable.
+- **Stepping to the LQR gains (11.2):** five steps from KP 36.7/KD 4.19/KV 4.81/KX 2.94 to KP 73.5/KD 4.63/KV 10/KX 11.8.
+  - **Steps 1–2:** better than predicted. Step 2 gave a ring of 2.88 Hz, ζ 0.30–0.34.
+  - **Steps 3–5:** a new, almost undamped mode at 4.4 → 4.8 → 5.15 Hz.
+- **Cause and fix (11.3):** the mode came from the IMU complementary filter's accelerometer path.
+  - **Motors ruled out:** 1.3 A didn't move it.
+  - **Correction off:** turning ACCEL_COMP off removed it.
+  - **Fix:** raising the filter time constant from 0.5 to 2.0 s removed it while keeping the slow ring damped. Firmware default changed (`a0d48b0`).
+  - **Result:** at τ 2.0 the LQR gains give kick ring ζ 0.43, pitch std 0.16° and wheel speed std 8.4 mm/s, the best of any setting.
+- **Drive tests at τ 2.0 (three falls):**
+  - **20 Hz shake:** above about 150–200 mm/s a 20 Hz shake builds up, at both the step 2 and the LQR gains. The accelerometer rejects half its samples and *u* swings ±3 m/s².
+  - **Turning:** on the spot at 60 °/s it was fine.
+  - **Last fall:** a backward command at speed 300 that started with the wheels backing out from under a 4.4° forward lean.
+- **Current setup:** step 2 gains saved as start-up, τ 2.0, 1.0 A, drive speed ≤ 200 mm/s.
+
 ## Actions arising
 
 - Fit a LiPo voltage alarm on the balance lead (the SKR doesn't measure the battery).
@@ -439,4 +458,4 @@ Method (12 kick runs): (a) **quiet wobble** = RMS of the 1.2–4 Hz band-passed 
 ## Next
 
 - Phase 10 pass: stands 60 s+ holding position, recovers from pushes, drives and turns on command (done 23 Nov).
-- Phase 11: LQR (same u = K·x form) and the comparison protocol (repeatable push, step in speed, sensitivity).
+- Phase 11: LQR gains validated for standing (τ 2.0). Next: find the 20 Hz drive shake (step 2 gains at τ 0.5 vs 2.0, then a low-pass filter on the KD rate), then make the LQR gains the defaults and run the comparison protocol (repeatable push, step in speed, sensitivity).

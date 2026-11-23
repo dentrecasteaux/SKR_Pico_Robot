@@ -1,0 +1,1 @@
+Working scripts from the 23 Nov evening analysis (11.3), kept for reference. They need numpy, scipy, pandas and numba, and read runs via phase11_model (R2W_RUNS). bands.py prints band RMS per run; est_model / est2* are models with the complementary filter; polefit / poles_ct fit extra plant structures to the measured closed-loop poles.
