@@ -111,6 +111,20 @@ python3 robotdctl.py bal-stop          # ends balancing (as does ESTOP); STOP on
 
 **Driving while balancing (Phase 10).** Once it's balancing, the web page's drive buttons (or `robotdctl velocity`) drive it: the web pad offers 50–300 mm/s and 15–90 °/s, and the firmware clamps the set points to ±300 mm/s and ±90 °/s. Letting go of a drive button sends speed 0, and STOP while balancing also just stops it moving: the robot keeps balancing. `balance_run.py`'s Ctrl-C (`BAL_STOP`) or ESTOP ends balancing. Whenever balancing ends (a trip or Ctrl-C), drive commands are refused (`BALANCE_TRIPPED`) until you press **Clear emergency stop** on the web page (shown while locked) or start another balance run. **Configuration check:** `python3 check_config.py` compares the live settings with the best known configuration and prints OK/DIFF (read-only). `robotdctl tuning` / `tuning-clear` show or delete the saved web tuning. **StealthChop PWM (11.0):** `robotdctl tmc-pwm` reads both drivers' PWM settings and learned values (`OFS_AUTO`, `GRAD_AUTO`); `robotdctl tmc-pwm OFS=36 GRAD=20 AUTOGRAD=0` sets them. **Identification kicks (9.4):** `balance_run.py --kicks 10` fires alternating ±2 m/s², 40 ms pulses (one every 3 s, after 8 s of balancing, only when calm) and prints l_eff at the end; `robotdctl bal-kick 2 --ms 40` fires one by hand. `balance_run.py` logs at 250 Hz by default (`--div 1` for 500 Hz, which drops about 40 % of lines).
 
+**`compare_run.py` (Phase 11 comparison protocol).** One logged run per
+controller set, always the same sequence:
+- 10 s settle and 60 s quiet standing;
+- 10 standard kicks (±2 m/s², 40 ms);
+- 4 pushes (±3 m/s², 60 ms);
+- speed steps +V, 0, −V, 0 (default 150 mm/s, so leave 1 m clear in front and behind).
+
+It writes `compare.json` into the run: every setting (BAL_STATUS, IMU, STATUS, TMC PWM, saved tuning) and the time of each segment. `--set KEY=value …` and `--tau` change settings for that run only, and they are put back afterwards. Metrics come from `analysis/compare.py RUN …` on the Mac (numpy, scipy, pandas).
+
+```text
+ssh -t robot@r2w-pi.local 'cd r2w && python3 compare_run.py --label everyday'
+ssh -t robot@r2w-pi.local 'cd r2w && python3 compare_run.py --label pole-placement --set KP=36.7 KD=4.19 KV=4.81 KX=2.94'
+```
+
 **`dryrun_check.py` (9.1, motors off).** Tilt the robot by hand forward and
 back. It checks u = KP·e + KD·θ̇ holds with the right sign (lean forward →
 drive forward). Do this before any powered attempt.

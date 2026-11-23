@@ -242,6 +242,7 @@ Details: [pi-controller.md](pi-controller.md), [../pi/README.md](../pi/README.md
 | `robotdctl.py` | CLI for robotd: `status`, `bal-status`, `bal-set K=V…`, `bal-arm`, `bal-stop`, `bal-kick`, `tmc-pwm`, `velocity`, `configure`, `log-start/stop`, `bb-*`, `tuning`, `tuning-clear`, `runs`. |
 | `robotctl.py` | Direct serial client, only with robotd stopped. |
 | `balance_run.py` | Command-line balance attempt with logging and kicks (`--kicks N`, `--div`). Prints the stood time, end reason and l_eff. |
+| `compare_run.py` | Phase 11 comparison protocol: settle, 60 s stand, 10 kicks, 4 pushes, speed steps; writes `compare.json` (all settings and segment times). `--set`/`--tau` apply for that run only. |
 | `check_config.py` | Read-only OK/DIFF check of live settings against the defaults (gains, comp, notch, drivers, PWM, saved tuning). |
 | `dryrun_check.py`, `fall_test.py`, `limits_test.py`, `log_test.py`, `vibe_test.py` | Commissioning tests (phases 5–9) |
 | `tuning.py`, `balance_tools.py` | Shared defaults, ranges, kick analysis (l_eff, damped-sine ring fit) |
@@ -602,7 +603,25 @@ The baseline is the configuration that passed every gate.
 - **Analysis:** per turn episode, the mean and maximum forward speed, the inner and outer wheel speeds, the measured yaw rate against the command, and the late pitch against the pre-turn pitch.
 - **Pass:** yaw rate within 10 % of the command; forward speed < 20 mm/s in spins on the spot.
 
-### 11.4 Configuration check
+### 11.4 Comparison protocol (Phase 11)
+
+`pi/compare_run.py --label NAME [--set KEY=value …] [--tau S] [--speed MM_S]` runs, in one log:
+1. a 10 s settle;
+2. 60 s standing;
+3. 10 standard kicks (±2 m/s², 40 ms);
+4. 4 pushes (±3 m/s², 60 ms);
+5. speed steps +V / 0 / −V / 0 (2.5 s on, 4 s off; V default 150 mm/s).
+
+`analysis/compare.py RUN …` prints a side-by-side table:
+- **Stand:** pitch, rate and u RMS, drift.
+- **Kicks:** ensemble ring.
+- **Pushes:** peak pitch, distance, recovery, peak u.
+- **Steps:** t90, overshoot, wrong-way speed, peak pitch, stop settle and overshoot.
+- **Moving:** band RMS and u sd while |v| > 100 mm/s.
+
+Compare runs from one session, after the same handling, at the same battery state.
+
+### 11.5 Configuration check
 
 Before any comparison run, `python3 check_config.py` must print ALL OK, or show only intended differences.
 

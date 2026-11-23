@@ -201,7 +201,7 @@ J·θ̈ = m·g·l·θ − m·l·u  →  θ̈ = (g·θ − u) / l_eff
 
 - **LQR:** linearise the model with the measured m, l, J, l_eff and the rotor and wheel inertia. Compute K on the Mac (Python `control` or `scipy`) for a few Q/R choices. The firmware runs u = −K·x, the same loop with a different gain line. Compare it against pole placement at the same closed-loop poles as a sanity check.
 - **Other candidates later:** a Kalman filter for the angle (in place of the complementary filter) or LQG; a disturbance observer/ADRC; MPC (offline first; the RP2040 has software floating point, about 93 µs per sample for the current attitude maths).
-- **Fair test protocol** (the same for every controller):
+- **Fair test protocol** (the same for every controller). Implemented on 24 Nov as `pi/compare_run.py` plus `analysis/compare.py`. Until a pendulum hammer exists, software "pushes" (±3 m/s², 60 ms kicks) stand in for item 2:
   1. Stand still 60 s: RMS θ, position drift, RMS *u*.
   2. **Repeatable push:** a pendulum "hammer" (a fixed mass swung from a fixed height against the top plate). Measure the peak θ, recovery time and distance travelled.
   3. Step in speed reference (0 → 0.3 m/s → 0): overshoot and settling.
