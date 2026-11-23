@@ -211,3 +211,11 @@ At 150–600 mm/s forward, the accelerometer pitch was 6.1° at τ 2.0 against 4
 | Wheel speed std | 16.7 | 11.4 | 9.5 | 10.5 |
 
 The new compensation removes the 4–5 Hz mode at τ 0.5 and keeps the slow ring damped, much the same as τ 2.0 with the old compensation. That confirms the cause was the u/g compensation mismatch (IMU at 98 mm ≈ l_eff). Next: test 2, driving.
+
+### 24 Nov test 2: ACCEL_COMP=2, τ 0.5, step 2 gains, driving (run 062717): the 20 Hz shake again, then a RUNAWAY fall
+
+- **What happened:** one button press and hold, out and back at 200 then 300. The shake started above about 220 mm/s every time (16–25 Hz band: 9.2 / 12.1 / 16.9 °/s at 100–200 / 200–260 / >260 mm/s; *u* sd up to 2.5 m/s²; up to 75 % accelerometer rejects). It ended in a RUNAWAY trip reversing at about −460 mm/s.
+- **Not estimate drift:** this time the estimate tracked the accelerometer pitch within about 0.3° until each shake began.
+- **Comparing the three settings:** τ 2.0 + comp 1 shook, this morning's τ 0.5 + comp 1 (also sustained >260 mm/s for 24 s) did not, and τ 0.5 + comp 2 shook.
+- **What that suggests:** the 20 Hz mode at speed is marginal under all settings and small differences tip it. A plausible contributor for comp 2: the h·dq/dt term reaches *u* at 20 Hz with a gain of roughly KP·h/(g·τ) ≈ 1, at −90°, next to KD ≈ 4.4.
+- **Robust fix:** a notch at 20.5 Hz on the feedback part of *u* (`NOTCH_HZ`, `NOTCH_Q`, firmware below, default off). At Q = 2 it costs about 4° of phase at 3 Hz and 7° at 5 Hz.
