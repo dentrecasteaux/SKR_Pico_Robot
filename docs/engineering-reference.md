@@ -400,7 +400,28 @@ For a mode that only appears at speed, also compute the RMS of the pitch rate in
 - **The LQR gains:** right in shape (much more KP, KV and KX; KD unchanged), but they need margin that the rigid model can't see.
 - **Gain margin:** the everyday set gives up very little standing performance and keeps that margin.
 
-The comparison protocol (Phase 11) uses the everyday set as its baseline.
+### 8.1 Controller comparison (24 Nov, three sessions)
+
+Three sessions with the fixed protocol (section 11.4), on timber laminate. Full tables are in [phase11-model.md](phase11-model.md).
+
+| | Everyday | Pole placement | LQR (comp 1, τ 2, no notch) |
+|---|---|---|---|
+| Stand: pitch RMS | 0.11–0.12° | 0.11–0.13° | **0.053–0.058°** |
+| Kicks: ring ζ | 0.2 (0.46 once) | 0.08–0.10 | **about 0.45** |
+| Pushes: recovery | 0.6–0.9 s (reaches AMAX) | 1.2–1.5 s | **0.31–0.42 s** |
+| Motor activity standing (u RMS) | 0.21 | **0.18** (gentlest) | 0.30 |
+| Moving at 100 mm/s: u sd | 0.32 | **0.13** (smoothest) | 0.37; 20 Hz band rising |
+| Stopping: error after a 10 s settle | 0.02–0.37 m short | 0.08–0.49 m short | 0.00–0.22 m short |
+
+**What it shows:**
+- **Standing and disturbances:** LQR is clearly best. It halves the pitch RMS and recovers from pushes 2–4 times faster, but it uses more motor activity and can't drive above about 150–200 mm/s on these mechanics.
+- **Moving:** pole placement is the smoothest.
+- **Everyday:** the best all-round set. It drives cleanly to 0.38 m/s, but reaches its 6 m/s² limit (AMAX) on hard pushes. It stays the default.
+- **Stopping accuracy is the same problem for every controller.** After a speed step the robot parks 0–0.5 m short of its target, at 1.5–2.7° off its balance point, the edges of the ±2° tyre contact-patch band (Phase 7).
+  - **Direction effect:** the reverse step always falls short.
+  - **Order effect:** the second step falls short whichever direction it is.
+  - **Ranking:** the stiffer the position loop (KX), the smaller the shortfall.
+- **A faster trim walk doesn't fix it.** `TRIM_RATE` 1.0 instead of 0.25 cut the reverse shortfall only from 228 to 167 mm and raised the stop overshoot from 87 to 142 mm. The trim walks the lean at about 0.15 °/s, but the robot doesn't move until the lean reaches the band's edge, about 15–25 s. `TRIM_RATE` stays at 0.25.
 
 ---
 
@@ -412,7 +433,8 @@ The comparison protocol (Phase 11) uses the everyday set as its baseline.
 | iPhone drive dropouts | robotd hold raised from 600 to 1500 ms, retry, end reasons shown (24 Nov) | Confirm on the phone; read the reason if it recurs |
 | GYRO_QR learnt while carried | Fixed (24 Nov) | Check learned values in turn runs |
 | Joint damping varies | Accepted for the prototype | Tighten the battery strap, IMU mount and motor mounts |
-| Settings not logged | Open | Write the full `BAL_STATUS` and `IMU` settings into `meta.json` at the start of every run |
+| Stopping accuracy (tyre contact band) | Measured (8.1): parks 0–0.5 m short after a move; a faster trim walk doesn't fix it | A direct position integral on u (anti-windup, active only when stopped), or a small dither; harder or narrower tyres |
+| Settings not logged | `compare_run.py` writes them to `compare.json`; other runs still don't | Write the full `BAL_STATUS` and `IMU` settings into `meta.json` at the start of every run |
 | LQR / stiffer gains | Shelved | Possible routes: reduce KX while driving (Klop-style speed mode), better model, Kalman filter |
 | Turn-induced estimator effects | Small with the current fixes | — |
 | Battery monitoring | None | LiPo alarm on the balance lead; ADC divider later |
@@ -557,6 +579,12 @@ Only now compare controllers (PID, LQR, LQG and others) with a fixed protocol:
 
 The baseline is the configuration that passed every gate.
 
+**Lessons from our comparison:**
+- **Run each controller in the same session,** after the same handling and battery state. The joint damping drifts between sessions.
+- **Run the steps in both orders** (`--reverse-first`) to separate a direction effect from an order effect.
+- **Measure the stop error only after a settle** (10 s or more): with soft tyres the robot can rest anywhere in the contact band.
+- **Give every controller the same position integral** before judging stopping accuracy; otherwise you're measuring the tyres.
+
 ### Typical numbers for a robot like this (for sanity checks)
 
 | Quantity | R2W value |
@@ -605,7 +633,7 @@ The baseline is the configuration that passed every gate.
 
 ### 11.4 Comparison protocol (Phase 11)
 
-`pi/compare_run.py --label NAME [--set KEY=value …] [--tau S] [--speed MM_S]` runs, in one log:
+`pi/compare_run.py --label NAME [--set KEY=value …] [--tau S] [--speed MM_S] [--reverse-first] [--no-steps] [--push-u U] [--push-ms MS] [--notes TEXT]` runs, in one log:
 1. a 10 s settle;
 2. 60 s standing;
 3. 10 standard kicks (±2 m/s², 40 ms);
@@ -619,7 +647,7 @@ The baseline is the configuration that passed every gate.
 - **Steps:** t90, overshoot, wrong-way speed, peak pitch, stop settle and overshoot, and the final position error and pitch offset after settling. Both of those show the tyre contact-patch band of about ±2°.
 - **Moving:** band RMS and u sd while |v| > 100 mm/s.
 
-Compare runs from one session, after the same handling, at the same battery state.
+Compare runs from one session, after the same handling, at the same battery state. Run with `R2W_RUNS=../runs python3 analysis/compare.py RUN … [--json]`. Results so far are in section 8.1.
 
 ### 11.5 Configuration check
 

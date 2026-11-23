@@ -107,8 +107,9 @@ running results in [balancing-results.md](balancing-results.md). **Phases
 1–10 are complete, and Phase 11 is under way** (model, LQR trial, estimator
 and notch fixes: [phase11-model.md](phase11-model.md)). The current state and
 open items are in the [engineering reference](engineering-reference.md).
-Remaining balancing work: a turn-lean feed-forward, the comparison protocol,
-encoders, battery sensing and a physical e-stop.
+The controller comparison is done (24 Nov). Remaining balancing work: a
+position integral for accurate stopping, a turn-lean feed-forward, encoders,
+battery sensing and a physical e-stop.
 
 ## RP2040 PIO and DMA
 

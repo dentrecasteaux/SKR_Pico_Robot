@@ -463,5 +463,6 @@ Full details, tables and run numbers: [phase11-model.md](phase11-model.md). In s
   - **The 4–5 Hz mode:** traced to the wrong acceleration compensation, fixed by ACCEL_COMP=2.
   - **Defaults:** the everyday gains became the firmware defaults.
   - **LQR:** shelved; it shook at speed.
-  - **Next:** a turn-lean feed-forward, then the comparison protocol (repeatable push, step in speed, sensitivity).
+  - **Comparison protocol:** done, three sessions on 24 Nov (summary in the engineering reference, section 8.1). LQR is best standing, pole placement smoothest moving, everyday the best all-round set. Stopping accuracy is limited by the tyre contact band for every controller, and a faster trim walk doesn't fix it.
+  - **Next:** a position integral for stopping, and a turn-lean feed-forward.
   - **Current state:** [engineering-reference.md](engineering-reference.md).
