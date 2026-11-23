@@ -411,6 +411,8 @@ Method (12 kick runs): (a) **quiet wobble** = RMS of the 1.2–4 Hz band-passed 
 - **Ruled out so far:** battery voltage, motor/driver temperature, StealthChop OFS_AUTO and GRAD_AUTO (forward mode with fixed PWM still falls), background-wobble pollution.
 - **New candidates:** something mechanical that changes while the robot stands nearly still on the floor and recovers when the wheels turn a lot. Examples: the tyres taking a set (flat spot) where they rest, or bearing/hub friction. The stand run turns the wheels many times; the power-up cases had the robot resting on its training wheel. **Discriminating tests:** (1) after a power cycle, turn the wheels by hand (motors off) or drive a few metres, then do a kick run. If it's well damped, the cause is mechanical, not the drivers. (2) Partway through a run, drive about 1 m forward and back, then continue kicking. If the damping recovers, it depends on the wheel position or contact patch.
 
+- **Test 1 result (run `171913`): mechanical.** After a power cycle (drivers untuned: OFS_AUTO 36, GRAD_AUTO 14 at the start, the same as `161333`), with both wheels turned several revolutions by hand with the motors off: **ensemble damping 0.29 → 0.20 (all 0.23), ring 2.16 Hz**, quiet wobble 0.84 → 1.03 °/s, l_eff 72 mm. That's the "good" level, against 0.08 for `161333` with the same driver state but no wheel turning. **So the state that sets the damping is mechanical: wheels, tyres or bearings, not the drivers.** Test 2 (driving partway through a run) will show whether it depends on where the tyres rest.
+
 ## Actions arising
 
 - Fit a LiPo voltage alarm on the balance lead (the SKR doesn't measure the battery).
