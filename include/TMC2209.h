@@ -37,6 +37,20 @@ public:
     bool hasFault() const;
   };
 
+  struct PwmInfo
+  {
+    bool connected = false;
+    uint32_t pwmConf = 0;      // PWMCONF as last written (driver shadow)
+    uint8_t ofs = 0;           // configured PWM_OFS
+    uint8_t grad = 0;          // configured PWM_GRAD
+    bool autoscale = false;
+    bool autograd = false;
+    uint8_t ofsAuto = 0;       // PWM_AUTO: learned amplitude offset
+    uint8_t gradAuto = 0;      // PWM_AUTO: learned gradient
+    uint8_t scaleSum = 0;      // PWM_SCALE: actual PWM amplitude
+    int16_t scaleAuto = 0;     // PWM_SCALE: automatic amplitude correction
+  };
+
   TMC2209(Stream& uart, uint8_t address);
 
   void begin();
@@ -44,6 +58,9 @@ public:
   Status status();
   bool applySettings(const Settings& settings);
   Settings settings();
+  PwmInfo pwmInfo();
+  // Negative arguments leave that field unchanged.
+  bool setPwm(int ofs, int grad, int autograd);
 
   static Status decodeStatus(uint32_t raw, bool connected = true);
   static bool validMicrosteps(uint16_t microsteps);

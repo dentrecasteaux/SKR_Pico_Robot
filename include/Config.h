@@ -12,6 +12,13 @@ namespace Config {
   constexpr uint16_t TMC_MAX_CURRENT_MA = 1300;
   // 1/16 with the driver's interpolation to 256 (TMC2209 default intpol=1).
   constexpr uint16_t TMC_MICROSTEPS = 16;
+  // StealthChop PWM (23 Nov): the drivers' self-tuned PWM gradient sets the
+  // damping of the balancing robot's 2.2 Hz mode, and it is lost at every
+  // power-up. With TMC_PWM_FIXED the boot writes these values with
+  // automatic gradient tuning off. Off until the learned values are measured.
+  constexpr bool TMC_PWM_FIXED = false;
+  constexpr uint8_t TMC_PWM_OFS = 36;    // power-on default 0x24
+  constexpr uint8_t TMC_PWM_GRAD = 0;    // power-on default
   constexpr uint32_t STATUS_PERIOD_MS = 1000;
   constexpr uint32_t TEST_STEP_COUNT = 10;
   constexpr uint32_t TEST_STEP_INTERVAL_US = 2000;

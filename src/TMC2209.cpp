@@ -16,6 +16,42 @@ void TMC2209::begin()
   driver_.microsteps(Config::TMC_MICROSTEPS);
   driver_.en_spreadCycle(false);
   driver_.pwm_autoscale(true);
+  if (Config::TMC_PWM_FIXED) {
+    driver_.pwm_ofs(Config::TMC_PWM_OFS);
+    driver_.pwm_grad(Config::TMC_PWM_GRAD);
+    driver_.pwm_autograd(false);
+  }
+}
+
+TMC2209::PwmInfo TMC2209::pwmInfo()
+{
+  PwmInfo info;
+  if (!isConnected()) return info;
+  info.connected = true;
+  info.pwmConf = driver_.PWMCONF();
+  info.ofs = driver_.pwm_ofs();
+  info.grad = driver_.pwm_grad();
+  info.autoscale = driver_.pwm_autoscale();
+  info.autograd = driver_.pwm_autograd();
+  const uint32_t pwmAuto = driver_.PWM_AUTO();
+  info.ofsAuto = static_cast<uint8_t>(pwmAuto & 0xFF);
+  info.gradAuto = static_cast<uint8_t>((pwmAuto >> 16) & 0xFF);
+  const uint32_t pwmScale = driver_.PWM_SCALE();
+  info.scaleSum = static_cast<uint8_t>(pwmScale & 0xFF);
+  // PWM_SCALE_AUTO is a 9-bit signed value in bits 16..24.
+  int16_t scaleAuto = static_cast<int16_t>((pwmScale >> 16) & 0x1FF);
+  if (scaleAuto & 0x100) scaleAuto -= 0x200;
+  info.scaleAuto = scaleAuto;
+  return info;
+}
+
+bool TMC2209::setPwm(int ofs, int grad, int autograd)
+{
+  if (!isConnected() || ofs > 255 || grad > 255 || autograd > 1) return false;
+  if (ofs >= 0) driver_.pwm_ofs(static_cast<uint8_t>(ofs));
+  if (grad >= 0) driver_.pwm_grad(static_cast<uint8_t>(grad));
+  if (autograd >= 0) driver_.pwm_autograd(autograd == 1);
+  return true;
 }
 
 bool TMC2209::isConnected()

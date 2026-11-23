@@ -112,6 +112,7 @@ public:
   void stop();
   void estop();
   CommandResult clearEstop();
+  TMC2209& driver(bool right) { return right ? rightDriver_ : leftDriver_; }
   CommandResult configure(uint32_t currentMa, uint32_t microsteps,
                           float accelerationMmPerSecondSquared,
                           TMC2209::ChopperMode chopperMode);

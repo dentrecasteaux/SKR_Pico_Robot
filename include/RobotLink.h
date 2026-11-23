@@ -28,6 +28,7 @@ private:
   void sendLogStatus(uint32_t sequence);
   void processBalanceCommand(const Protocol::Command& command);
   void sendBalanceStatus(uint32_t sequence);
+  void processTmcPwm(const Protocol::Command& command);
   void sendError(uint32_t sequence, const char* code);
   void sendCommandError(uint32_t sequence, Robot::CommandResult result);
   const char* commandErrorCode(Robot::CommandResult result) const;

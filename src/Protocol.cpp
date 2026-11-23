@@ -85,6 +85,7 @@ Protocol::CommandType commandType(const char* name, bool& recognised)
   if (std::strcmp(name, "BAL_ARM") == 0) return Protocol::CommandType::BalArm;
   if (std::strcmp(name, "BAL_STOP") == 0) return Protocol::CommandType::BalStop;
   if (std::strcmp(name, "BAL_KICK") == 0) return Protocol::CommandType::BalKick;
+  if (std::strcmp(name, "TMC_PWM") == 0) return Protocol::CommandType::TmcPwm;
   if (std::strcmp(name, "BAL_STATUS") == 0) {
     return Protocol::CommandType::BalStatus;
   }
@@ -139,7 +140,8 @@ Protocol::ParseResult Protocol::parseCommand(char* line, Command& command)
       command.type == CommandType::BalArm ||
       command.type == CommandType::BalStop ||
       command.type == CommandType::BalStatus ||
-      command.type == CommandType::BalKick) {
+      command.type == CommandType::BalKick ||
+      command.type == CommandType::TmcPwm) {
     command.pairCount = 0;
     while ((token = ::strtok_r(nullptr, " ", &savePosition)) != nullptr) {
       char* equals = std::strchr(token, '=');

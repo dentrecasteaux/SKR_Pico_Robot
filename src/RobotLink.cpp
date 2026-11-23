@@ -196,6 +196,9 @@ void RobotLink::processLine(char* line)
     case Protocol::CommandType::BalKick:
       processBalanceCommand(command);
       return;
+    case Protocol::CommandType::TmcPwm:
+      processTmcPwm(command);
+      return;
   }
 }
 
@@ -308,6 +311,69 @@ void RobotLink::processBalanceCommand(const Protocol::Command& command)
       sendError(sequence, "UNKNOWN_COMMAND");
       return;
   }
+}
+
+// TMC_PWM [OFS=0-255] [GRAD=0-255] [AUTOGRAD=0|1]: set the StealthChop PWM
+// settings on both drivers (any field given), then report both drivers'
+// configured and learned PWM values.
+void RobotLink::processTmcPwm(const Protocol::Command& command)
+{
+  const uint32_t sequence = command.sequence;
+  int ofs = -1, grad = -1, autograd = -1;
+  for (size_t i = 0; i < command.pairCount; ++i) {
+    const char* k = command.pairs[i].key;
+    const float v = command.pairs[i].value;
+    const bool byteValue = v >= 0.0F && v <= 255.0F && v == static_cast<int>(v);
+    if (std::strcmp(k, "OFS") == 0 && byteValue) ofs = static_cast<int>(v);
+    else if (std::strcmp(k, "GRAD") == 0 && byteValue) grad = static_cast<int>(v);
+    else if (std::strcmp(k, "AUTOGRAD") == 0 && (v == 0.0F || v == 1.0F)) {
+      autograd = static_cast<int>(v);
+    } else {
+      sendError(sequence, std::strcmp(k, "OFS") == 0 || std::strcmp(k, "GRAD") == 0 ||
+                              std::strcmp(k, "AUTOGRAD") == 0
+                          ? "OUT_OF_RANGE" : "UNKNOWN_FIELD");
+      return;
+    }
+  }
+  if (command.pairCount > 0 &&
+      !(robot_.driver(false).setPwm(ofs, grad, autograd) &&
+        robot_.driver(true).setPwm(ofs, grad, autograd))) {
+    sendError(sequence, "DRIVER_FAULT");
+    return;
+  }
+  const TMC2209::PwmInfo info[2] = {robot_.driver(false).pwmInfo(),
+                                    robot_.driver(true).pwmInfo()};
+  Print& o = transport_.output();
+  o.print(Protocol::VERSION);
+  o.print(" ACK ");
+  o.print(sequence);
+  o.print(" OK");
+  const char* names[2] = {"X", "Y"};
+  for (int d = 0; d < 2; ++d) {
+    const TMC2209::PwmInfo& p = info[d];
+    const auto field = [&o, &names, d](const char* key, long value) {
+      o.print(' ');
+      o.print(names[d]);
+      o.print('_');
+      o.print(key);
+      o.print('=');
+      o.print(value);
+    };
+    field("CONNECTED", p.connected ? 1 : 0);
+    o.print(' ');
+    o.print(names[d]);
+    o.print("_PWMCONF=0x");
+    o.print(p.pwmConf, HEX);
+    field("OFS", p.ofs);
+    field("GRAD", p.grad);
+    field("AUTOSCALE", p.autoscale ? 1 : 0);
+    field("AUTOGRAD", p.autograd ? 1 : 0);
+    field("OFS_AUTO", p.ofsAuto);
+    field("GRAD_AUTO", p.gradAuto);
+    field("SCALE_SUM", p.scaleSum);
+    field("SCALE_AUTO", p.scaleAuto);
+  }
+  o.println();
 }
 
 void RobotLink::sendBalanceStatus(uint32_t sequence)

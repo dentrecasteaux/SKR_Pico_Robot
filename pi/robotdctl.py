@@ -60,6 +60,9 @@ def build_parser() -> argparse.ArgumentParser:
     bal_arm.add_argument("--dry", action="store_true",
                          help="controller only, motors off (sign checks)")
     subparsers.add_parser("bal-stop")
+    tmc_pwm = subparsers.add_parser(
+        "tmc-pwm", help="read (or set OFS/GRAD/AUTOGRAD) the StealthChop PWM")
+    tmc_pwm.add_argument("pairs", nargs="*", metavar="KEY=VALUE")
     bal_kick = subparsers.add_parser(
         "bal-kick", help="add a short acceleration pulse while balancing (9.4)")
     bal_kick.add_argument("u", type=float, help="m/s^2, |u| <= 4")
@@ -113,6 +116,13 @@ def payload(args: argparse.Namespace) -> dict[str, Any]:
         result["set"] = values
     elif args.action == "bal-arm":
         result["dry"] = args.dry
+    elif args.action == "tmc-pwm":
+        values = {}
+        for pair in args.pairs:
+            key, _, value = pair.partition("=")
+            values[key.upper()] = int(value)
+        if values:
+            result["set"] = values
     elif args.action == "bal-kick":
         result["u"] = args.u
         result["ms"] = args.ms
