@@ -306,3 +306,27 @@ The narrower notch is only a little better than Q 2. **Decision (24 Nov): stop c
 - **Proposed fixes:**
   1. **Turn feed-forward:** θ_ref += 0.38°·(w_ref in rad/s)², applied as the turn ramps up, so the robot leans into the spin instead of rolling.
   2. **Optional, on the web pad:** while a turn button is held after a forward drive, ramp the forward speed to zero first, or simply release forward and wait about 1 s before turning.
+
+## 24 Nov: first comparison session (compare_run.py, speed step 100 mm/s)
+
+| Metric | Everyday (083204) | Pole placement (083531) | LQR, comp 1, τ 2, no notch (083828) |
+|---|---|---|---|
+| KP / KD / KV / KX | 51.4 / 4.37 / 6.89 / 6.48 | 36.7 / 4.19 / 4.81 / 2.94 | 73.5 / 4.63 / 10 / 11.8 |
+| Stand: pitch RMS | 0.113° | 0.120° | **0.105°** |
+| Stand: rate RMS / u RMS | 3.78 °/s / 0.234 | **3.05 / 0.189** | 4.33 / 0.344 |
+| Stand: drift / range | −3 / 5 mm | 0 / 3 mm | 1 / 3 mm |
+| Kicks: ring | 2.62 Hz, ζ 0.20 | 2.27 Hz, ζ 0.10 | **3.08 Hz, ζ 0.44** |
+| Pushes (±3 m/s², 60 ms): peak pitch | 3.23° | 3.27° | **2.51°** |
+| Pushes: recovery (to within 0.3° for 0.5 s) | 0.69 s | 1.28 s | **0.36 s** |
+| Pushes: peak \|u\| | 6.0 (at AMAX) | 5.3 | 5.2 |
+| Steps: time to 90 % of 100 mm/s | 2.7 s (one of two) | not reached in 2.5 s | 2.2 s (one of two) |
+| Steps: overshoot at the stop | 26 mm | 9 mm | 51 mm |
+| Moving (only LQR passed 100 mm/s): 4–5 Hz / 20 Hz bands, u sd | — | — | 3.0 / 3.7 °/s, 0.63 |
+
+**Readings:**
+- **Standing:** LQR is stiffest and recovers from pushes twice as fast as the everyday set, at the cost of more motor activity (u RMS +47 %). Pole placement is gentlest and slowest to recover. The everyday set is in between, and touched the 6 m/s² limit on the pushes.
+- **Joint damping:** the kick damping for the everyday set (0.20) is lower than earlier the same morning (0.27–0.43), so the joints had settled further.
+- **The speed steps are too short to judge:**
+  - **Slow response:** with every controller the robot leaned 3–3.5° within 0.5 s but took 2–3 s to reach 100 mm/s, or didn't reach it at all.
+  - **Balance point moved:** after each stop it balanced about 1.5° *forward* of its previous pitch (after a forward step) or *back* (after a reverse step) for the full 4 s pause. Possibly the floor surface (rolling resistance or carpet pile) or a load path.
+  - **Next:** check the surface, and lengthen the steps to about 5 s before using these metrics.
