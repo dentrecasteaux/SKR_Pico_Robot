@@ -277,6 +277,12 @@ Run `103528`: it balanced calmly for 28 s, then **balancing ended while upright*
 - **Fix: drive feed-forward.** The drive set point is now an S-curve (acceleration a_ref, jerk-limited), and the controller targets a lean of a_ref/g + DRIVE_LEAN·tanh(v_ref/0.05) and adds a_ref to u. In the model the robot reaches 250 mm/s in about 0.5 s instead of 1.5 s. `DRIVE_FF` (0 = old behaviour) and `DRIVE_LEAN` (default 1.5°) are settable live.
 - **The IMU (or the battery) is still moving:** the balance pitch went from −3.6° to +1.1° during this run, and resting on the back training wheel now reads −18.5° (−22.6° when the tilt limits were set). The tilt trips are absolute IMU angles, so forward trips could now come early. `balance_run.py` now warns when the back-stop reading is more than 2° off. Securing the IMU and battery, then re-measuring both stops, is overdue.
 
+### Drive feed-forward tests (runs `113258`, `113637`)
+
+- With the feed-forward, the robot leans almost at once (about 0.2 s) and reaches 200 mm/s in about 1.3 s, against 2.5–4 s before. The user preferred **DRIVE_LEAN 2.0° and DRIVE_ACCEL 0.8 m/s²; these are now the defaults.**
+- Run `113258` ended on **TILT_FWD** at the start of a forward drive. The balance pitch had drifted up to about −0.4° (the IMU moving again), and the forward lean of a_ref/g + DRIVE_LEAN (up to about 6.7° at 0.8 m/s²) crossed the absolute 5° limit. With the IMU back at its original position (balance −3.9°) the same lean peaks near +2.8°, inside the limit. Securing the IMU is now needed before driving harder.
+- Two quick attempts to get l_eff from these drive logs (θ̈ regression with a fitted offset; short-horizon gyro prediction) gave no usable answer (r² < 0.1): in closed loop, u and θ move together and the rolling-drag lean biases the offset. l_eff needs a dedicated test.
+
 ## Actions arising
 
 - Fit a LiPo voltage alarm on the balance lead (the SKR doesn't measure the battery).

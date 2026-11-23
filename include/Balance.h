@@ -83,10 +83,10 @@ struct Params
   float trimRate = 0.25F;    // deg per (m*s); 0 = no automatic trim.
                              // Adapts only while calm (see Balance.cpp).
   float trimRangeDeg = 4.0F; // trim_est stays within trim +/- this
-  float driveAccel = 0.5F;   // m/s^2 ramp for v_ref (jerk-limited S-curve)
+  float driveAccel = 0.8F;   // m/s^2 ramp for v_ref (jerk-limited S-curve)
   float driveFf = 1.0F;      // drive feed-forward: lean a_ref/g and add
                              // a_ref to u (0 = off, as before 23 Nov)
-  float driveLeanDeg = 1.5F; // extra lean while moving, for rolling drag:
+  float driveLeanDeg = 2.0F; // extra lean while moving, for rolling drag:
                              // DRIVE_LEAN * tanh(v_ref / 0.05 m/s)
 };
 
