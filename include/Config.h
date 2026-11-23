@@ -61,7 +61,7 @@ namespace Config {
   constexpr uint8_t IMU_AXIS_FROM[3] = {0, 1, 2};
   constexpr int8_t IMU_AXIS_SIGN[3] = {1, 1, 1};
   constexpr uint32_t IMU_I2C_HZ = 400000;
-  constexpr float IMU_FILTER_TAU_S = 0.5F;
+  constexpr float IMU_FILTER_TAU_S = 2.0F;   // 0.5 until 23 Nov: its accel loop made a 4-5 Hz mode (phase11-model.md)
   // Auto-bias may only run after the motors have been stopped this long.
   constexpr uint32_t IMU_AUTO_BIAS_SETTLE_MS = 1000;
 }

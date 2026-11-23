@@ -111,3 +111,15 @@ Step 2 repeated after steps 3–5: the same as the first step 2 run (2.88 Hz, ζ
 A model with the filter in it (rigid l 94 mm, which matches the 95 mm measured in Phase 1, a 7.8 ms delay and the IMU 170 mm above the axle) reproduces the fast mode's rise with gain (4.5, 4.8, 5.1 Hz against the measured 4.4, 4.8, 5.15). It does not yet also reproduce the 2–3 Hz joint ring (`est_model.py`, `est2*.py` in the session workspace).
 
 **Next test (c): step 3 gains, comp on, filter τ 2.0 s instead of 0.5 s.** This weakens the accelerometer loop about 4 times whichever way it is compensated. If both the fast mode and the slow ring improve, the fix is a longer filter time constant, or a better compensation: subtract the IMU's actual acceleration, the delayed u plus h·θ̈, instead of u.
+
+**Test (c), run 214945: step 3 gains, comp on, τ 2.0 s. Best run of the day.**
+
+| Step 3 gains | τ 0.5, comp on | Comp off | **τ 2.0, comp on** |
+|---|---|---|---|
+| 3.8–5.2 Hz band | 5.2 °/s | 1.5 | **1.8** |
+| Kick ring | 4.4 Hz, ζ 0.03 | 2.12 Hz, ζ 0.08 | **2.6 Hz, ζ 0.30** (0.22–0.59) |
+| Pitch std | 0.44° | 0.20 | **0.18** |
+| *u* std | 0.56 m/s² | 0.38 | 0.44 |
+| Wheel speed std | 16.7 mm/s | 11.4 | **9.5** |
+
+A longer filter time constant removes the fast mode and keeps the slow ring damped. `Config::IMU_FILTER_TAU_S` is now 2.0 s, which needs a build and flash. Until then, set it after each power cycle with `call("imu_set", tau=2.0)`. Next: steps 4 and 5 with τ 2.0, then a fresh model fit at τ 2.0, where the estimator loop matters much less and the plant should be close to the rigid model.
