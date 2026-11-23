@@ -333,3 +333,106 @@ Mostly no. It's a genuine mode of the robot, though standing still is where it's
 - **It's a closed-loop motion,** made up of the controller, the pendulum and a compliant element (motor magnetic spring, tyre or mount). Kicks excite it while standing, but it doesn't need the robot to be stationary.
 - **It's there while moving too.** In run `172551` the 1.2–4 Hz wobble during the drive was about 3.3 °/s RMS, against about 1.9 °/s while standing (excluding the seconds after kicks). That's not smaller.
 - **Standing still is special for the steppers, though.** Near zero speed the step generator is at its most jerky, and the motor sits in its magnetic detents. Those effects could be what slowly changes the damping during a standing run, which is why it shows up there.
+
+---
+
+# Second set (24 Nov 2026)
+
+Again for background. Nothing has been changed as a result of these.
+
+## 16. What effect did the 94 Hz IMU filter have?
+
+The MPU6050 has its own low-pass filter (DLPF) on both sensors. In 9.4 we widened it from about 44 Hz (CONFIG 0x03) to about 94 Hz (CONFIG 0x02).
+
+- **What it bought:** about 2 ms less delay (roughly 4.9 → 3.0 ms). Delay costs phase in proportion to frequency: 2 ms is about 2° at the 3 Hz balance wobble and about 14° at 20 Hz. So it helped a little at balance frequencies and more at higher ones. The whole loop delay is about 10 ms, and this was a fifth of it.
+- **What it cost:** more vibration gets through. A 44 Hz filter only takes about 20 % off a 20 Hz signal anyway, so it wouldn't have stopped the 20 Hz drive shake. The notch now does that job directly.
+- **Measured effect:** no dramatic change at the time. The noise test in 5.6 had shown the wider filter was quiet enough, and the kick tests afterwards gave the same l_eff with a slightly shorter fitted delay.
+
+## 17. iPhone: holding the drive button only drives for 4–8 s
+
+Not diagnosed yet; the logs only show the motion, not why it stopped. How the page drives:
+- Pressing a button starts a loop that sends a velocity command, waits for the reply, then sends the next 200 ms later. Each command carries a 1 s lease.
+- The robot stops if no new command arrives within the lease.
+- The page stops the loop on any failed command, when the button loses its "pointer capture" (pointercancel, lostpointercapture), when the window loses focus, or when a status poll says the robot isn't RUNNING. That last check also disables the buttons, and disabling a held button can itself end the press.
+
+**Likely causes, most likely first:**
+1. **A slow or failed request.** A Wi-Fi hiccup, or the phone's Wi-Fi power saving, makes one request take more than about 1 s or fail. Then the lease runs out, or the page sees an error and ends the drive. On the earlier project the Pi's own Wi-Fi power saving caused something similar, and that is now turned off (plan step 3.4).
+2. **A momentary bad status poll.** It reads as "not running", so the page ends the drive and briefly disables the buttons.
+3. **iOS cancelling a long touch** with pointercancel, for its long-press gesture. The CSS already blocks the callout and text selection, which makes this less likely, but Safari can still do it.
+
+**Diagnosis when we get to it:** make the page say why each drive ended (a short toast or log line: error, lease, cancel, status), and tolerate one slow or failed renewal before giving up.
+
+## 18. Would rigid wheels help?
+
+Somewhat, but they aren't the big lever now.
+- **For:** squishy tyres are a spring between the motor and the floor. They are a candidate for part of the ~20 Hz drive mode and the low-frequency compliance in the model. Rigid wheels would make the wheel motion follow the steps more exactly, and push any tyre resonance higher in frequency.
+- **Against:** less grip on smooth floors, so more risk of wheel slip during hard corrections, which the controller can't see because it has no wheel encoders. They also pass more of the stepper vibration straight into the chassis, and they ride badly over small bumps and floor edges.
+- **Today:** the notch has dealt with the 20 Hz shake, and the slow wobble turned out to be joints and the estimator rather than tyres. Firmer rubber or a thinner tyre on the same rim is a reasonable later experiment. A hard plastic rim alone probably isn't worth it.
+
+## 19. Occasionally during a turn one wheel does all the work
+
+The robot's forward speed drifts during the turn. A turn is the two wheels at plus and minus the turn speed around the forward speed. If the forward speed drifts to about half the turn's wheel-speed difference, the inner wheel stops and the robot pivots on it. That was diagnosed on 23 Nov. While turning, the gyro's pitch axis picks up a small part of the turning rate (the IMU is about 1° off level), so the pitch estimate goes wrong and the controller drives to "correct" it.
+
+The fix was to subtract a learned coupling factor (GYRO_QR). On 24 Nov it read **+0.0347 within 86 s of power-up, before any balancing.** The value measured on the 23rd was −0.0177. The firmware learns it whenever the yaw rate exceeds 30 °/s, so it also learns while the robot is being carried and rotated by hand, and while it is pitching during a turn. A wrong learned value brings the drift back. So "occasionally" probably means "after the robot has been handled in a particular way".
+
+**Likely fix:** learn only while balancing and turning smoothly (small pitch rate), start from the measured −0.0177 at each arm, and limit how far it can move. Not changed yet.
+
+## 20. Wouter Klop's robot uses a variable step size. What does he gain?
+
+I couldn't read his code from the links available: the GitLab page and his write-up don't describe it. So this is the general idea rather than his exact method. His ESP32 robot uses DRV8825 drivers, 24 V and a 200 Hz cascaded loop, and aims at very high speed.
+
+"Variable step size" in stepper balancing robots usually means switching the microstep resolution with speed. For example, 1/16 or 1/32 near standstill for smooth, fine corrections, then 1/8 or 1/4 at high speed. The gain is mainly at high speed: fewer step pulses per second for the same wheel speed, so the processor's step timer and interrupt load stay manageable. On drivers without internal interpolation, low speeds also stay smooth.
+
+For us there is little to gain:
+- **Pulse rate:** the PIO hardware generates the pulses, and we use 1/16. 0.55 m/s needs about 9,000 steps/s, well under the 20,000 steps/s cap.
+- **Smoothness:** the TMC2209 already interpolates every step to 1/256 internally (MicroPlyer).
+- **Risk:** switching resolution on the fly would risk a small position jump at each switch.
+
+## 21. What would a newer IMU give us?
+
+Modern parts such as the ICM-42688-P, BMI088 or LSM6DSO:
+- **Lower gyro noise and much better bias stability,** including over temperature. That is the gyro drift the accelerometer has to correct, so with a better gyro the accelerometer can be trusted less (a longer time constant) without the angle wandering.
+- **Better, configurable anti-alias filtering and higher output rates,** which help reject motor vibration before it is sampled.
+- **Better vibration robustness** (the BMI088 is designed for drones).
+- **SPI,** which is faster and more deterministic than our 400 kHz I²C.
+
+But none of our problems so far was sensor noise. The 4–5 Hz mode was the compensation model, and the 20 Hz shake was a mechanical/drive resonance fed by the loop. A new IMU would make the estimator a little better; it wouldn't have fixed either. Mounting matters as much as the part: a rigid mount is worth more than a better chip on tape and a wedge.
+
+## 22. Why did going from τ 0.5 s to 2.0 s help so much, and what did it cost?
+
+- **What τ does:** it sets how strongly the accelerometer pulls the pitch estimate, as a nudge of dt/τ of the difference every sample.
+- **What was wrong:** the accelerometer is only meant to supply the long-term direction of gravity. With ACCEL_COMP=1 we subtracted the commanded wheel acceleration from it. But the IMU sits 98 mm above the axle, about the robot's effective pendulum length, so it barely feels the wheel acceleration: the body's rotation cancels it. The subtraction therefore *added* an error at 2–5 Hz, and the estimate passed it to the controller. With KP around 60 that formed a second feedback loop strong enough to make an almost undamped 4–5 Hz mode.
+- **Why τ 2.0 helped:** that loop's strength scales with 1/τ, so going to 2.0 s made it four times weaker. That was enough to remove the mode and keep the slow wobble damped.
+- **What it cost:** the accelerometer corrects *every* gyro error four times more slowly too: bias, turn coupling, vibration. While driving, the estimate drifted 1–1.6° from the true angle, the robot leaned more than intended, and the 20 Hz drive shake built up at speed.
+- **What replaced it:** the real fix was correct compensation (ACCEL_COMP=2: subtract what the IMU actually feels, the delayed u plus h·dq/dt). That let τ go back to 0.5 s, and the 20 Hz shake was then removed with a notch.
+
+## 23. Could τ be 0.5 s while driving and 2.0 s while balancing? Or is a better filter the answer?
+
+Scheduling τ would have worked as a stopgap. The firmware can change τ on the fly without a jump in the estimate. But it treats a symptom (the wrong compensation) rather than the cause. It would also have kept the 4–5 Hz problem whenever τ was short with high gains, which is exactly while driving.
+
+A better filter is the answer, and it has largely happened. ACCEL_COMP=2 fixed the compensation, so one short τ (0.5 s) now works standing and driving (test 1 on 24 Nov), and the notch handles the 20 Hz shake. The next step up is a Kalman filter (question 24).
+
+## 24. What filter is used now? Is it a complementary filter? Is it time for a Kalman filter? Would we still need the notch?
+
+**Now: yes, a complementary filter,** at 500 Hz on the second core:
+1. **Gyro step:** pitch += (q − GYRO_QR·r)·dt.
+2. **Correction:** subtract the IMU's own acceleration from the accelerometer X axis (ACCEL_COMP mode 2).
+3. **Accelerometer nudge:** pitch += (dt/τ)·(accelerometer pitch − pitch). The nudge is skipped when the total acceleration is more than 0.15 g away from 1 g.
+4. **Around it:** a 94 Hz filter on the sensor itself, gyro bias measured at power-up, and the KD term using the gyro rate directly.
+
+**Kalman filter: a good next step, but not urgent now.** It would track the gyro's bias as a separate quantity and weight the accelerometer by how believable it is at the time: less while accelerating, more while still. So it can correct drift as well as τ 0.5 does with less sensitivity to acceleration. It also leads naturally to LQG (LQR plus a Kalman estimator), which is one of the controllers to compare. Now that the compensation is right, expect a modest improvement, not a transformation.
+
+**The notch would still be needed.** The 20 Hz shake is a resonance in the drive train that the *controller* feeds through its output, whatever estimates the angle. A Kalman filter wouldn't remove it. Alternatives are a low-pass on the KD rate, or curing the resonance mechanically.
+
+## 25. Can the Pi Zero flash the SKR Pico?
+
+Yes. The Pi is the SKR's USB host (USB CDC serial), and the firmware uses the arduino-pico core, which supports the standard "1200-baud touch": opening the serial port at 1200 baud and closing it reboots the RP2040 into its USB bootloader.
+1. Copy `firmware.uf2` to the Pi (as `deploy-pi.sh` does for the Python files).
+2. Stop `robotd` so it releases the serial port.
+3. Do the 1200-baud touch on `/dev/serial/by-id/usb-Arduino_RaspberryPi_Pico_*`.
+4. The board reappears as a USB drive (RPI-RP2). Mount it and copy the `.uf2` onto it, or use `picotool load -x firmware.uf2`, which also needs no button press.
+5. Wait for the serial port to return, then restart `robotd`.
+
+That would make "build on the Mac, flash over Wi-Fi" one script (`tools/flash-skr.sh`). Two cautions:
+- **Only flash with the robot off the floor or on its training wheels.** It resets mid-flash.
+- **If a bad build ever stops the USB port working,** the 1200-baud trick won't reach it. Then the BOOTSEL button (or a jumper) is the fallback, so keep that accessible.
