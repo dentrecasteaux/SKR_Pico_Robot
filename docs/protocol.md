@@ -110,7 +110,9 @@ R2W/1 CMD 3 SET_VELOCITY V=50 W=0 LEASE=500
 - `LEASE`: required validity period in milliseconds
 
 The command cancels any active finite job. Values outside configured speed or
-lease limits are rejected. `V=0 W=0` is valid, but `STOP` is preferred when an
+lease limits are rejected. In `MODE=BALANCE` it sets the balance controller's
+drive set points instead, and the values are clamped rather than rejected.
+See [Balance commands](#balance-commands-balancing-phases-89). `V=0 W=0` is valid, but `STOP` is preferred when an
 immediate, unambiguous stop is required.
 
 ### `MOVE`
@@ -131,14 +133,15 @@ Applies runtime motor and driver settings to both axes. It is accepted only
 while the robot is idle and the emergency stop is clear.
 
 ```text
-R2W/1 CMD 8 CONFIGURE CURRENT_MA=400 MICROSTEPS=4 ACCEL_MM_S2=100 TMC_MODE=STEALTHCHOP
+R2W/1 CMD 8 CONFIGURE CURRENT_MA=1000 MICROSTEPS=16 ACCEL_MM_S2=150 TMC_MODE=STEALTHCHOP
 R2W/1 ACK 8 OK
 ```
 
-- `CURRENT_MA`: RMS run current. The installed Casun 42SHD0001-24B profile
-  accepts 100-400 mA.
-- `MICROSTEPS`: `1`, `2`, `4`, `8`, `16`, `32`, or `64`.
-- `ACCEL_MM_S2`: physical acceleration from 10-500 mm/s².
+- `CURRENT_MA`: RMS run current, 100–1300 mA (`Config::TMC_MAX_CURRENT_MA`).
+  The boot default is 1000 mA, for the Rtelligent 42A08 motors.
+- `MICROSTEPS`: `1`, `2`, `4`, `8`, `16`, `32`, or `64` (boot default 16).
+- `ACCEL_MM_S2`: normal-mode acceleration, 10–20000 mm/s² (boot default 150;
+  the high ceiling is for limit tests).
 - `TMC_MODE`: `STEALTHCHOP` or `SPREADCYCLE`.
 
 Both TMC2209 writes are read back. A failure rolls both drivers back and
@@ -342,10 +345,10 @@ All four commands reply with
 the balance status ACK:
 
 ```text
-R2W/1 ACK 60 OK BAL=RUNNING REASON=NONE DRY=0 THETA=-3.71 ERR=0.19 RATE=1.2 U=0.142 V=0.031 X=0.004 SCALE=1.00 RUN_MS=5320 ENGAGES=3 TRIPS=2 MAX_U=1.95 MAX_ERR=1.40 STEP_HZ=506 KP=39.000 KD=2.900 KV=0.000 KX=0.000 TRIM=-3.90 AMAX=6.00 VMAX=0.550 SOFT=0.30 TILT_FWD=5.00 TILT_BACK=-20.60 ARM_WINDOW=2.00 ARM_RATE=20.0 ARM_TIMEOUT=20.0 RUNAWAY=0.30 ACCEL_COMP=0
+R2W/1 ACK 60 OK BAL=RUNNING REASON=NONE DRY=0 THETA=2.05 ERR=0.12 RATE=1.2 U=0.142 V=0.031 X=0.004 TRIM_EST=1.93 V_REF=0.000 W_REF=0.0 X_REF=0.000 SCALE=1.00 RUN_MS=5320 ENGAGES=3 TRIPS=2 MAX_U=1.95 MAX_ERR=1.40 STEP_HZ=506 GYRO_QR=-0.0177 KP=51.400 KD=4.370 KV=6.890 KX=6.480 TRIM=1.90 AMAX=6.00 VMAX=0.550 SOFT=0.30 TILT_FWD=10.70 TILT_BACK=-14.70 ARM_WINDOW=2.00 ARM_RATE=20.0 ARM_TIMEOUT=20.0 RUNAWAY=0.30 ACCEL_COMP=2 IMU_H=0.098 COMP_DELAY_MS=10.0 NOTCH_HZ=20.5 NOTCH_Q=2.00 TRIM_RATE=0.25 TRIM_RANGE=4.0 DRIVE_ACCEL=0.80 DRIVE_FF=1.00 DRIVE_LEAN=2.00
 ```
 
-`GYRO_QR` in the status is the learned yaw-to-pitch gyro coupling (mean q/r while turning faster than 30 °/s, time constant 3 s; default −0.0177). The attitude filter and the controller use θ̇ = q − GYRO_QR·r, so turning doesn't bias the pitch estimate.
+`GYRO_QR` in the status is the learned yaw-to-pitch gyro coupling. It is learned only while balancing is `RUNNING` and turning faster than 30 °/s, as a least-squares estimate ⟨q·r⟩/⟨r²⟩ with a 3 s time constant, limited to ±0.06. It resets to −0.0177 whenever balancing isn't running (24 Nov; before that it also learned while the robot was carried). The attitude filter and the controller use θ̇ = q − GYRO_QR·r, so turning doesn't bias the pitch estimate.
 
 | Command | Effect |
 |---|---|
@@ -360,9 +363,9 @@ R2W/1 ACK 60 OK BAL=RUNNING REASON=NONE DRY=0 THETA=-3.71 ERR=0.19 RATE=1.2 U=0.
 
 **Automatic trim (Phase 10):** with KX > 0, trim_est −= `TRIM_RATE`·(x − x_ref)·dt, within ±`TRIM_RANGE` of `TRIM` (and 2° inside the tilt limits). A wrong trim makes the robot settle off its target position. This walks the trim until that offset is gone, e.g. after the IMU mount shifts. Each engagement starts from `TRIM`; `TRIM_EST` reports the value in use.
 
-Extra `BAL_SET` keys: `TRIM_RATE` (deg per m·s, default 0.25; 0 = off; adapts only while calm: |v − v_ref| < 0.05 m/s and |e| < 1°), `TRIM_RANGE` (default 4°), `DRIVE_ACCEL` (default 0.8 m/s²), `DRIVE_FF`, `DRIVE_LEAN` (see above). Automatic trim adapts while |v − v_ref| < 0.05 m/s and |θ̇| < 5 °/s. Extra status fields: `TRIM_EST`, `V_REF`, `W_REF`, `X_REF`, `TRIM_RATE`, `TRIM_RANGE`, `DRIVE_ACCEL`, `DRIVE_FF`, `DRIVE_LEAN`. Default gains are now the full-state set KP 36.7, KD 4.19, KV 4.81, KX 2.94.
+Extra `BAL_SET` keys: `TRIM_RATE` (deg per m·s, default 0.25; 0 = off), `TRIM_RANGE` (default 4°), `DRIVE_ACCEL` (default 0.8 m/s²), `DRIVE_FF`, `DRIVE_LEAN` (see above). Automatic trim adapts only while calm: |v − v_ref| < 0.05 m/s and |θ̇| < 5 °/s. Extra status fields: `TRIM_EST`, `V_REF`, `W_REF`, `X_REF`, `TRIM_RATE`, `TRIM_RANGE`, `DRIVE_ACCEL`, `DRIVE_FF`, `DRIVE_LEAN`, `ACCEL_COMP`, `IMU_H`, `COMP_DELAY_MS`, `NOTCH_HZ`, `NOTCH_Q`. **Default gains (24 Nov) are the "everyday" set KP 51.4, KD 4.37, KV 6.89, KX 6.48** (before: KP 36.7, KD 4.19, KV 4.81, KX 2.94).
 
-**Control law** (units SI, forward positive): e = θ − trim_est; u = KP·e + KD·θ̇ + KV·(v − v_ref) + KX·(x − x_ref), ramped in over `SOFT` s and clamped to ±`AMAX` m/s²; v += u·dt, clamped to ±`VMAX` m/s; x += v·dt. θ̇ is the pitch rate as the attitude filter propagates it (cos φ·q − sin φ·r). Step pulses follow v immediately. A slow interval is restarted rather than waited out, and a direction change restarts the state machines.
+**Control law** (units SI, forward positive): e = θ − trim_est − θ_ref; u = notch(KP·e + KD·θ̇ + KV·(v − v_ref) + KX·(x − x_ref)) + `DRIVE_FF`·a_ref, ramped in over `SOFT` s and clamped to ±`AMAX` m/s²; v += u·dt, clamped to ±`VMAX` m/s; x += v·dt. θ̇ is the pitch rate as the attitude filter propagates it (cos φ·q − sin φ·r). Step pulses follow v immediately. A slow interval is restarted rather than waited out, and a direction change restarts the state machines.
 
 **States:** `OFF` → `ARMING` → `RUNNING` (or `DRY`) → `TRIPPED` → `OFF`. On a trip the steps stop at once (wheels locked), and the drivers are disabled 0.5 s later. The black box freezes with the trip reason.
 
@@ -376,9 +379,9 @@ Extra `BAL_SET` keys: `TRIM_RATE` (deg per m·s, default 0.25; 0 = off; adapts o
 | `ARM_TIMEOUT` | Not lifted into the arming window within `ARM_TIMEOUT` s |
 
 `ACCEL_COMP=1` subtracts u/g from the accelerometer X axis before the
-attitude filter's correction step (plan 5.5). **On by default** since 23 Nov:
-without it, sustained accelerations bias the filtered pitch backwards by
-several degrees, and hard push recoveries ran away.
+attitude filter's correction step (plan 5.5). It was the default on 23 Nov:
+without any compensation, sustained accelerations bias the filtered pitch
+backwards by several degrees, and hard push recoveries ran away.
 
 `ACCEL_COMP=2` (24 Nov) subtracts the IMU's own acceleration instead: the
 commanded u from `COMP_DELAY_MS` earlier (default 10 ms) plus `IMU_H` (m, IMU
@@ -386,10 +389,12 @@ height above the axle, default 0.098) times the filtered pitch angular
 acceleration dq/dt. Because the IMU sits near l_eff, the wheel and rotation
 terms nearly cancel, so mode 1 (u/g) is wrong at 2-5 Hz and caused the 4-5 Hz
 mode seen at high gains (`phase11-model.md`). `ACCEL_COMP` accepts 0, 1 or 2.
+**Mode 2 is the default** since 24 Nov.
 
 `NOTCH_HZ` (0 = off, else 5-100 Hz) puts a biquad notch of quality `NOTCH_Q`
-(0.3-10, default 1) on the feedback part of u (not on the drive feed-forward
-or kicks). Added 24 Nov for the ~20 Hz shake while driving above ~200 mm/s.
+(0.3-10) on the feedback part of u (not on the drive feed-forward or kicks).
+Added 24 Nov for the ~20 Hz shake while driving above ~200 mm/s. **Default
+20.5 Hz, Q 2** (about 4° of phase at 3 Hz).
 
 In telemetry, balance samples carry `mode` 6 (BALANCE), flag 0x20
 (0x40 in a dry run), `u` in mm/s², and the commanded speed in `v_left` and
@@ -455,8 +460,12 @@ Leases apply only to `SET_VELOCITY`.
 - Lease expiry is handled from the Pico's monotonic clock and must not depend on
   Pi time.
 
-The supported lease range is a firmware safety setting. A suggested initial
-range is 100–2000 ms.
+The supported lease range is a firmware safety setting: 100–2000 ms.
+`robotd` adds a second level (`hold_ms`, 200–5000 ms): it renews the Pico
+lease at a third of its length until the caller's hold expires, then sends
+`STOP`. The web page uses a 1000 ms lease and a 1500 ms hold, renewed every
+200 ms. In `MODE=BALANCE`, lease expiry returns the drive set points to zero
+and the robot keeps balancing.
 
 ## Finite-job rules
 
@@ -536,7 +545,7 @@ Version 1 status contains:
 
 | Field | Values and units |
 |---|---|
-| `MODE` | `IDLE`, `VELOCITY`, `MOVE`, `TURN`, or `ESTOP` |
+| `MODE` | `IDLE`, `VELOCITY`, `MOVE`, `TURN`, `HOLD`, `BALANCE`, or `ESTOP` |
 | `ESTOP` | `0` or `1` |
 | `FAULTS` | `NONE` or comma-separated fault tokens |
 | `JOB` | Active job ID, or `0` |

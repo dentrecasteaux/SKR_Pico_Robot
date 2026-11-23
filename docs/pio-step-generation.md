@@ -117,7 +117,9 @@ step progress += (|previous speed| + |new speed|) / 2 × elapsed time
 ```
 
 PIO starts only when this accumulated progress reaches one complete step. With
-1/4 microstepping and the present 61 mm wheel diameter:
+the three-wheeler's 1/4 microstepping and 61 mm wheels (at the balancing
+chassis's 1/16, each step is a quarter of the distance, so the first step comes
+about twice as soon):
 
 - 10 mm/s² acceleration produces the first step after about 218 ms at 9 Hz;
 - 150 mm/s² produces it after about 57 ms at 35 Hz;

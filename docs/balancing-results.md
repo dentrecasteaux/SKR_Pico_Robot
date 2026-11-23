@@ -452,10 +452,16 @@ Full details, tables and run numbers: [phase11-model.md](phase11-model.md). In s
 
 - Fit a LiPo voltage alarm on the balance lead (the SKR doesn't measure the battery).
 - Optional, for an accurate coil resistance: pass a known current (bench supply set to about 0.5 A) through one coil and measure the voltage right at the motor leads. Then R = V/I.
-- Permanent IMU mount (the current one is about 10° off; make sure it can't rock).
+- Permanent IMU mount. Since 23 Nov the IMU is wedged between the top plate and the battery, 98 mm above the axle. Make it a screwed bracket at that height (or update `IMU_H`).
 - Optional: 100 kΩ NTC thermistor on TH0/THB for logged motor or driver temperature; add the TMC `t120`/`t143` flags to the status.
 
 ## Next
 
 - Phase 10 pass: stands 60 s+ holding position, recovers from pushes, drives and turns on command (done 23 Nov).
-- Phase 11: LQR gains validated for standing (τ 2.0). Next: find the 20 Hz drive shake (step 2 gains at τ 0.5 vs 2.0, then a low-pass filter on the KD rate), then make the LQR gains the defaults and run the comparison protocol (repeatable push, step in speed, sensitivity).
+- Phase 11 (continued in [phase11-model.md](phase11-model.md)):
+  - **The 20 Hz drive shake:** traced to the drive train, and removed with a 20.5 Hz notch.
+  - **The 4–5 Hz mode:** traced to the wrong acceleration compensation, fixed by ACCEL_COMP=2.
+  - **Defaults:** the everyday gains became the firmware defaults.
+  - **LQR:** shelved; it shook at speed.
+  - **Next:** a turn-lean feed-forward, then the comparison protocol (repeatable push, step in speed, sensitivity).
+  - **Current state:** [engineering-reference.md](engineering-reference.md).

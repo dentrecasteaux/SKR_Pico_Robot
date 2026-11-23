@@ -28,7 +28,7 @@ python3 robotdctl.py turn 90
 python3 robotdctl.py stop
 python3 robotdctl.py estop
 python3 robotdctl.py clear-estop
-python3 robotdctl.py configure 400 4 150 STEALTHCHOP
+python3 robotdctl.py configure 1000 16 150 STEALTHCHOP
 ```
 
 `velocity 20 0 --hold 3000` asks for approximately 20 mm/s forwards for three
@@ -38,8 +38,33 @@ encoder-confirmed measurements.
 Motor configuration is accepted only while idle, with the emergency stop clear
 and both motors disabled. The arguments are run current in mA, microsteps,
 acceleration in mm/s² and either `STEALTHCHOP` or `SPREADCYCLE`. Settings apply
-to both drivers and reset to 400 mA, 1/4 microsteps, 150 mm/s² and StealthChop
-when the Pico reboots.
+to both drivers and reset to 1000 mA, 1/16 microsteps, 150 mm/s² and
+StealthChop when the Pico reboots.
+
+## Balancing
+
+The main web page (`http://r2w-pi.local:8080/`) is the balance page.
+
+1. Power up. The firmware defaults are the everyday configuration: KP 51.4,
+   KD 4.37, KV 6.89, KX 6.48, `ACCEL_COMP` 2, filter τ 0.5 s, notch 20.5 Hz,
+   1.0 A. Any tuning saved from the page is re-applied automatically. Check
+   with `python3 check_config.py` on the Pi.
+2. Optionally enter notes and a kick count, then press **Start (arm)**. Lift
+   the robot slowly towards upright: it engages within 2° of its balance point.
+3. Drive with the hold-to-drive pad. STOP brings it to rest and keeps
+   balancing. EMERGENCY STOP ends balancing. Let go of forward and wait about
+   a second before turning, or the inner wheel looks stalled in the turn.
+4. **End balancing** lowers it onto a training wheel and saves the run. Wait
+   for "Saved …" before syncing the runs to the Mac.
+5. After any fall, driving is locked: press **Clear** on the banner.
+
+Live gain changes over 15 % need the confirmation box. **Save as start-up**
+makes the current values the start-up set. Settings changed with `bal-set`
+or `imu_set` last until the SKR restarts.
+
+From the command line: `robotdctl.py bal-status`, `bal-set KEY=value …`,
+`bal-arm`, `bal-stop`, `bal-kick 2 --ms 40`, and `balance_run.py` for a logged
+attempt. See [../pi/README.md](../pi/README.md).
 
 ## Checking service state
 

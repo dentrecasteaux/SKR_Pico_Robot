@@ -56,7 +56,7 @@ For manual driving, a caller asks `robotd` to hold a velocity for a limited
 period. While that request remains valid, `robotd` renews the Pico lease.
 
 ```text
-browser refreshes 600 ms control lease every 200 ms
+browser refreshes a 1500 ms control lease every 200 ms
         |
 robotd renews the Pico lease
         |
@@ -64,7 +64,12 @@ Pico permits continuous motion
 ```
 
 If browser updates stop, `robotd` sends `STOP`. If `robotd`, Linux or USB fails,
-the independent Pico lease expires.
+the independent Pico lease expires. (Until 24 Nov the web page used 600 ms,
+and a single slow phone request was enough to stop a drive.)
+
+`robotd` also records telemetry runs into `~/runs/<time>_<name>/`, and re-applies
+the saved balance tuning (`~/.config/r2w/balance_tuning.json`) whenever the
+SKR's uptime resets.
 
 ## `robotdctl.py`
 
@@ -86,6 +91,14 @@ The web server:
 - accepts only a small allow-list of JSON actions;
 - proxies those actions to the local `robotd` socket;
 - has no direct knowledge of serial framing or motor pins.
+
+There are two pages. `/` is the **balance page**: status, balance runs with
+kicks, hold-to-drive, live tuning with "save as start-up", and recent runs
+with plots. `/bench` is the three-wheeler **bench console**: motor tuning,
+precise moves and the IMU panel. The page-level API is `GET /api/status`,
+`/api/balance` and `/api/runs`, and `POST /api/command`, `/api/balance/start`,
+`/api/balance/stop` and `/api/shutdown`. The full description is in
+[../pi/README.md](../pi/README.md#web-interface).
 
 The browser uses press-and-hold drive controls. Pointer, touch, page visibility
 and window events are handled so that release or loss of page focus stops

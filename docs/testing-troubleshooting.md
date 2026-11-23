@@ -85,7 +85,7 @@ Expected: idle with `ESTOP=0`.
 With the robot idle and its wheels raised:
 
 ```text
-python3 robotdctl.py configure 400 4 150 STEALTHCHOP
+python3 robotdctl.py configure 1000 16 150 STEALTHCHOP
 python3 robotdctl.py status
 ```
 
@@ -200,11 +200,11 @@ client, use the Pi’s trusted-LAN IP address. Do not expose the port externally
 
 ## Calibration
 
-Current configured effective geometry is:
+Current configured effective geometry (balancing chassis) is:
 
 ```text
-wheel diameter = 61 mm
-wheel track    = 188 mm
+wheel diameter = 62.33 mm
+wheel track    = 223 mm
 ```
 
 For a repeatable calibration:
@@ -219,6 +219,13 @@ For a repeatable calibration:
 Distance primarily adjusts effective wheel diameter. In-place angle primarily
 adjusts effective wheel track after distance is satisfactory.
 
-The older `CALIBRATION.md` records an intermediate 194 mm track estimate.
-The firmware’s current tested project baseline is 188 mm. Keep historical data,
-but use `Config.h` as the authoritative configured value.
+The older `CALIBRATION.md` records the three-wheeler's intermediate 194 mm track
+estimate (its tested baseline was 188 mm). Keep historical data, but use
+`Config.h` as the authoritative configured value.
+
+## Balancing problems
+
+Balancing has its own tests (kick test, drive band test, turn test) and a
+symptom-to-cause table. See the engineering reference:
+[standard tests](engineering-reference.md#11-standard-tests-and-how-to-analyse-them)
+and [troubleshooting map](engineering-reference.md#12-troubleshooting-map).

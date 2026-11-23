@@ -41,9 +41,10 @@ and navigation can run on the Pi.
 
 ## IMU
 
-An IMU can provide angular rate and acceleration. On a three-wheel platform it
-can improve heading estimation when fused with encoders. It does not by itself
-measure ground-relative position.
+**Current:** an MPU6050 runs on the SKR's second core at 500 Hz and provides
+the pitch estimate for balancing. Future: fusing it with encoders for heading
+and odometry, and a Kalman or LQG estimator for the controller comparison. On
+its own it does not measure ground-relative position.
 
 The Pi is a suitable place for higher-level sensor fusion. Time-critical sample
 capture may remain on the Pico if required.
@@ -93,18 +94,21 @@ a substantially different control problem:
 - a safe fall/disable strategy;
 - new mechanical centre-of-mass design.
 
-The present castor-based differential-drive robot is a useful platform for
-learning the software and sensors, but adding an IMU does not turn the existing
-controller into a balancing robot. Treat balancing as a later dedicated
-milestone with its own safety analysis.
+The castor-based robot was a useful platform for learning the software and
+sensors. Balancing was treated as a dedicated milestone with its own plan and
+safety layer.
 
 **Status, Nov 2026:** the electronics now run a dedicated two-wheel balancing
 chassis. Commissioning follows a phased plan (mechanical measurements, motors,
 power, directions, IMU, logging, plant identification, safety layer, PD, outer
 loops, then a PID vs LQR comparison). See
 [balancing-commissioning-plan.md](balancing-commissioning-plan.md) and the
-running results in [balancing-results.md](balancing-results.md). Phases 1–5
-are complete.
+running results in [balancing-results.md](balancing-results.md). **Phases
+1–10 are complete, and Phase 11 is under way** (model, LQR trial, estimator
+and notch fixes: [phase11-model.md](phase11-model.md)). The current state and
+open items are in the [engineering reference](engineering-reference.md).
+Remaining balancing work: a turn-lean feed-forward, the comparison protocol,
+encoders, battery sensing and a physical e-stop.
 
 ## RP2040 PIO and DMA
 

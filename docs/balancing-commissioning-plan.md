@@ -4,7 +4,15 @@ Started 22 Nov 2026. The SKR Pico robot electronics (14.8 V 4S LiPo, buck conver
 
 **How it works:** finish each phase and record its numbers in [balancing-results.md](balancing-results.md) before starting the next. Phases 1–6 need no balancing code. Most past difficulty with balancing came from wrong signs, an unknown balance angle and guessed gains. Phases 5–8 remove all three before the first attempt.
 
-**Status (23 Nov 2026):** Phases 1–10 complete, including 9.4 (94 Hz IMU filter; l_eff 75–90 mm and about 12 ms loop delay from the kick test; gains kept at KP 36.7, KD 4.19, KV 4.81, KX 2.94). The robot balances for minutes, recovers from 10° pushes, and drives and turns from the web page (drive feed-forward; gyro yaw coupling removed). Configuration checked against the best known settings (`pi/check_config.py`, all OK). The 2.2–2.4 Hz wobble investigation is closed (see 11.0). Phase 11.1 model done, then 11.2–11.3 (evening 23 Nov, all in `docs/phase11-model.md`). Stepping toward the LQR gains exposed a 4–5 Hz mode caused by the IMU filter's accelerometer path (with ACCEL_COMP). Fixed by raising the filter time constant from 0.5 to 2.0 s (firmware `a0d48b0`, flashed). At τ 2.0 the LQR gains (KP 73.5, KD 4.63, KV 10, KX 11.8) are the best balancer: kick ring ζ 0.43, pitch std 0.16°. **Open problem:** a 20 Hz shake above about 150–200 mm/s wheel speed, at both step 2 and LQR gains, absent in the τ 0.5 drives of the morning. It caused falls in drive tests. **Current setup (24 Nov, firmware defaults):** everyday gains KP 51.4, KD 4.37, KV 6.89, KX 6.48; ACCEL_COMP 2 (IMU_H 0.098, 10 ms); IMU τ 0.5; notch 20.5 Hz Q 2; 1.0 A. Kick ring 2.3 Hz ζ 0.43, clean driving to 0.38 m/s. The LQR gains match it standing but shake at speed: shelved. GYRO_QR now learned only while balancing (least squares), and the web drive hold is 1.5 s (iPhone dropouts). **Next:** drive at step 2 gains with τ 0.5 to see whether the filter causes the 20 Hz shake; then a low-pass filter on the KD rate (and *u*) if needed.
+**Status (24 Nov 2026):** Phases 1–10 are complete, and Phase 11 is under way.
+- **Phase 11 so far:** model, a stepped LQR trial, then estimator and filter fixes ([phase11-model.md](phase11-model.md)).
+- **Current configuration (firmware defaults):** the everyday gains KP 51.4, KD 4.37, KV 6.89, KX 6.48; ACCEL_COMP 2 (IMU 98 mm above the axle, 10 ms delay); IMU filter τ 0.5 s; a 20.5 Hz Q 2 notch on the controller output; StealthChop at 1.0 A, 1/16.
+- **Results:** kick ring 2.3–2.5 Hz, ζ 0.27–0.43, and clean drives to 0.38 m/s.
+- **LQR:** the LQR gains matched it standing but shook at speed, so they are shelved.
+- **Fixed on 24 Nov:** GYRO_QR is learned only while balancing; the web drive hold is 1.5 s (the iPhone dropouts).
+- **Next:** a turn-lean feed-forward, then the 11 comparison protocol with the everyday set as the baseline.
+
+The current reference is [engineering-reference.md](engineering-reference.md); this plan and the results log are kept as the dated record.
 
 ---
 
@@ -36,7 +44,7 @@ A closed-loop "42A08EC" also exists (2.8 A, 8 mm shaft, encoder). If the motor h
 | Wheel diameter | 62.33 mm measured (nominal 65 mm) |
 | Track (tyre centrelines) | 223 mm |
 | Overall width | 248 mm |
-| Layout | Motors under the bottom plate; SKR Pico on the bottom plate; battery on the top plate; Pi and buck converter on the battery; MPU6050 taped to the battery layer. The wheels aren't mounted symmetrically under the platforms. |
+| Layout | Motors under the bottom plate; SKR Pico on the bottom plate; battery on the top plate; Pi and buck converter on the battery; MPU6050 taped to the battery layer at first, wedged between the top plate and the battery since 23 Nov (98 mm above the axle). The wheels aren't mounted symmetrically under the platforms. |
 | Supply | 4S LiPo: 16.8 V full, about 14.8 V nominal, about 14 V under load late in a pack |
 
 ### 0.3 First estimates (superseded by measurements in the results doc)

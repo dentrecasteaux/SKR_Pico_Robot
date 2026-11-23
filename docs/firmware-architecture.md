@@ -18,10 +18,13 @@ Neither operation waits for a complete movement. Each pass performs a small
 amount of work and returns, allowing serial handling and motor pulse scheduling
 to coexist.
 
-Core 1 runs only the IMU (`Imu::beginCore1()` / `Imu::updateCore1()`). It owns
-I²C0 and the GPIO16 data-ready interrupt, never prints, and never touches the
-motors, the TMC UART or USB. Building with `-DR2W_IMU=0` leaves core 1 unused
-and makes every IMU command return `UNSUPPORTED_COMMAND`.
+Core 1 runs the IMU (`Imu::beginCore1()` / `Imu::updateCore1()`) and, straight
+after each sample, the balance controller (`Balance::step`). It owns I²C0 and the
+GPIO16 data-ready interrupt, and never prints or touches the TMC UART or USB.
+While balancing, and only then, core 1 also owns the two steppers. Core 0 keeps
+the robot in `Robot::Mode::Balance` so that no other motion can start. Building
+with `-DR2W_IMU=0` leaves core 1 unused and makes every IMU command return
+`UNSUPPORTED_COMMAND`.
 
 ## IMU module (`Imu`)
 
@@ -33,9 +36,12 @@ Per 500 Hz sample, core 1:
   `Config.h`);
 - calibrates gyro bias at start-up or on request: 2 s average with a stillness
   check, retried up to five times;
-- runs a complementary filter for roll and pitch (default time constant 0.5 s,
-  with the accelerometer correction skipped when |a| is more than 0.15 g away
-  from 1 g) and integrates yaw;
+- runs a complementary filter for roll and pitch and integrates yaw. Default
+  time constant 0.5 s. The accelerometer correction is skipped when |a| is more
+  than 0.15 g away from 1 g. While balancing, the IMU's own acceleration is
+  removed first (`ACCEL_COMP=2`: the delayed command plus `IMU_H`·dq/dt). The
+  pitch rate is corrected for the learned yaw coupling (`GYRO_QR`, learned only
+  while balancing);
 - optionally tracks gyro bias while still (auto-bias), only after the motors
   have been stopped for 1 s, so a real slow turn is never absorbed;
 - accumulates test-window statistics (noise, ranges, heading change, timing).
@@ -54,6 +60,20 @@ Measured on the bench (MPU6050 test project): 500 Hz with no missed samples
 under heavy core 0 load, filter maths about 93 µs per sample, core 1 longest
 loop pass about 210 µs, yaw drift about 0.5 °/min with calibration only and
 none at rest with auto-bias.
+
+## Balance module (`Balance`)
+
+One control update per IMU sample (500 Hz):
+- **State machine:** `OFF`, `ARMING`, `RUNNING`, `DRY` and `TRIPPED`.
+- **Control law:** a full-state law u = KP·e + KD·θ̇ + KV·(v − v_ref) + KX·(x − x_ref), with a 20.5 Hz notch on that feedback, plus drive feed-forward.
+- **References:** an S-curve speed reference and a turn ramp.
+- **Trim:** automatic trim while calm.
+- **Trips:** tilt, runaway, IMU stale and arming time-out.
+- **Outputs:** step intervals written directly to the PIO state machines, and identification kicks.
+
+Parameters arrive from core 0 through a mutex-protected pending copy (`BAL_SET`). The status goes back the same way.
+
+The full description, equations and parameter table are in the [engineering reference](engineering-reference.md#42-balance-controller-core-1-balancecpp), and the commands in [protocol.md](protocol.md#balance-commands-balancing-phases-89).
 
 ## Layers
 
@@ -119,10 +139,11 @@ readings are diagnostic only and do not alter motion or driver settings.
 - starts in-place turns;
 - stops both motors.
 
-The current geometry is 61 mm effective wheel diameter, 188 mm effective wheel
-track and 200 full steps per revolution. The safe boot default is 1/4
-microstepping; an accepted idle-only configuration updates both the TMC setting
-and the motion conversion together.
+The current geometry (balancing chassis) is 62.33 mm effective wheel diameter,
+223 mm wheel track and 200 full steps per revolution. The boot default is 1/16
+microstepping. An accepted idle-only configuration updates both the TMC setting
+and the motion conversion together. (The three-wheeler used 61 mm, 188 mm and
+1/4 microstepping.)
 
 When continuous motion accelerates from rest, the motor ramp accumulates
 fractional step travel and starts PIO output only when the first complete step
@@ -197,6 +218,8 @@ starting a finite move twice.
 | `VELOCITY` | Open-ended velocity with an active Pico lease |
 | `MOVE` | Finite straight-line job |
 | `TURN` | Finite in-place turn job |
+| `HOLD` | Wheels locked (drivers on, no steps), time-limited |
+| `BALANCE` | Balance controller active (arming, running, dry or tripped); core 1 owns the motors |
 | `ESTOP` | Software emergency-stop latch is set |
 
 `V_SET` and `W_SET` are requested setpoints, not measured velocity. The present
@@ -208,17 +231,18 @@ robot has no encoder feedback.
 |---|---:|
 | Maximum PIO STEP frequency | 50,000 Hz |
 | Boot acceleration | 150 mm/s² |
-| Runtime acceleration range | 10–500 mm/s² |
+| Runtime acceleration range | 10–20,000 mm/s² (high ceiling for limit tests) |
 | Maximum linear request | 1,000 mm/s |
 | Maximum angular request | 360 deg/s |
 | Maximum finite distance | 10,000 mm |
 | Maximum finite angle | 3,600 deg |
 | Velocity lease range | 100–2,000 ms |
-| Boot TMC run current | 400 mA RMS |
-| Runtime current range | 100–400 mA RMS |
-| Boot microstepping | 1/4 |
+| Boot TMC run current | 1,000 mA RMS |
+| Runtime current range | 100–1,300 mA RMS |
+| Boot microstepping | 1/16 |
 | Runtime microsteps | 1, 2, 4, 8, 16, 32 or 64 |
-| Chopper modes | StealthChop or SpreadCycle |
+| Chopper modes | StealthChop (default) or SpreadCycle |
+| Balance drive set points | ±300 mm/s, ±90 °/s |
 
 These are firmware safety limits, not proof that every permitted request is
 safe for every payload and surface.
@@ -241,8 +265,10 @@ are applied to both TMC2209s, read back and rolled back on failure. Acceleration
 is applied to both motion channels. Settings are intentionally held in RAM and
 return to the safe boot defaults after reset.
 
-The 400 mA ceiling matches the installed Casun 42SHD0001-24B motors. Replacing
-the motors requires a reviewed motor profile before increasing this limit.
+The 1,300 mA ceiling suits the Rtelligent 42A08 motors (1.8 A rated) and the
+TMC2209s, which limit it thermally: they reached 50 °C at 1.0 A in a 10 min heat
+run. (The three-wheeler's Casun 42SHD0001-24B motors were capped at 400 mA.)
+Changing motors requires a reviewed motor profile before changing this limit.
 
 ## Future real-time improvements
 

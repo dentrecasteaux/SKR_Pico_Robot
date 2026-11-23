@@ -1,4 +1,15 @@
-# Phase 11.1: balance model and first LQR gains (23 Nov 2026)
+# Phase 11 log: model, LQR trial, estimator and filter fixes (23–24 Nov 2026)
+
+A dated, chronological record. In short:
+- **11.1:** a fitted closed-loop model reproduced the 2.4 Hz wobble.
+- **11.2:** stepping towards the LQR gains exposed an almost undamped 4–5 Hz mode.
+- **11.3:** that mode came from the accelerometer compensation. It was fixed temporarily with τ 2.0 s, which caused drift and a 20 Hz shake at speed, then properly with ACCEL_COMP=2, a 20.5 Hz notch and τ back to 0.5 s.
+- **Head-to-head:** the everyday (step 2) gains won and became the default, and LQR was shelved.
+- **Turns:** analysed at the end.
+
+The resulting state is summarised in [engineering-reference.md](engineering-reference.md).
+
+## Phase 11.1: balance model and first LQR gains (23 Nov 2026)
 
 Tool: `analysis/phase11/phase11_model.py` (`fit`, `check`, `steps`); fitted parameters in `analysis/phase11/model_fit.json`.
 

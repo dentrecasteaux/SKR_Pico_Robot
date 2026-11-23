@@ -104,18 +104,18 @@ ssh -t robot@r2w-pi.local 'cd r2w && python3 fall_test.py'
 
 ```text
 python3 robotdctl.py bal-status
-python3 robotdctl.py bal-set KP=39 KD=2.9 TRIM=-3.9
+python3 robotdctl.py bal-set KP=51.4 KD=4.37 KV=6.89 KX=6.48 TRIM=1.9   # the defaults
 python3 robotdctl.py bal-arm [--dry]
 python3 robotdctl.py bal-stop          # ends balancing (as does ESTOP); STOP only stops it moving
 ```
 
-**Driving while balancing (Phase 10).** Once it's balancing, the web page's drive buttons (or `robotdctl velocity`) drive it, limited to 250 mm/s and 60 °/s from the web. Letting go of a drive button sends speed 0, and STOP while balancing also just stops it moving: the robot keeps balancing. `balance_run.py`'s Ctrl-C (`BAL_STOP`) or ESTOP ends balancing. Whenever balancing ends (a trip or Ctrl-C), drive commands are refused (`BALANCE_TRIPPED`) until you press **Clear emergency stop** on the web page (shown while locked) or start another balance run. **Configuration check:** `python3 check_config.py` compares the live settings with the best known configuration and prints OK/DIFF (read-only). `robotdctl tuning` / `tuning-clear` show or delete the saved web tuning. **StealthChop PWM (11.0):** `robotdctl tmc-pwm` reads both drivers' PWM settings and learned values (`OFS_AUTO`, `GRAD_AUTO`); `robotdctl tmc-pwm OFS=36 GRAD=20 AUTOGRAD=0` sets them. **Identification kicks (9.4):** `balance_run.py --kicks 10` fires alternating ±2 m/s², 40 ms pulses (one every 3 s, after 8 s of balancing, only when calm) and prints l_eff at the end; `robotdctl bal-kick 2 --ms 40` fires one by hand. `balance_run.py` logs at 250 Hz by default (`--div 1` for 500 Hz, which drops about 40 % of lines).
+**Driving while balancing (Phase 10).** Once it's balancing, the web page's drive buttons (or `robotdctl velocity`) drive it: the web pad offers 50–300 mm/s and 15–90 °/s, and the firmware clamps the set points to ±300 mm/s and ±90 °/s. Letting go of a drive button sends speed 0, and STOP while balancing also just stops it moving: the robot keeps balancing. `balance_run.py`'s Ctrl-C (`BAL_STOP`) or ESTOP ends balancing. Whenever balancing ends (a trip or Ctrl-C), drive commands are refused (`BALANCE_TRIPPED`) until you press **Clear emergency stop** on the web page (shown while locked) or start another balance run. **Configuration check:** `python3 check_config.py` compares the live settings with the best known configuration and prints OK/DIFF (read-only). `robotdctl tuning` / `tuning-clear` show or delete the saved web tuning. **StealthChop PWM (11.0):** `robotdctl tmc-pwm` reads both drivers' PWM settings and learned values (`OFS_AUTO`, `GRAD_AUTO`); `robotdctl tmc-pwm OFS=36 GRAD=20 AUTOGRAD=0` sets them. **Identification kicks (9.4):** `balance_run.py --kicks 10` fires alternating ±2 m/s², 40 ms pulses (one every 3 s, after 8 s of balancing, only when calm) and prints l_eff at the end; `robotdctl bal-kick 2 --ms 40` fires one by hand. `balance_run.py` logs at 250 Hz by default (`--div 1` for 500 Hz, which drops about 40 % of lines).
 
 **`dryrun_check.py` (9.1, motors off).** Tilt the robot by hand forward and
 back. It checks u = KP·e + KD·θ̇ holds with the right sign (lean forward →
 drive forward). Do this before any powered attempt.
 
-**`balance_run.py` (9.2 / 9.3).** A logged attempt at 500 Hz. It arms, then
+**`balance_run.py` (9.2 / 9.3).** A logged attempt (250 Hz by default). It arms, then
 you lift the robot towards upright and it engages by itself. It ends on a
 trip, Ctrl-C or `--seconds`. Afterwards it saves the black box and prints how
 long it stood, the end reason and an l_eff estimate from the run's own data.
@@ -193,7 +193,7 @@ python3 robotdctl.py turn 90
 python3 robotdctl.py stop
 python3 robotdctl.py estop
 python3 robotdctl.py clear-estop
-python3 robotdctl.py configure 400 4 150 SPREADCYCLE
+python3 robotdctl.py configure 1000 16 150 SPREADCYCLE
 ```
 
 The service maintains a second, local control lease for velocity requests. A
@@ -202,8 +202,8 @@ renews the shorter Pico lease. If the caller disappears, `robotd` sends `STOP`;
 if the service or USB link also fails, the Pico lease expires independently.
 
 Motor configuration is accepted only while the robot is idle and the motors
-are disabled. The installed Casun 42SHD0001-24B motor profile is capped at
-400 mA. Runtime settings reset to firmware defaults when the Pico reboots.
+are disabled. Current is 100–1300 mA (Rtelligent 42A08 motors; the default is
+1000 mA). Runtime settings reset to firmware defaults when the Pico reboots.
 
 `robotdctl.py` is only a local service test client. The deployed web interface
 uses the same Unix-socket API through `robot_web.py`.
@@ -306,10 +306,15 @@ API added for the page: `GET /api/balance` (BAL_STATUS),
 `POST /api/balance/start` and `/api/balance/stop`, and the robotd actions
 `tuning`, `tuning_save`, `tuning_clear`.
 
-Manual drive buttons must be held. The page refreshes a 600 ms local control
-lease every 200 ms; releasing the button, hiding the page, losing Wi-Fi, or
-closing the browser stops those refreshes. `robotd` then sends `STOP`, while the
-independent Pico lease remains the final communications-loss safeguard.
+Manual drive buttons must be held. The page renews a 1500 ms robotd hold
+(Pico lease 1000 ms) every 200 ms, and retries once after a failed request.
+Releasing the button, hiding the page, losing Wi-Fi, or closing the browser
+stops those renewals. `robotd` then sends `STOP` (in balance mode: zero
+drive, keep balancing), while the independent Pico lease remains the final
+communications-loss safeguard. If a drive ends other than by releasing the
+button, the page shows why (request failed, touch cancelled or capture lost,
+page hidden or lost focus, or balancing stopped). Before 24 Nov the hold was
+600 ms, which a single slow phone request could exceed.
 
 ### IMU panel
 

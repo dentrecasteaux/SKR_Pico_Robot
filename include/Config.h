@@ -6,8 +6,9 @@ namespace Config {
   constexpr uint32_t TMC_UART_BAUD = 115200;
   constexpr uint32_t TMC_ACTIVE_POLL_INTERVAL_MS = 250;
   // Balancing chassis (Nov 2026): Rtelligent 42A08 motors, 1.8 A/phase rated,
-  // 2.0 ohm, 4.8 mH. Start at 1.0 A RMS; the SKR Pico's TMC2209s have no
-  // heatsink, so the runtime CONFIGURE ceiling is 1.3 A RMS.
+  // 2.0 ohm, 4.8 mH. 1.0 A RMS working current; the SKR Pico's TMC2209s (small
+  // heatsinks, 50 C at 1.0 A in a 10 min heat run) limit it, so the runtime
+  // CONFIGURE ceiling is 1.3 A RMS.
   constexpr uint16_t TMC_RUN_CURRENT_MA = 1000;
   constexpr uint16_t TMC_MAX_CURRENT_MA = 1300;
   // 1/16 with the driver's interpolation to 256 (TMC2209 default intpol=1).

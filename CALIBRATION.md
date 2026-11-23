@@ -34,14 +34,15 @@ The wider timing-derived value is likely affected by manual stopwatch timing
 and acceleration. The physical centreline measurement and later turn result
 both supported 194 mm as an intermediate baseline.
 
-## Current configuration
+## Three-wheeler final configuration (historical)
 
-Later finite distance and angle tests established the present firmware values:
+Later finite distance and angle tests established the three-wheeler's firmware values:
 
 - effective wheel diameter: **61 mm**
 - effective wheel track: **188 mm**
 
-These are the values in `Config.h` and are the current source of truth. The
+These were the three-wheeler's `Config.h` values. `Config.h` now holds the
+balancing-chassis values above and remains the source of truth. The
 194–201 mm figures above are retained as useful measurement history. Open-loop
 geometry remains provisional and should be rechecked with repeatable trials,
 then refined when encoders are installed.

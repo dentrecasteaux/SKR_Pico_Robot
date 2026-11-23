@@ -92,8 +92,12 @@ second (reported as stalls) instead of 500 Hz.
 
 The sensor's mounting orientation is set in `Config.h` (`IMU_AXIS_FROM`,
 `IMU_AXIS_SIGN`), mapping sensor axes to the robot frame: X forward, Y left,
-Z up. It is the identity mapping until the board is mounted rigidly and its
-orientation measured.
+Z up. It is the identity mapping: the board's axes match the robot's, apart from a
+small mounting tilt that the measured balance angle (`TRIM`) absorbs. **On the
+balancing chassis the IMU is wedged between the top plate and the battery,
+98 mm above the axle centreline** (measured 24 Nov). That height is the
+`IMU_H` used by the accelerometer compensation, so re-measure it if the IMU
+moves.
 
 ## USB connection
 
@@ -150,10 +154,9 @@ not be treated as a physical emergency stop.
 ## Hardware not yet fitted or integrated
 
 - wheel encoders;
-- rigid IMU mounting (on the balancing chassis the MPU6050 is taped to the
-  battery layer, about 10° pitched relative to the platforms; pitch and yaw
-  signs are verified, and the offset is absorbed by the measured balance
-  angle);
+- a permanent rigid IMU bracket (the MPU6050 is currently wedged between the
+  top plate and the battery, 98 mm above the axle; pitch and yaw signs are
+  verified);
 - battery voltage or current sensing;
 - physical emergency-stop switch and independent motor-power interruption;
 - autonomous-navigation sensors.

@@ -23,9 +23,10 @@ class Stepper;
 // +/-trimRange of trim. A wrong trim makes the robot settle off its target
 // position (Kp*e = -Kx*(x - x_ref) at rest); this walks trim_est until that
 // offset is gone, e.g. after the IMU mount shifts.
-// Kv and Kx default to 0 (Phase 9 PD). They take the same sign convention as
-// an LQR gain row for state [x, v, theta, theta_dot], where the position and
-// speed gains are normally positive (the base moves *further* first).
+// Kv and Kx take the same sign convention as an LQR gain row for state
+// [x, v, theta, theta_dot], where the position and speed gains are normally
+// positive (the base moves *further* first). Defaults: the "everyday" set
+// below. Full description: docs/engineering-reference.md section 4.2.
 //
 // Safety (all on core 1, independent of the Pi):
 //   ARMING      waits until the robot is lifted into the arming window
@@ -61,9 +62,8 @@ enum class Reason : uint8_t
 
 struct Params
 {
-  // Full-state pole placement (l_eff 0.20 m; poles 10 rad/s zeta 0.7 and
-  // 1.2 rad/s zeta 0.9), robust for l_eff 0.12-0.30 m. Phase 9 PD was
-  // KP 39 KD 2.9 KV 0 KX 0.
+  // History: Phase 9 PD KP 39 KD 2.9 KV 0 KX 0; then full-state pole
+  // placement 36.7 / 4.19 / 4.81 / 2.94 (l_eff 0.20 m design) until 24 Nov.
   // "Everyday" gains (Phase 11 step 2, 24 Nov): with ACCEL_COMP=2, tau 0.5
   // and the 20.5 Hz notch, kick ring 2.3 Hz zeta 0.43 and clean driving to
   // 0.38 m/s. Before 24 Nov: 36.7 / 4.19 / 4.81 / 2.94 (pole placement).
