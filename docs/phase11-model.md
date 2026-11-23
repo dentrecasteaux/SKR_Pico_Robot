@@ -88,7 +88,7 @@ Step 2 repeated after steps 3–5: the same as the first step 2 run (2.88 Hz, ζ
 - **Simple additions don't reproduce it.** Each was fitted to the measured poles of steps 1–5: extra delay, a first-order lag after the delay, a compliant drive (2nd order between commanded and real wheel acceleration), and the same with l and the joint damping free. Each predicts a fast mode near 5.5–6 Hz whose frequency barely moves with gain, while the robot's moves from 4.4 to 5.15 Hz. The best (compliant drive plus extra delay) still misses step 3 badly. Fit code: `polefit.py`, `poles_ct.py` (in the session workspace, not yet in the repo).
 - **What's left:** something the linear plant model doesn't include. Candidates:
   1. **The motors:** a stepper's stiffness and lag depend on load and current.
-  2. **The pitch estimator's acceleration compensation (ACCEL_COMP):** it feeds the commanded acceleration back into the angle estimate, a second loop that grows with the gains.
+  2. **The pitch estimator's acceleration compensation (ACCEL_COMP):** it feeds the commanded acceleration back into the angle estimate, a second loop that grows with the gains. Less likely: the accelerometer path is low-passed at 0.32 Hz (τ 0.5 s), so at 5 Hz it is about 16 times weaker.
 - **Discriminating runs, both at the step 3 gains, where the mode is clear but bounded:**
   - **(a) Motor current 1.3 A instead of 1.0 A.** A motor cause should shift or damp the mode.
-  - **(b) ACCEL_COMP off.** An estimator cause should remove or move the mode.
+  - **(b) ACCEL_COMP off, only if (a) changes nothing.** An estimator cause should remove or move the mode.
