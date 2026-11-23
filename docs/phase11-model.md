@@ -475,3 +475,27 @@ Standing and pushes repeat session 2 closely: LQR pitch RMS 0.058°, push recove
 - **Next:**
   - Check this set (KP 51.4, KD 4.37, KV 10, KX 11.8) with `compare_run.py`: standing, kicks, pushes and the speed steps.
   - Then decide whether it becomes the default, or only applies during turns.
+
+### 24 Nov: comparison run for the stiffer outer gains (run 101657, `everyday-stiff`: KP 51.4, KD 4.37, KV 10, KX 11.8)
+
+| Metric | Everyday (084955) | LQR, comp 1 (085623) | **Everyday-stiff (101657)** |
+|---|---|---|---|
+| Stand: pitch RMS / u RMS | 0.116° / 0.205 | 0.053° / 0.298 | 0.138° / 0.242 |
+| Kicks: ring | 2.55 Hz, ζ 0.22 | 3.11 Hz, ζ 0.45 | 2.65 Hz, **ζ 0.33** |
+| Pushes: peak pitch / recovery / peak \|u\| | 3.24° / 0.92 s / 6.0 | 2.43° / 0.31 s / 5.4 | 3.36° / **0.66 s** / 6.0 |
+| Steps: t90 / overshoot / peak pitch | 3.3 s / 28 % / 3.6° | 3.3 s / 51 % / 3.9° | 3.0 s / 38 % / 4.5° |
+| Steps: stop overshoot | 87 mm | 69 mm | 132 mm |
+| Steps: final error / pitch offset after 10 s | −106 mm / 0.97° | −110 mm / 0.89° | **−7 mm / 0.19°** |
+| Moving: 4–5 Hz / 20 Hz bands, u sd | 2.1 / 0.91, 0.32 | 2.1 / 2.4, 0.37 | 2.0 / **0.69**, **0.28** |
+
+- **Better than everyday:**
+  - Kick damping is half as much again (0.33 against 0.22), and push recovery is about 30 % faster.
+  - Stopping accuracy is much better: it ends within about 7 mm of target, against 106 mm. The stiffer KX pulls through the contact band.
+  - It's smoother moving, with the lowest 20 Hz band and u sd of the three.
+  - Turns stay symmetric (demo 101242).
+- **Worse:**
+  - Standing pitch RMS is slightly higher (0.138°).
+  - It uses 18 % more motor activity standing.
+  - Stop overshoot and the peak pitch on steps are larger (132 mm, 4.5°).
+  - It still reaches AMAX on the hard pushes.
+- **Not yet tested:** driving at 300 mm/s, and long drive-and-turn sessions from the web page.
