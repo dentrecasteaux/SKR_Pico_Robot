@@ -331,6 +331,21 @@ New trim and limits: it held its place (42 s, ended by Ctrl-C after the kicks). 
 - **Ringing after the kicks in run `124753`** (damped sine fitted to q from 0.12 to 1.5 s after each kick): **2.18–2.32 Hz, damping 0.27 at the first kick falling steadily to 0.13 at the tenth** (30 s later). The fit residual is about 3.5 °/s against a 13 °/s ring amplitude. The model (l = 90 mm, 12 ms delay, current gains) predicts no lightly damped mode at all. The falling damping matches the wobble growing during longer runs (`104319`, `130117`).
 - `balance_run.py --kicks` now reports the ring frequency and damping per kick and as medians (pure-Python grid fit; same results as the SciPy fit on `124753`).
 
+### 11.0 driver tests, first set (runs `140536`, `141019`, `141148`, `141645`, `141826`)
+
+| Run | Drivers (status at start) | Result | Ring (median) | Damping, kick 1 → kick 10 |
+|---|---|---|---|---|
+| `140536` A | StealthChop 1.0 A | steady, 41 s | 2.15 Hz | 0.32 → 0.20 |
+| `141019` B | SpreadCycle 1.0 A | **ran backwards; RUNAWAY at 33 s** (an earlier attempt also ran off) | 0.9–2.1 Hz, erratic | — |
+| `141148` "C" | SpreadCycle 1.0 A (the 1.3 A StealthChop `configure` hadn't taken) | **fell back at 11 s** | — | — |
+| `141645` | StealthChop 1.0 A | steady, 47 s | 2.29 Hz | 0.31 → 0.13 |
+| `141826` | StealthChop 1.0 A | steady, 43 s | 2.23 Hz | 0.24 → 0.17 |
+
+- **SpreadCycle cannot hold the robot:** three attempts ran off or fell. StealthChop is consistently steady. **The motor drivers are part of the plant**, as the test intended to show.
+- **StealthChop repeats closely:** l_eff 75–77 mm, ring 2.15–2.29 Hz. In every run the **damping starts at about 0.25–0.31 and falls to about 0.13–0.17 within 30 s, while the ring frequency rises** (2.12 → 2.36 Hz). It resets each time balancing is re-armed. Between kicks the robot is steady (pitch 1.92–2.01°, x within 1 cm), but its quiet rocking grows from about 1–2 to 4–5 mm/s over the run.
+- **What resets on each arming:** the drivers are disabled and re-enabled (StealthChop's automatic PWM regulation then restarts from its initial values and re-adapts while running), and the controller states (trim estimate, x, v) reset. The trim estimate and x barely move, which points at the drivers.
+- Still to run: StealthChop at 1.3 A, and one long kick run to see whether the damping levels off or keeps falling.
+
 ## Actions arising
 
 - Fit a LiPo voltage alarm on the balance lead (the SKR doesn't measure the battery).
