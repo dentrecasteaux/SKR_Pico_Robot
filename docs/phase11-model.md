@@ -80,3 +80,15 @@ Step 5 (the LQR set) stood for 89 s, but with a sustained 5.15 Hz shake: band RM
 | 2 again | 205340 | 20 | 2.88 Hz, ζ 0.30 (late kicks ζ 0.25–0.30); 4 Hz band 3.1 °/s, *u* std 0.46 | as first step 2 run | — |
 
 Step 2 repeated after steps 3–5: the same as the first step 2 run (2.88 Hz, ζ 0.34; band 2.9 °/s; *u* std 0.47). The strong shaking at steps 3–5 left no lasting change. **Step 2 (KP 51.4, KD 4.37, KV 6.89, KX 6.48) is the new best known configuration.**
+
+## 11.3 The 4–5 Hz mode: first look (23 Nov evening)
+
+- **The mode moves with the gains.** Its frequency rises with them (4.4, 4.8, 5.15 Hz at steps 3–5) at ζ 0.01–0.03, so it is a loop mode, not a fixed structural resonance.
+- **The linear plant at 3–8 Hz looks the same at every step.** u→q measured over each whole run: about 0.26–0.30 at +65° near 5 Hz, close to the model's 0.23–0.25 at +60°. The plant did not change with the gains.
+- **Simple additions don't reproduce it.** Each was fitted to the measured poles of steps 1–5: extra delay, a first-order lag after the delay, a compliant drive (2nd order between commanded and real wheel acceleration), and the same with l and the joint damping free. Each predicts a fast mode near 5.5–6 Hz whose frequency barely moves with gain, while the robot's moves from 4.4 to 5.15 Hz. The best (compliant drive plus extra delay) still misses step 3 badly. Fit code: `polefit.py`, `poles_ct.py` (in the session workspace, not yet in the repo).
+- **What's left:** something the linear plant model doesn't include. Candidates:
+  1. **The motors:** a stepper's stiffness and lag depend on load and current.
+  2. **The pitch estimator's acceleration compensation (ACCEL_COMP):** it feeds the commanded acceleration back into the angle estimate, a second loop that grows with the gains.
+- **Discriminating runs, both at the step 3 gains, where the mode is clear but bounded:**
+  - **(a) Motor current 1.3 A instead of 1.0 A.** A motor cause should shift or damp the mode.
+  - **(b) ACCEL_COMP off.** An estimator cause should remove or move the mode.
