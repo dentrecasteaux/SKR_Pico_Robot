@@ -270,6 +270,42 @@ Open this address from a phone or computer on the same Wi-Fi network:
 http://r2w-pi.local:8080
 ```
 
+The main page (`/`) is the **balance page**. The earlier three-wheeler console
+(motor tuning, precise moves, IMU tests) is at `/bench`; each page links to the
+other.
+
+### Balance page
+
+- **Status:** balance state and last end reason, pitch, error, speed,
+  position, trim estimate, engaged time and max |err| / |u|, updated every
+  0.3 s. A banner with a **Clear** button appears while driving is locked
+  after balancing ended (or the e-stop is latched).
+- **Balance run:** notes, number of kicks and "Record a log". **Start (arm)**
+  does what `balance_run.py` does at its start (ends leftover balancing,
+  resets the safety limits to their defaults, starts a 250 Hz log, arms).
+  Kicks start 8 s after it engages, one every 3 s while it is still, from the
+  page (keep the page open). **End balancing** stops it (the robot drops onto
+  a training wheel), saves the log and black box, and writes
+  `balance_summary.json` with the engaged time, end reason and, if there were
+  kicks, l_eff and the ring frequency and damping. A trip ends the run the
+  same way.
+- **Drive while balancing:** hold-to-drive pad (speed 50–300 mm/s, turn
+  15–90 °/s), STOP (comes to rest, keeps balancing) and EMERGENCY STOP (ends
+  balancing).
+- **Controller settings:** KP, KD, KV, KX, trim, drive lean, drive
+  acceleration, drive feed-forward and trim rate. **Apply** sends changed
+  fields live (also while balancing); KP/KD/KV/KX changes over 15 % in one
+  step are refused unless you tick the box. **Save as start-up** stores the
+  robot's current values on the Pi (`~/.config/r2w/balance_tuning.json`);
+  robotd re-applies them whenever the SKR starts. **Load saved** and
+  **Firmware defaults** fill the fields (then press Apply).
+- **Recent runs:** summaries (from `balance_summary.json`), CSV download and a
+  plot of pitch, u and speed with the kicks marked.
+
+API added for the page: `GET /api/balance` (BAL_STATUS),
+`POST /api/balance/start` and `/api/balance/stop`, and the robotd actions
+`tuning`, `tuning_save`, `tuning_clear`.
+
 Manual drive buttons must be held. The page refreshes a 600 ms local control
 lease every 200 ms; releasing the button, hiding the page, losing Wi-Fi, or
 closing the browser stops those refreshes. `robotd` then sends `STOP`, while the

@@ -9,6 +9,8 @@ import mimetypes
 import os
 import socket
 import subprocess
+import threading
+import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
@@ -47,9 +49,13 @@ ALLOWED_ACTIONS = {
     "bal_stop",
     "bal_status",
     "bal_kick",
+    "tuning",
+    "tuning_save",
+    "tuning_clear",
 }
 RUNS_DIR = Path.home() / "runs"
-RUN_FILES = {"data.csv": "text/csv", "meta.json": "application/json"}
+RUN_FILES = {"data.csv": "text/csv", "meta.json": "application/json",
+             "balance_summary.json": "application/json"}
 
 
 def default_socket_path() -> Path:
@@ -68,6 +74,121 @@ def robotd_request(path: Path, payload: dict[str, Any]) -> dict[str, Any]:
     return json.loads(response.decode("utf-8"))
 
 
+def _call(sock: Path, action: str, **kw: Any) -> dict[str, Any]:
+    reply = robotd_request(sock, {"action": action, **kw})
+    if not reply.get("ok"):
+        raise RuntimeError(f"{action}: {reply.get('error', 'failed')}")
+    return reply
+
+
+class BalanceSession:
+    """Start/stop of a balance run from the web page (like balance_run.py)."""
+
+    def __init__(self) -> None:
+        self.lock = threading.Lock()
+        self.run: str | None = None
+        self.notes = ""
+        self.gains: dict[str, str] = {}
+
+    def start(self, sock: Path, notes: str, record: bool) -> dict[str, Any]:
+        # Imported here: balance_tools needs robotd/robotdctl on the path.
+        from balance_tools import DEFAULTS, SAFETY_KEYS
+        with self.lock:
+            st = _call(sock, "bal_status")["balance"]
+            if st.get("BAL") in ("ARMING", "RUNNING"):
+                raise RuntimeError("already balancing")
+            _call(sock, "bal_stop")
+            time.sleep(0.3)
+            _call(sock, "stop")
+            base = _call(sock, "bal_status")["balance"]
+            wrong = {k: DEFAULTS[k] for k in SAFETY_KEYS
+                     if abs(float(base[k]) - DEFAULTS[k]) > 1e-3}
+            if wrong:
+                _call(sock, "bal_set", set=wrong)
+                base = _call(sock, "bal_status")["balance"]
+            self.gains = {k: base.get(k, "") for k in
+                          ("KP", "KD", "KV", "KX", "TRIM", "DRIVE_LEAN",
+                           "DRIVE_ACCEL", "AMAX", "VMAX")}
+            self.run = None
+            self.notes = notes
+            if record:
+                note = (f"web {notes} gains {base['KP']}/{base['KD']}/"
+                        f"{base['KV']}/{base['KX']} trim {base['TRIM']}")
+                try:
+                    reply = _call(sock, "log_start", name="balance", div=2,
+                                  duration_s=900, notes=note)
+                except RuntimeError as error:
+                    if "already recording" not in str(error):
+                        raise
+                    _call(sock, "log_stop")
+                    reply = _call(sock, "log_start", name="balance", div=2,
+                                  duration_s=900, notes=note)
+                self.run = reply["run"]
+            _call(sock, "bal_arm")
+            return {"ok": True, "run": self.run, "reset": wrong,
+                    "gains": self.gains}
+
+    def stop(self, sock: Path) -> dict[str, Any]:
+        from balance_tools import kick_l_eff, load
+        with self.lock:
+            _call(sock, "bal_stop")
+            time.sleep(0.7)
+            final = _call(sock, "bal_status")["balance"]
+            run, self.run = self.run, None
+            if run is None:
+                return {"ok": True, "run": None, "final": final}
+            _call(sock, "log_stop")
+            bb = None
+            try:
+                fw = _call(sock, "log_status")["service"]["log"]["firmware"]
+                if fw.get("BB") == "FROZEN":
+                    bb = _call(sock, "bb_dump")["run"]
+            except (RuntimeError, KeyError):
+                pass
+            summary: dict[str, Any] = {
+                "run": run, "blackbox": bb, "source": "web",
+                "stood_s": None,
+                "end_reason": final.get("REASON"),
+                "max_err_deg": final.get("MAX_ERR"),
+                "max_u": final.get("MAX_U"),
+                "gains": self.gains, "notes": self.notes,
+            }
+            try:
+                rows = load(run)
+                # Engaged time: from the first controller output (u is zero
+                # while arming) to the last balance-active sample.
+                act = [r for r in rows if int(r["flags"]) & 0x20
+                       and not int(r["flags"]) & 0x40]
+                engaged = [r for r in act if r["u_mm_s2"] != 0]
+                if engaged:
+                    summary["stood_s"] = round(act[-1]["t_s"] - engaged[0]["t_s"], 2)
+                if any(int(r["flags"]) & 0x80 and int(r["flags"]) & 0x20
+                       for r in rows):
+                    summary["kick"] = kick_l_eff(rows)
+            except (OSError, ValueError, KeyError) as error:
+                summary["analysis_error"] = str(error)
+            (RUNS_DIR / run / "balance_summary.json").write_text(
+                json.dumps(summary, indent=2))
+            return {"ok": True, "summary": summary}
+
+
+def runs_with_summaries(sock: Path) -> dict[str, Any]:
+    reply = robotd_request(sock, {"action": "runs"})
+    for item in reply.get("runs", []):
+        path = RUNS_DIR / item["run"] / "balance_summary.json"
+        if path.exists():
+            try:
+                item["balance"] = json.loads(path.read_text())
+            except (OSError, ValueError):
+                pass
+        meta = RUNS_DIR / item["run"] / "meta.json"
+        try:
+            item["notes"] = json.loads(meta.read_text()).get("notes", "")
+        except (OSError, ValueError):
+            pass
+    return reply
+
+
 class WebHandler(BaseHTTPRequestHandler):
     server_version = "R2WWeb/1"
 
@@ -76,7 +197,14 @@ class WebHandler(BaseHTTPRequestHandler):
             self._proxy({"action": "service_status"})
             return
         if self.path == "/api/runs":
-            self._proxy({"action": "runs"})
+            try:
+                reply = runs_with_summaries(self.server.robotd_socket)  # type: ignore
+                self._send_json(reply, 200 if reply.get("ok") else 409)
+            except (OSError, RuntimeError, json.JSONDecodeError) as error:
+                self._send_json({"ok": False, "error": str(error)}, 503)
+            return
+        if self.path == "/api/balance":
+            self._proxy({"action": "bal_status"})
             return
         if self.path.startswith("/runs/"):
             self._serve_run_file(self.path[len("/runs/"):])
@@ -87,7 +215,11 @@ class WebHandler(BaseHTTPRequestHandler):
             return
 
         static_paths = {
-            "/": "index.html",
+            "/": "balance.html",
+            "/balance.html": "balance.html",
+            "/balance.js": "balance.js",
+            "/balance.css": "balance.css",
+            "/bench": "index.html",
             "/index.html": "index.html",
             "/app.js": "app.js",
             "/styles.css": "styles.css",
@@ -101,6 +233,9 @@ class WebHandler(BaseHTTPRequestHandler):
     def do_POST(self) -> None:
         if self.path == "/api/shutdown":
             self._shutdown()
+            return
+        if self.path in ("/api/balance/start", "/api/balance/stop"):
+            self._balance_session(self.path.rsplit("/", 1)[1])
             return
         if self.path != "/api/command":
             self.send_error(404)
@@ -124,6 +259,33 @@ class WebHandler(BaseHTTPRequestHandler):
 
         self._proxy(payload)
 
+    def _balance_session(self, which: str) -> None:
+        try:
+            length = int(self.headers.get("Content-Length", "0") or 0)
+            if length > MAX_REQUEST_BYTES:
+                raise ValueError("invalid request size")
+            payload = json.loads(self.rfile.read(length).decode("utf-8")) \
+                if length else {}
+            if not isinstance(payload, dict):
+                raise ValueError("request must be a JSON object")
+            notes = payload.get("notes", "")
+            if not isinstance(notes, str) or len(notes) > 200:
+                raise ValueError("notes must be a short string")
+        except (UnicodeDecodeError, ValueError, json.JSONDecodeError) as error:
+            self._send_json({"ok": False, "error": str(error)}, 400)
+            return
+        session: BalanceSession = self.server.balance  # type: ignore
+        sock = self.server.robotd_socket  # type: ignore
+        try:
+            if which == "start":
+                result = session.start(sock, notes, bool(payload.get("record", True)))
+            else:
+                result = session.stop(sock)
+            self._send_json(result, 200)
+        except (OSError, RuntimeError, KeyError, ValueError,
+                json.JSONDecodeError) as error:
+            self._send_json({"ok": False, "error": str(error)}, 409)
+
     def _shutdown(self) -> None:
         try:
             length = int(self.headers.get("Content-Length", "0"))
@@ -145,7 +307,7 @@ class WebHandler(BaseHTTPRequestHandler):
         self._send_json({"ok": True}, 200)
 
     def log_message(self, format: str, *args: object) -> None:
-        if self.path == "/api/status":
+        if self.path in ("/api/status", "/api/balance"):
             return
         print(f"{self.client_address[0]} - {format % args}", flush=True)
 
@@ -225,6 +387,7 @@ class WebServer(ThreadingHTTPServer):
         self, address: tuple[str, int], robotd_socket: Path
     ) -> None:
         self.robotd_socket = robotd_socket
+        self.balance = BalanceSession()
         super().__init__(address, WebHandler)
 
 

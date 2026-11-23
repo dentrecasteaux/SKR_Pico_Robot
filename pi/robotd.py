@@ -18,6 +18,7 @@ import serial
 
 from robotctl import Reply, RobotClient, RobotLinkError, resolve_port
 from runlog import BlackBoxCollector, RunRecorder, list_runs
+import tuning
 
 
 DEFAULT_PICO_LEASE_MS = 1000
@@ -78,6 +79,9 @@ class RobotController:
         self._last_run: dict[str, Any] = {}
         self._last_blackbox: dict[str, Any] = {}
         self._log_status: dict[str, str] = {}
+        # Saved balance tuning: re-applied once per SKR boot (uptime reset).
+        self._tuning_uptime: Optional[int] = None
+        self._tuning_applied: dict[str, Any] = {}
         self._worker = threading.Thread(
             target=self._run_worker, name="robotd-link", daemon=True
         )
@@ -298,6 +302,18 @@ class RobotController:
                     "run": self._blackbox.path.name,
                     "service": self.snapshot(),
                 }
+            elif action == "tuning":
+                return {"ok": True, "saved": tuning.load_tuning(),
+                        "defaults": tuning.TUNING_DEFAULTS,
+                        "ranges": tuning.TUNING_RANGES,
+                        "applied_at_boot": self._tuning_applied,
+                        "service": self.snapshot()}
+            elif action == "tuning_save":
+                saved = tuning.save_tuning(request.get("values"))
+                return {"ok": True, "saved": saved, "service": self.snapshot()}
+            elif action == "tuning_clear":
+                tuning.clear_tuning()
+                return {"ok": True, "saved": {}, "service": self.snapshot()}
             elif action == "runs":
                 return {"ok": True, "runs": list_runs(),
                         "service": self.snapshot()}
@@ -437,6 +453,7 @@ class RobotController:
             reply = self._client.command("STATUS")
             self._record_status(reply)
             self._next_status_poll = now + STATUS_PERIOD_SECONDS
+            self._maybe_apply_tuning()
             return
 
         if self._imu_supported is not False and now >= self._next_imu_poll:
@@ -453,6 +470,28 @@ class RobotController:
                     self._latest_imu = {}
                 else:
                     raise
+
+    def _maybe_apply_tuning(self) -> None:
+        """Send the saved balance tuning after the SKR (re)boots."""
+        try:
+            uptime = int(self._latest_status.get("UPTIME_MS", ""))
+        except ValueError:
+            return
+        previous = self._tuning_uptime
+        self._tuning_uptime = uptime
+        if previous is not None and uptime >= previous:
+            return
+        values = tuning.load_tuning()
+        if not values or self._client is None:
+            self._tuning_applied = {"at_uptime_ms": uptime, "values": {}}
+            return
+        try:
+            self._client.command(
+                "BAL_SET", *(f"{k}={v:g}" for k, v in values.items())
+            )
+            self._tuning_applied = {"at_uptime_ms": uptime, "values": values}
+        except RobotLinkError as error:
+            self._tuning_applied = {"at_uptime_ms": uptime, "error": str(error)}
 
     def _connect(self) -> None:
         port = resolve_port(self._requested_port)

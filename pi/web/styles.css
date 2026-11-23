@@ -1002,3 +1002,25 @@ footer {
     gap: 5px;
   }
 }
+
+/* Link to the balance page (23 Nov). */
+.topbar-links {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.nav-link {
+  padding: 10px 13px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.nav-link:hover {
+  border-color: var(--green);
+  color: var(--green);
+}

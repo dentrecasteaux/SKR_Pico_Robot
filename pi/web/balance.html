@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#111715">
+    <title>R2W Balance</title>
+    <link rel="stylesheet" href="/styles.css">
+    <link rel="stylesheet" href="/balance.css">
+  </head>
+  <body>
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">R2W / BALANCING ROBOT</p>
+        <h1>Balance</h1>
+      </div>
+      <div class="topbar-right">
+        <a class="nav-link" href="/bench">Bench page</a>
+        <div class="connection" id="connection">
+          <span class="connection-dot"></span>
+          <span id="connection-label">Connecting</span>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <div class="lock-banner" id="lock-banner" hidden>
+        <span id="lock-text">Driving is locked after balancing ended.</span>
+        <button class="small-button" id="clear-lock" type="button">Clear</button>
+      </div>
+
+      <section class="b-status" aria-label="Balance status">
+        <article class="metric metric-state">
+          <span>Balance</span>
+          <strong id="s-state">—</strong>
+          <small id="s-reason"></small>
+        </article>
+        <article class="metric"><span>Pitch</span><strong id="s-pitch">—</strong></article>
+        <article class="metric"><span>Error</span><strong id="s-err">—</strong></article>
+        <article class="metric"><span>Speed</span><strong id="s-v">—</strong></article>
+        <article class="metric"><span>Position</span><strong id="s-x">—</strong></article>
+        <article class="metric"><span>Trim estimate</span><strong id="s-trim">—</strong></article>
+        <article class="metric"><span>Running</span><strong id="s-run">—</strong></article>
+        <article class="metric"><span>Max |err| / |u|</span><strong id="s-max">—</strong></article>
+      </section>
+
+      <div class="b-grid">
+        <section class="panel">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">RUN</p>
+              <h2>Balance run</h2>
+            </div>
+          </div>
+          <label class="field">
+            <span>Notes</span>
+            <input id="run-notes" type="text" maxlength="120" placeholder="what this run is for">
+          </label>
+          <div class="field-row">
+            <label class="field">
+              <span>Kicks (0 = none)</span>
+              <input id="run-kicks" type="number" min="0" max="200" step="1" value="0">
+            </label>
+            <label class="check">
+              <input id="run-record" type="checkbox" checked>
+              <span>Record a log</span>
+            </label>
+          </div>
+          <div class="button-row">
+            <button class="primary-button" id="run-start" type="button">Start (arm)</button>
+            <button class="danger-button" id="run-stop" type="button">End balancing</button>
+          </div>
+          <p class="hint">Start, then lift the robot slowly upright: it engages within 2° of the balance point. Kicks start 8 s after it engages, one every 3 s when it is still. <b>End balancing</b> drops it onto a training wheel.</p>
+          <p class="run-progress" id="run-progress"></p>
+          <div class="summary" id="run-summary" hidden></div>
+        </section>
+
+        <section class="panel drive-panel">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">DRIVE</p>
+              <h2>Drive while balancing</h2>
+            </div>
+          </div>
+          <div class="dpad">
+            <button class="drive-button forward" data-drive="forward" type="button" disabled aria-label="Forward"><span class="arrow">▲</span></button>
+            <button class="drive-button left" data-drive="left" type="button" disabled aria-label="Turn left"><span class="arrow">◀</span></button>
+            <button class="stop-button" id="stop" type="button" aria-label="Stop moving"><span class="stop-square"></span><small>STOP</small></button>
+            <button class="drive-button right" data-drive="right" type="button" disabled aria-label="Turn right"><span class="arrow">▶</span></button>
+            <button class="drive-button reverse" data-drive="reverse" type="button" disabled aria-label="Reverse"><span class="arrow">▼</span></button>
+          </div>
+          <label class="field">
+            <span>Speed <output id="speed-out">250 mm/s</output></span>
+            <input id="speed" type="range" min="50" max="300" step="10" value="250">
+          </label>
+          <label class="field">
+            <span>Turn rate <output id="turn-out">60 °/s</output></span>
+            <input id="turn" type="range" min="15" max="90" step="5" value="60">
+          </label>
+          <button class="estop-button" id="estop" type="button"><span>EMERGENCY STOP</span><small>ends balancing</small></button>
+          <p class="hint">Letting go of a button (or STOP) brings it to rest and it keeps balancing.</p>
+        </section>
+
+        <section class="panel tuning-panel">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">TUNING</p>
+              <h2>Controller settings</h2>
+            </div>
+          </div>
+          <div class="tune-grid" id="tune-grid"></div>
+          <label class="check">
+            <input id="tune-large" type="checkbox">
+            <span>Allow gain changes over 15 % in one step</span>
+          </label>
+          <div class="button-row wrap">
+            <button class="primary-button" id="tune-apply" type="button">Apply</button>
+            <button class="secondary-button" id="tune-reload" type="button">Reload from robot</button>
+            <button class="secondary-button" id="tune-save" type="button">Save as start-up</button>
+            <button class="secondary-button" id="tune-saved" type="button">Load saved</button>
+            <button class="secondary-button" id="tune-defaults" type="button">Firmware defaults</button>
+          </div>
+          <p class="hint" id="tune-info">Changes apply live, even while balancing. Saved values are re-applied whenever the SKR starts.</p>
+        </section>
+
+        <section class="panel runs-panel">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">DATA</p>
+              <h2>Recent runs</h2>
+            </div>
+            <button class="small-button" id="runs-refresh" type="button">Refresh</button>
+          </div>
+          <div class="runs-list" id="runs-list"></div>
+          <div class="plot-wrap" id="plot-wrap" hidden>
+            <p class="plot-title" id="plot-title"></p>
+            <canvas id="plot" height="420"></canvas>
+            <p class="hint">Pitch (°), controller acceleration u (m/s²) and wheel speed (mm/s). Orange lines mark kicks.</p>
+          </div>
+        </section>
+      </div>
+    </main>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <script src="/balance.js"></script>
+  </body>
+</html>

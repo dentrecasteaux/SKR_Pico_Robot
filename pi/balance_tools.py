@@ -25,6 +25,9 @@ DEFAULTS = {"KP": 36.7, "KD": 4.19, "KV": 4.81, "KX": 2.94, "TRIM": 1.9,
 # IMU pitch resting on the back training wheel when the tilt limits were set
 # (Phase 5, 22 Nov). The tilt limits are absolute IMU angles.
 BACK_STOP_DEG = -16.7   # re-measured 23 Nov after wedging the IMU (was -22.6)
+# Tuning keys the web page edits and saves. Saved values live on the Pi and
+# robotd re-applies them whenever the SKR boots (see tuning.py).
+from tuning import TUNING_DEFAULTS, TUNING_KEYS, load_tuning  # noqa: E402,F401
 SAFETY_KEYS = ("AMAX", "VMAX", "SOFT", "TILT_FWD", "TILT_BACK", "ARM_WINDOW",
                "ARM_RATE", "ARM_TIMEOUT", "RUNAWAY")
 

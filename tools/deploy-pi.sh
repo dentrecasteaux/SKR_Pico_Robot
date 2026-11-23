@@ -37,7 +37,7 @@ echo "==> Checking, installing services and restarting on the Pi"
 ssh "$TARGET" 'bash -s' <<'REMOTE'
 set -e
 cd ~/r2w
-python3 -m py_compile robotctl.py robotd.py robotdctl.py robot_web.py runlog.py balance_tools.py
+python3 -m py_compile robotctl.py robotd.py robotdctl.py robot_web.py runlog.py balance_tools.py tuning.py
 mkdir -p ~/.config/systemd/user
 changed=0
 for unit in robotd.service robot-web.service; do
