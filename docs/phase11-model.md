@@ -367,3 +367,22 @@ The narrower notch is only a little better than Q 2. **Decision (24 Nov): stop c
   - **Reverse:** each ends 21–38 cm short and settles about 1.7–1.9° *back*, the back edge of the contact-patch band.
   - **The cause is the robot, not the controller.** Candidates: a fore–aft asymmetry (trim slightly off, the drive lean, the asymmetric wheel mounting), or the order of the steps (reverse comes second).
   - **Next check:** run the steps reverse-first (`--reverse-first`, to add).
+
+## 24 Nov: third comparison session (reverse step first)
+
+Standing and pushes repeat session 2 closely: LQR pitch RMS 0.058°, push recovery 0.42 s; everyday 0.112° / 0.72 s; pole placement 0.131° / 1.52 s. Everyday again reaches AMAX on the pushes.
+
+**Speed steps, final position error after 10 s (pitch offset left):**
+
+| Controller | Session 2, forward first: fwd / rev | Session 3, reverse first: rev / fwd |
+|---|---|---|
+| Everyday | +16 mm (0.0°) / −228 mm (−1.9°) | −229 mm (−2.2°) / −365 mm (+2.7°) |
+| Pole placement | −82 mm (+0.5°) / −380 mm (−1.9°) | −378 mm (−2.6°) / −487 mm (+2.1°) |
+| LQR | −4 mm (+0.1°) / −215 mm (−1.7°) | −133 mm (−1.5°) / −198 mm (+1.9°) |
+
+- **The reverse step falls short whatever the order,** so there is a direction effect: something favours forward. Candidates are the off-centre wheel mounting, the trim, and the drive lean.
+- **The second step also falls short whichever direction it is:** forward was accurate only as the first step. So there is an order effect too: each step starts from wherever the previous one left the robot in the contact-patch band.
+- **The resting offsets are 1.5–2.7°,** at the edges of the ±2° tyre band measured in Phase 7.
+- **Ranking:** LQR (stiffest position loop) falls shortest by the least, and pole placement (softest KX) by the most.
+
+**Conclusion for the comparison:** stopping accuracy is set by the tyre contact band and the slow position loop, the same for every controller. The controller-level differences that hold up are standing, pushes and smoothness while moving. To make stopping accurate, the position loop needs integral action. The cheapest test is a faster trim walk (`TRIM_RATE` 1.0 instead of 0.25): the trim walk *is* a slow position integral.
