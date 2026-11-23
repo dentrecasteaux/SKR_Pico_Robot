@@ -60,6 +60,8 @@ def build_parser() -> argparse.ArgumentParser:
     bal_arm.add_argument("--dry", action="store_true",
                          help="controller only, motors off (sign checks)")
     subparsers.add_parser("bal-stop")
+    subparsers.add_parser("tuning", help="show saved web tuning")
+    subparsers.add_parser("tuning-clear", help="delete saved web tuning")
     tmc_pwm = subparsers.add_parser(
         "tmc-pwm", help="read (or set OFS/GRAD/AUTOGRAD) the StealthChop PWM")
     tmc_pwm.add_argument("pairs", nargs="*", metavar="KEY=VALUE")
