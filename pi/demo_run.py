@@ -278,10 +278,10 @@ def main() -> int:
         d.wait(args.pause)
         s = d.snapshot("turn1_done", turned=t1)
 
-        # Back to where the robot actually started, whatever it crept in the turn.
-        # After an about-face the wheels run the other way, so the start is "ahead".
+        # Back to where the robot actually started (by X), whatever it crept in
+        # the turn. After an about-face, driving forwards (X increasing) returns it.
         x_now, ref_now = float(s["X"]), float(s["X_REF"])
-        target = ref_now - back_sign * (x_now - x_start) * (-1 if back_sign > 0 else 1)
+        target = ref_now + back_sign * (x_now - x_start)
         d.mark("back", mm_s=back_sign * args.speed, ref_target=round(target, 3))
         d.leg(target, args.speed, drive_accel)
         d.wait(args.pause)
