@@ -4,7 +4,7 @@ Started 22 Nov 2026. The SKR Pico robot electronics (14.8 V 4S LiPo, buck conver
 
 **How it works:** finish each phase and record its numbers in [balancing-results.md](balancing-results.md) before starting the next. Phases 1–6 need no balancing code. Most past difficulty with balancing came from wrong signs, an unknown balance angle and guessed gains. Phases 5–8 remove all three before the first attempt.
 
-**Status (23 Nov 2026):** Phases 1–10 complete, including 9.4 (94 Hz IMU filter; l_eff 75–90 mm and about 12 ms loop delay from the kick test; gains kept at KP 36.7, KD 4.19, KV 4.81, KX 2.94). The robot balances for minutes, recovers from 10° pushes, and drives and turns from the web page (drive feed-forward; gyro yaw coupling removed). Configuration checked against the best known settings (`pi/check_config.py`, all OK). The 2.2–2.4 Hz wobble investigation is closed (see 11.0). Next: Phase 11.1, the model.
+**Status (23 Nov 2026):** Phases 1–10 complete, including 9.4 (94 Hz IMU filter; l_eff 75–90 mm and about 12 ms loop delay from the kick test; gains kept at KP 36.7, KD 4.19, KV 4.81, KX 2.94). The robot balances for minutes, recovers from 10° pushes, and drives and turns from the web page (drive feed-forward; gyro yaw coupling removed). Configuration checked against the best known settings (`pi/check_config.py`, all OK). The 2.2–2.4 Hz wobble investigation is closed (see 11.0). Phase 11.1 model done (`docs/phase11-model.md`): it reproduces the ring at 2.37 Hz, ζ 0.05 from the kick data, and predicts LQR gains KP 73.5, KD 4.63, KV 10, KX 11.8 with ζ 0.38. Next: step to them in five runs, checking each prediction.
 
 ---
 
@@ -187,7 +187,7 @@ J·θ̈ = m·g·l·θ − m·l·u  →  θ̈ = (g·θ − u) / l_eff
 
 **Closed (23 Nov).** Runs A, B (SpreadCycle oscillated at 8 Hz, unusable), C (1.3 A), the StealthChop PWM tests and the handling tests (D: motor mounts wiggled) show the mode is set by friction in the prototype's joints: handling restores the damping for a while, and it settles to about ζ 0.07 at 2.35 Hz within a minute. It is not the drivers, current, battery or temperature. We stop chasing it here: it is a taped-together prototype. Phase 11 treats the mode as a fixed property of the plant at its settled state, and every comparison run starts the same way (handle once, wait a minute).
 
-**11.1 Next: the model.** Fit a model that includes the mode (pendulum + delay + a compliant link between commanded and real wheel motion) and check that it reproduces the kick responses before computing LQR gains.
+**11.1 The model (done 23 Nov, see `phase11-model.md`).** Fit a model that includes the mode (pendulum + delay + a compliant link between commanded and real wheel motion) and check that it reproduces the kick responses before computing LQR gains.
 
 **State:** x = [wheel position, wheel speed, θ, θ̇], input *u* = wheel acceleration (the same plant as Phase 9).
 
