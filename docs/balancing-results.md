@@ -353,6 +353,14 @@ New trim and limits: it held its place (42 s, ended by Ctrl-C after the kicks). 
 - **Readings straight after the long run:** motors 28 °C (about room temperature), driver heatsink 35 °C (50 °C after the Phase 2 heat run), battery 14.97 V resting (about 3.74 V per cell, roughly half charged; 16.8 V full). Temperature is an unlikely cause: the motors are barely warm. **Battery voltage is now the main suspect.** A partly discharged LiPo also sags under load and recovers at rest, which would fit the damping falling during a run and partly recovering between runs.
 - **Next session:** start with a full battery and cold motors; log the battery voltage at the start and end, and the motor and driver temperatures (IR thermometer) before and after. Run kicks straight away and keep going for 3 minutes. If the damping starts at about 0.3 again and falls as the motors warm, it's temperature. If it starts higher with a fresh battery and falls as the voltage sags, it's the battery.
 
+### Cold start with a full battery (run `161333`, started from the web page)
+
+- **Conditions:** battery 16.78 V (just charged); motors 25.6 °C and driver heatsink 31 °C at the start; 31.6 °C and 47 °C at the end. 130 kicks over 8.6 min of balancing.
+- **Result:** l_eff 70 mm (48–135). **Ring 2.36 Hz, damping 0.06 from the first ten kicks, falling slowly to 0.04 by the last ten.** So it was low from the start, with a fresh battery and cold motors.
+- **Neither battery voltage nor temperature explains it.** The high-damping runs (0.25–0.33 at the start, `124753`–`142313`) all came before the SKR was **power-cycled at about 14:27**. Every run since (`142738` at 1.3 A, `143358`, `161333`) started low. Earlier changes of firmware were by reflashing over USB, which resets the RP2040 but **leaves the TMC2209s powered**.
+- **Hypothesis: StealthChop's automatic tuning.** The driver learns its PWM amplitude and gradient (PWM_OFS_AUTO, PWM_GRAD_AUTO) while it runs, especially at steady medium speeds. The learned values are kept until the driver loses power. They had been learned all morning in the heat run, vibration test, limit tests and drives. After a power cycle they restart from the untuned initial values, and balancing (short, slow, reversing moves) hardly retunes them. The firmware sets only toff, current, microsteps, the chopper mode and pwm_autoscale; the rest of PWMCONF stays at power-on defaults.
+- **Test:** on the stand, run both wheels steadily at about 300 mm/s for a minute (StealthChop tuning needs steady motion), then repeat a short kick run. If the damping is back near 0.3, the hypothesis holds, and the fix is to configure and check the StealthChop settings explicitly at boot.
+
 ## Actions arising
 
 - Fit a LiPo voltage alarm on the balance lead (the SKR doesn't measure the battery).
