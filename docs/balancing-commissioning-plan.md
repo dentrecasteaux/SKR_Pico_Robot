@@ -4,7 +4,7 @@ Started 22 Nov 2026. The SKR Pico robot electronics (14.8 V 4S LiPo, buck conver
 
 **How it works:** finish each phase and record its numbers in [balancing-results.md](balancing-results.md) before starting the next. Phases 1–6 need no balancing code. Most past difficulty with balancing came from wrong signs, an unknown balance angle and guessed gains. Phases 5–8 remove all three before the first attempt.
 
-**Status (23 Nov 2026):** Phases 1–9 complete; Phase 10 built (full-state control, automatic trim, driving, accel compensation) and push-tested. **First balance: 64.6 s, pitch sd 0.12°, position within ±7 mm, with the model-derived PD gains. With full-state control and ACCEL_COMP it recovers from 10° pushes and returns home.** Next: web drive test, then Phase 11.
+**Status (23 Nov 2026):** Phases 1–10 complete, including 9.4 (94 Hz IMU filter; l_eff 75–90 mm and about 12 ms loop delay from the kick test; gains kept at KP 36.7, KD 4.19, KV 4.81, KX 2.94). The robot balances for minutes, recovers from 10° pushes, and drives and turns from the web page (drive feed-forward; gyro yaw coupling removed). Next: Phase 11. Its model must explain the lightly damped ~2.8 Hz mode.
 
 ---
 

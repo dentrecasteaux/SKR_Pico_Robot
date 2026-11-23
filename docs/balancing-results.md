@@ -317,6 +317,15 @@ New trim and limits: it held its place (42 s, ended by Ctrl-C after the kicks). 
 - **A better model fit:** fitting each of the ten kicks with a delay, θ̈ = (g(θ − θ₀) − u(t − d))/l, over 120 ms gives **l ≈ 90 mm (75–105) and d ≈ 12 ms** (from logged u to measured q), residual 4–11 °/s. That model still predicts the new gains are stable (damping 0.48 at 12 ms), so the missing piece isn't pure delay. Candidates: compliance in the IMU wedge, the tyres or the stepper load angle; the step generator's interval-update lag at low speed.
 - **Decision:** keep the original fast-loop gains (KP 36.7, KD 4.19). l_eff is recorded as 75–90 mm. Any later gain change keeps KD at about 4 unless a test shows otherwise. A safer way to get a quicker speed/position response is to change only the outer gains: KV 6.0, KX 5.0 puts the slow poles at 1.8 rad/s (from 1.25), and the model shows the fast-loop damping almost unchanged.
 
+### Outer gains KV 6.0, KX 5.0 (run `130117`) and 9.4 closed
+
+- Run `125814` (old gains) tripped TILT_FWD at +5.0° when driving forward: the Pi still had the old balance_run defaults and had reset the cut-outs to +5.0 / −20.6. Fixed by deploying. (Run `125339`, the unstable redesign, had the same stale cut-out; its 2.8 Hz oscillation was still real.)
+- With KV 6.0 and KX 5.0 it balanced 109 s and drove well: 30 → 200 mm/s in 1.1–1.5 s forward and 2.2 s back. That's about the same as with the old outer gains plus the feed-forward (about 1.3 s).
+- But the 2.8 Hz wobble at rest was larger and **grew during the run**: pitch sd 0.11 → 0.27° over 100 s, against 0.07–0.12° (steady) with the old gains in run `115606` and 0.12–0.14° in `125814`.
+- **Decision: keep the original gains (KP 36.7, KD 4.19, KV 4.81, KX 2.94).** The feed-forward already gives the drive response, and the larger outer gains make the 2.8 Hz mode worse.
+
+**Phase 9.4 closed:** 94 Hz IMU filter; l_eff 75–90 mm with about 12 ms of loop delay (kick test); trim and cut-outs re-measured for the wedged IMU (+1.9°, +10.7° / −14.7°); gains kept. **Open item for Phase 11:** the lightly damped ~2.8 Hz mode, which isn't in the model (KD ≈ 4 damps it; smaller KD or larger KV/KX excite it). A model for LQR needs it.
+
 ## Actions arising
 
 - Fit a LiPo voltage alarm on the balance lead (the SKR doesn't measure the battery).
@@ -326,5 +335,5 @@ New trim and limits: it held its place (42 s, ended by Ctrl-C after the kicks). 
 
 ## Next
 
-- Drive test from the web page (Phase 10 pass: stands 60 s within ±0.2 m, recovers from pushes, drives on command).
+- Phase 10 pass: stands 60 s+ holding position, recovers from pushes, drives and turns on command (done 23 Nov).
 - Phase 11: LQR (same u = K·x form) and the comparison protocol (repeatable push, step in speed, sensitivity).
