@@ -168,3 +168,34 @@ With the estimator fixed, the LQR gains from the rigid model are the best contro
 
 - **The 20 Hz shake appears with these gains too.** RMS pitch rate in the 16–25 Hz band: 2.9 / 11.7 / 19.1 / 27.4 °/s at 0–100 / 100–200 / 200–260 / >260 mm/s, almost the same as with the LQR gains. So it is not the LQR gains. Of today's changes, the τ 2.0 firmware is the main suspect: this morning's drives at τ 0.5 showed none (0.6 °/s at 200–260 mm/s). The mechanism is still unclear. A direct check: the same drive at step 2 gains with τ set back to 0.5.
 - **The fall:** after the speed was raised to 300, the next command was backward. For 4 s before it, the robot stood still at a steady 4.4° pitch, 2.5° past the 1.9° trim. At 109.46 s *u* went to −1.2 m/s² and the wheels backed out from under the forward lean. Pitch went 4.4 → 10.7° in 0.25 s, and the controller's forward correction came too late.
+
+### 24 Nov: drive test at step 2 gains with τ 0.5 (run 060114): the 20 Hz shake comes from τ 2.0
+
+Speeds of 300, then 200, then 300 mm/s, back and forth for 100 s. Smooth, and no fall.
+
+| Wheel speed | 0–100 | 100–200 | 200–260 | >260 mm/s |
+|---|---|---|---|---|
+| 20 Hz band, τ 2.0 (222024) | 2.9 | 11.7 | 19.1 | 27.4 °/s |
+| 20 Hz band, τ 0.5 (060114) | 1.8 | 1.6 | 2.0 | 4.6 °/s |
+| *u* sd, τ 2.0 | 0.36 | 0.93 | 1.49 | 2.12 m/s² |
+| *u* sd, τ 0.5 | 0.36 | 0.27 | 0.27 | 0.39 m/s² |
+
+**Why τ matters while driving:** the pitch estimate drifts from the accelerometer pitch. Compare the low-passed estimate with the low-passed, acceleration-compensated accelerometer pitch, by speed band:
+
+| Run | Estimate − accelerometer pitch while driving |
+|---|---|
+| τ 2.0 (222024, 221515) | −1.2 to +1.6° |
+| τ 0.5 (060114) | within ±0.13° |
+
+At 150–600 mm/s forward, the accelerometer pitch was 6.1° at τ 2.0 against 4.0° at τ 0.5. With τ 2.0 the gyro's errors while driving (bias, yaw coupling, vibration) are corrected four times more slowly. The robot then runs leaning 1–2° more than intended, which loads the motors harder at speed. The likely result is the 20 Hz drive-train/stepper oscillation. That is a hypothesis, but it fits the speed dependence and the accelerometer rejects.
+
+**Where this leaves the time constant:**
+
+| τ | Standing, high gains | Driving |
+|---|---|---|
+| 0.5 s | 4–5 Hz mode (the ACCEL_COMP mismatch) | Accurate estimate |
+| 2.0 s | Fine | Estimate drifts 1–2°, then the 20 Hz shake at speed |
+
+**The underlying fault is the acceleration compensation.** The IMU sits about 0.16 m above the axle, higher than l_eff (about 0.094 m). It feels the wheel acceleration *delayed* by about 10 ms, plus h·θ̈, and the h·θ̈ term largely cancels and reverses the wheel term. Subtracting the commanded *u* is therefore wrong at 2–5 Hz.
+
+**Proposed fix (ACCEL_COMP = 2):** subtract the IMU's own acceleration, A = u delayed 10 ms + h·dq/dt, where dq/dt is the gyro rate's derivative. It is noisy, but the filter's accelerometer path averages it heavily. Keep a quicker τ (0.5 s) for an accurate estimate. Make it selectable at runtime for A/B runs. Interim alternative: schedule τ (2.0 standing, 0.5 driving).
