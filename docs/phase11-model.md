@@ -335,6 +335,11 @@ The narrower notch is only a little better than Q 2. **Decision (24 Nov): stop c
 - **The tilt is real at the IMU:** during the 4 s pauses the estimate equals the raw accelerometer pitch within 0.1°, with no accelerometer rejects (everyday: 2.25° before, 3.40° after the forward step, 1.79° after the reverse step).
 - **The robot stays still meanwhile:** v ≈ 0 and u ≈ 0.
 - **Consistent with the control law:** the offset matches KP·Δθ = −KX·(x − x_ref) with the position shortfall left by the slow step. Everyday: about 0.18 m short gives 1.3°, observed 1.15°. LQR moved further, so less shortfall and less offset.
-- **Likely cause:** a pitch offset can only be held still if the *IMU reading* moved while the chassis stayed at its true balance. The likeliest way is the wedged IMU (and the battery it is wedged under) shifting under acceleration and staying there: the joint friction already seen in the 2.4 Hz mode, here as hysteresis. The controller then parks short of x_ref to cancel the false angle.
-- **Check:** with the robot resting, push the battery gently fore and aft and watch `IMU_PITCH`. If the reading changes and stays changed, the mount slips.
-- **Fix:** a rigid IMU bracket on the chassis, and the battery strapped down.
+- **Not the IMU mount:** checked solid (24 Nov).
+- **Cause: the tyres' contact-patch band, already measured in Phase 7.** The wheel-locked fall tests showed a ±2.0° band of apparent balance angles (about 2 mm half-patch). In this band the centre of pressure can move within the flat contact patch, so the robot can stand still off its true balance point while the motors hold a small static torque (about 0.01 N·m).
+- **How it shows here:** during the pauses the controller is still active (u sd 0.19 m/s², the same as standing), but the wheels move only about ±1 mm, so the robot rests inside the band. The shortfall in position from the slow step is balanced by the KP·e term, and the robot parks there instead of returning to x_ref.
+- **Consequences:**
+  - The speed-step and stop-overshoot metrics depend on where in the band the robot stops.
+  - A position integral (or the trim walk) is needed to push through it.
+  - Harder or narrower tyres would shrink the band.
+- **For the comparison:** lengthen the steps to about 5 s, and measure the stop error after the robot has had time to settle (for example 10 s), or add slow position integral action to all controllers equally.
