@@ -77,3 +77,6 @@ Step 4 confirms step 3: the 4–5 Hz mode moves up in frequency with the gains (
 | 5 (LQR) | 204928 | 20 | 5.1–5.2 Hz, ζ 0.00–0.03 on every kick | 2.95 Hz, ζ 0.38 | — |
 
 Step 5 (the LQR set) stood for 89 s, but with a sustained 5.15 Hz shake: band RMS about 11 °/s, *u* std 0.84 m/s² (step 2: 0.47), peak *u* 5.0 m/s², close to the 6 m/s² limit. The fast mode's frequency follows the gains (step 3 4.4, step 4 4.8, step 5 5.15 Hz) at near-zero damping. It looks like a limit cycle (amplitude steady at about 11 °/s rather than growing), so something nonlinear is capping it, most likely the step-rate or acceleration limits or backlash. The LQR gains are not usable until this mode is in the model. Step 2 stays the configuration to use.
+| 2 again | 205340 | 20 | 2.88 Hz, ζ 0.30 (late kicks ζ 0.25–0.30); 4 Hz band 3.1 °/s, *u* std 0.46 | as first step 2 run | — |
+
+Step 2 repeated after steps 3–5: the same as the first step 2 run (2.88 Hz, ζ 0.34; band 2.9 °/s; *u* std 0.47). The strong shaking at steps 3–5 left no lasting change. **Step 2 (KP 51.4, KD 4.37, KV 6.89, KX 6.48) is the new best known configuration.**
