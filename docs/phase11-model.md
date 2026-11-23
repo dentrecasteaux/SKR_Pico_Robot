@@ -462,3 +462,16 @@ Standing and pushes repeat session 2 closely: LQR pitch RMS 0.058°, push recove
 - **Tests to separate the causes:**
   - `--ki 0`: whether the integral makes it worse.
   - `--set KV=10 KX=11.8`: the LQR outer gains, a better-damped slow mode, at the same KP and KD.
+
+**The two tests (runs 101124 and 101242):**
+
+| Run | Settings | Turn 1 ratio / peak \|v\| | Turn 2 ratio / peak \|v\| | Final x vs x_ref |
+|---|---|---|---|---|
+| 101124 | KI 0 | 0.36 / 91 mm/s | 0.10–0.50 / 82 mm/s (the turn was interrupted) | −188 vs −129 mm (it hit the tripod) |
+| 101242 | KI 0, KV 10, KX 11.8 | **0.18 / 34 mm/s** | **0.07 / 25 mm/s** | **−112 vs −97 mm** |
+
+- **KI isn't the cause:** with it off the swing is just as large.
+- **The stiffer outer gains fix the turns:** with LQR's KV and KX (keeping KP 51.4 and KD 4.37), the swing in the turns drops to a third or less and the wheels look symmetric. Stops are also closer to target: 31 mm short after the return leg, against 166 mm.
+- **Next:**
+  - Check this set (KP 51.4, KD 4.37, KV 10, KX 11.8) with `compare_run.py`: standing, kicks, pushes and the speed steps.
+  - Then decide whether it becomes the default, or only applies during turns.
