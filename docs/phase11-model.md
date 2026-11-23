@@ -258,3 +258,15 @@ The narrower notch is only a little better than Q 2. **Decision (24 Nov): stop c
 - **Standing:** kick ensemble (same damped-sine fit for each run) 2.34 Hz, ζ 0.43, against 2.94 Hz, ζ 0.27 for step 2 on 23 Nov with comp 1 at τ 0.5 (runs 204006, 205340). Mode 2 also improves the slow ring.
 - **Driving:** up to 377 mm/s, 8 s above 200 mm/s. 16–25 Hz band ≤ 1.4 °/s and *u* sd ≤ 0.24 m/s² at speed.
 - **The LQR comparison run (071220)** lasted only 2.7 s, and still at step 2 gains (the LQR `bal-set` hadn't been applied), so it isn't usable.
+
+### 24 Nov: head-to-head, 20 kicks then a drive at 300
+
+| | Everyday (step 2, comp 2, τ 0.5, notch) — 070917 | LQR (comp 1, τ 2.0, no notch) — 071457 |
+|---|---|---|
+| Kick ring (ensemble fit) | 2.34 Hz, ζ 0.43 | 3.08 Hz, ζ 0.43 (2 of 20 kicks at 4.9–5.2 Hz, ζ 0.01–0.12) |
+| Pitch std while standing | 0.16° | 0.13° |
+| 16–25 Hz band at 200–260 mm/s | 0.8 °/s | **31.4 °/s** |
+| *u* sd at 200–260 mm/s | 0.24 m/s² | **2.54 m/s²** |
+| Drive | Out and back, up to 377 mm/s, clean | Shake from about 200 mm/s; TILT_FWD at 88 s |
+
+**Conclusion:** standing, the two are nearly equal (the same damping; LQR holds the angle slightly tighter), but only the everyday set can drive. **The everyday set is the controller to use and the baseline for the comparison protocol.**
