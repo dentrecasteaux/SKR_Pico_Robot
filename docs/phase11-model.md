@@ -57,3 +57,11 @@ Each step moves 1/5 of the way and is predicted to be better than the last. The 
 3. Compare the reported ring with the table.
 
 Stop and go back to the defaults (power cycle) if the robot buzzes, wobbles more, or the measured ring moves away from the prediction instead of toward it. After the last step, check driving and turning again, because KV and KX are much larger.
+
+## Results
+
+| Step | Run | Kicks | Measured ring (mean) | Predicted (settled / handled) | Refit with this run's gains |
+|---|---|---|---|---|---|
+| 1 | 203054 | 20 | 2.58 Hz, ζ 0.20 (late kicks 2.6 Hz, ζ 0.15–0.20) | 2.49 Hz, ζ 0.09 / 2.31 Hz, ζ 0.31 | l 43.9 mm, delay 11.2 ms, as before; joints more damped (zero ζ 0.38, pole ζ 0.26). It reproduces the ring (2.57 Hz, ζ 0.18) and says the old gains would have given 2.40 Hz, ζ 0.14 in the same state. |
+
+Step 1: the frequency rose as predicted, and length and delay are unchanged at the new gains, so the model holds. The joints happened to be in a better-damped state than the settled reference, so damping alone can't be compared run to run. Compare frequency, and use the refit's old-gains figure.
