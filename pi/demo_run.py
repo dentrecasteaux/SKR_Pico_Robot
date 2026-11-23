@@ -3,7 +3,7 @@
 
   1. engage     lift the robot upright; it engages and soft-starts
   2. settle     3 s, then a countdown ("rolling in 3, 2, 1") so you can start filming
-  3. balance    0.5 s still
+  3. go         straight into the first move (--start-hold to add a pause)
   4. out        forward 400 mm at 200 mm/s, then a short pause
   5. turn 1     360° one way (60 °/s), then a short pause
   6. back       reverse 400 mm at 200 mm/s, to the start point, then a pause
@@ -200,7 +200,7 @@ def main() -> int:
                     help="each turn, degrees: 360 (return leg in reverse) or 180 (about-face)")
     ap.add_argument("--turn-rate", type=float, default=60.0, help="turn rate, °/s (<= 90)")
     ap.add_argument("--pause", type=float, default=1.5, help="pause after each move, s")
-    ap.add_argument("--start-hold", type=float, default=0.5, help="still before moving, s")
+    ap.add_argument("--start-hold", type=float, default=0.0, help="still before moving, s")
     ap.add_argument("--end-hold", type=float, default=2.0, help="still at the end, s")
     ap.add_argument("--settle", type=float, default=3.0, help="after engaging, before the countdown, s")
     ap.add_argument("--no-wait", action="store_true",
