@@ -39,7 +39,13 @@ bool TMC2209::applySettings(const Settings& requested)
       actual.currentMa > requested.currentMa
           ? actual.currentMa - requested.currentMa
           : requested.currentMa - actual.currentMa;
-  return currentDifference <= 25 && actual.microsteps == requested.microsteps &&
+  // The driver sets current in 1/32 steps of its full scale (about 50-60 mA
+  // here), so the read-back value can differ from the request by up to half
+  // a step. A fixed 25 mA tolerance rejected 1300 mA (23 Nov).
+  const uint16_t tolerance =
+      requested.currentMa / 16 > 25 ? requested.currentMa / 16 : 25;
+  return currentDifference <= tolerance &&
+         actual.microsteps == requested.microsteps &&
          actual.mode == requested.mode;
 }
 
