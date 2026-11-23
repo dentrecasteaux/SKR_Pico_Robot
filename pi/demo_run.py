@@ -124,6 +124,8 @@ def main() -> int:
                     help="after engaging, before the countdown, s")
     ap.add_argument("--no-wait", action="store_true",
                     help="stop balancing right after the end hold instead of waiting for Enter")
+    ap.add_argument("--set", nargs="*", default=[], metavar="KEY=value",
+                    help="extra BAL_SET values for this run only (e.g. KV=10 KX=11.8)")
     ap.add_argument("--notes", default="")
     args = ap.parse_args()
     if not 20 <= args.speed <= 300:
@@ -154,7 +156,12 @@ def main() -> int:
         call("bal_set", set=wrong)
         base = balance_status()
     temp = {"MOVE_V": args.speed / 1000.0, "TURN_W": args.turn_rate, "KI": args.ki}
-    restore = {k: float(base[k]) for k in temp}
+    for item in args.set:
+        key, _, value = item.partition("=")
+        if not key or not value:
+            raise SystemExit(f"--set expects KEY=value, got {item!r}")
+        temp[key.upper()] = float(value)
+    restore = {k: float(base[k]) for k in temp if k in base}
     call("bal_set", set=temp)
     try:
         return run(args, base, back_sign)

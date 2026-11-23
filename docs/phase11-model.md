@@ -447,3 +447,18 @@ Standing and pushes repeat session 2 closely: LQR pitch RMS 0.058°, push recove
   - The position integral KI (limit 2.5 m/s²) holds x during turns, so v stays near 0 and the wheels stay symmetric.
 - **Check:** after flashing, turn on the spot a few times each way and run `analysis/turns.py`. The ratio should stay near 0 for the whole turn.
 - **If it doesn't:** add a turn feed-forward, or harder, narrower tyres to shrink the band.
+
+**New firmware, KI 3 (runs 100100, 100638): still one-wheel turns.**
+- **What happens:** during each 6 s turn the robot swings fore and aft by about ±100 mm/s, about one cycle per turn (the slow position mode, around 1 rad/s). At the peaks of the swing one wheel stops.
+  - Example, 100638 turn 1: x goes 331 → 603 → 424 mm, against x_ref 401.
+- **Which way it swings is set before the turn starts:** in all 6 turns from 094839, 100100 and 100638, the first swing heads towards x_ref from where the robot was parked.
+  - Parked short with the lean forward (+0.5 to +0.8°) → it swings forwards first.
+  - Parked past x_ref (+170 to +195 mm) with the lean back (about −2°) → it swings backwards first.
+- **Reading:**
+  - While standing, the tyre contact band holds the robot off x_ref, at a lean the controller can't remove.
+  - Spinning scrubs the tyres and frees it, so the stored offset is released all at once.
+  - With the rolling drags cancelling in a spin, nothing damps the robot's fore–aft motion except the controller's own speed term.
+  - The position loop's slow mode then overshoots (KI windup during the parked phase adds to it).
+- **Tests to separate the causes:**
+  - `--ki 0`: whether the integral makes it worse.
+  - `--set KV=10 KX=11.8`: the LQR outer gains, a better-damped slow mode, at the same KP and KD.
