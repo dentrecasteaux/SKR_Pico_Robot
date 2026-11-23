@@ -149,3 +149,17 @@ With the estimator fixed, the LQR gains from the rigid model are the best contro
   1. Step 2 gains at τ 2.0, which isolates τ.
   2. LQR gains at τ 0.5 with turns only, short and slow.
 - **If τ is the cause, the likely fix:** shorten τ only while turning (|r| > 30 °/s), or improve the coupling correction.
+
+### Drive test 2, LQR gains at τ 2.0 (run 221515, TILT_FWD after 63 s)
+
+- **A 20.5 Hz oscillation above about 200 mm/s.** Every time the wheel speed passed about 200 mm/s, forward or back, a violent oscillation started: pitch-rate sd 30–40 °/s, *u* sd 2–3 m/s², and the accelerometer rejected 50–60 % of samples. Spectral peak 20.5 Hz in all five episodes. RMS pitch rate in the 16–25 Hz band against wheel speed:
+
+  | Run | 0–100 mm/s | 100–200 | 200–260 | >260 |
+  |---|---|---|---|---|
+  | 113258 (old gains, τ 0.5) | 1.3 | 0.6 | 0.6 | — |
+  | 221515 (LQR, τ 2.0) | 3.6 | 13.6 | 22.9 | 28.8 °/s |
+
+- **Turning on the spot was fine.** About 60 °/s for 6 s, t = 39.5–46 s, at low speed. So the first test's loss of control was probably this speed oscillation, not the turn itself.
+- **Earlier hint:** a ~19–20 Hz, undamped "compliant drive" resonance also came out of the 11.3 pole fit (drive+base). Something in the drive train (rotor and wheel/tyre against the body) seems to resonate near 20 Hz. The stepper's own damping falls with speed, and the LQR gains give more loop gain at 20 Hz than the old ones.
+- **Likely fix:** a low-pass filter (about 8–10 Hz) on the gyro rate used by the KD term, and on *u*. That's standard practice. It removes the loop gain at 20 Hz while barely changing the 2–5 Hz behaviour.
+- **Until then:** drive only at the step 2 gains, and keep the speed under about 0.15 m/s with the LQR gains.
