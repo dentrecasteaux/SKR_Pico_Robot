@@ -114,9 +114,10 @@ class Session:
             self.status()
             time.sleep(STEP_RENEW_S)
 
-    def steps(self, speed: float) -> None:
-        self.mark("steps_start", speed_mm_s=speed)
-        for v in (speed, 0.0, -speed, 0.0):
+    def steps(self, speed: float, reverse_first: bool = False) -> None:
+        self.mark("steps_start", speed_mm_s=speed, reverse_first=reverse_first)
+        first = -speed if reverse_first else speed
+        for v in (first, 0.0, -first, 0.0):
             self.events.append({"t": self.t_log(), "event": "step", "v_mm_s": v})
             print(f"\n   step to {v:+.0f} mm/s")
             if v:
@@ -148,6 +149,8 @@ def main() -> int:
     ap.add_argument("--tau", type=float, help="IMU filter time constant for this run only")
     ap.add_argument("--speed", type=float, default=150.0, help="speed step, mm/s (<= 300)")
     ap.add_argument("--no-steps", action="store_true", help="skip the speed steps")
+    ap.add_argument("--reverse-first", action="store_true",
+                    help="do the reverse speed step first (-V, 0, +V, 0)")
     ap.add_argument("--push-u", type=float, default=PUSH_U, help="push size, m/s^2 (<= 4)")
     ap.add_argument("--push-ms", type=int, default=PUSH_MS, help="push length, ms (<= 200)")
     ap.add_argument("--notes", default="")
@@ -226,7 +229,7 @@ def run(args) -> int:
         s.kicks("kick", KICKS, KICK_U, KICK_MS, KICK_GAP_S)
         s.kicks("push", PUSHES, args.push_u, args.push_ms, PUSH_GAP_S)
         if not args.no_steps:
-            s.steps(args.speed)
+            s.steps(args.speed, args.reverse_first)
         s.wait(2.0)
     except Aborted as reason:
         result = f"ended early: {reason}"
@@ -246,6 +249,7 @@ def run(args) -> int:
         pass
     record = {"label": args.label, "notes": args.notes, "result": result,
               "speed_mm_s": None if args.no_steps else args.speed,
+              "reverse_first": args.reverse_first,
               "temp_settings": args.set, "tau": args.tau,
               "settings": settings, "events": s.events, "blackbox": bb,
               "final": {k: final.get(k) for k in ("REASON", "MAX_ERR", "MAX_U", "TRIPS")}}
