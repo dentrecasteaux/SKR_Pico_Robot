@@ -310,6 +310,13 @@ New trim and limits: it held its place (42 s, ended by Ctrl-C after the kicks). 
 - **What that means for the current gains** (KP 36.7, KD 4.19, KV 4.81, KX 2.94; designed for l = 0.20 m): at l = 75 mm the fast poles are real (−5.6 and −43 rad/s): heavily damped, but with a large KD, so the loop is noisy and sensitive to delay. With 8–12 ms of loop delay a 9–15 Hz mode appears with damping down to 0.34 (if l is really 60 mm). The slow (speed/position) poles sit at 1.1 rad/s.
 - **Redesign for l = 75 mm** (fast pair 14 rad/s ζ 0.7, slow pair 2.0 rad/s ζ 0.9): **KP 30.55, KD 2.19, KV 5.99, KX 5.99.** Checked in discrete time (500 Hz) with 8 and 12 ms of delay for l = 60–90 mm: all stable, minimum damping 0.48–0.89, no high-frequency mode. The slow poles are 1.6× faster, so drive and position response should also be quicker.
 
+### Redesigned gains: unstable (run `125339`, black box `125346_bb_tilt_fwd`)
+
+- With KP 30.55, KD 2.19, KV 5.99, KX 5.99 it oscillated at **about 2.8 Hz (17.5 rad/s), growing from ±1° to ±3°** within 2 s, and tripped TILT_FWD. The model said this set was well damped.
+- 2.8 Hz is the same frequency as the small oscillation at rest with the old gains (2.5–3.8 Hz). So there is a lightly damped mode there that the model doesn't contain, and the old, large KD (4.19) is what damps it.
+- **A better model fit:** fitting each of the ten kicks with a delay, θ̈ = (g(θ − θ₀) − u(t − d))/l, over 120 ms gives **l ≈ 90 mm (75–105) and d ≈ 12 ms** (from logged u to measured q), residual 4–11 °/s. That model still predicts the new gains are stable (damping 0.48 at 12 ms), so the missing piece isn't pure delay. Candidates: compliance in the IMU wedge, the tyres or the stepper load angle; the step generator's interval-update lag at low speed.
+- **Decision:** keep the original fast-loop gains (KP 36.7, KD 4.19). l_eff is recorded as 75–90 mm. Any later gain change keeps KD at about 4 unless a test shows otherwise. A safer way to get a quicker speed/position response is to change only the outer gains: KV 6.0, KX 5.0 puts the slow poles at 1.8 rad/s (from 1.25), and the model shows the fast-loop damping almost unchanged.
+
 ## Actions arising
 
 - Fit a LiPo voltage alarm on the balance lead (the SKR doesn't measure the battery).
