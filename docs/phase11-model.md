@@ -343,3 +343,27 @@ The narrower notch is only a little better than Q 2. **Decision (24 Nov): stop c
   - A position integral (or the trim walk) is needed to push through it.
   - Harder or narrower tyres would shrink the band.
 - **For the comparison:** lengthen the steps to about 5 s, and measure the stop error after the robot has had time to settle (for example 10 s), or add slow position integral action to all controllers equally.
+
+## 24 Nov: second comparison session (5 s steps, 10 s settle, 100 mm/s)
+
+| Metric | Everyday (084955) | Pole placement (085306) | LQR, comp 1, τ 2, no notch (085623) |
+|---|---|---|---|
+| Stand: pitch RMS | 0.116° | 0.107° | **0.053°** |
+| Stand: rate RMS / u RMS | 3.16 °/s / 0.205 | **2.92 / 0.179** | 3.76 / 0.298 |
+| Kicks: ring | 2.55 Hz, ζ 0.22 | 2.27 Hz, ζ 0.10 | **3.11 Hz, ζ 0.45** |
+| Pushes: peak pitch / recovery | 3.24° / 0.92 s | 3.17° / 1.22 s | **2.43° / 0.31 s** |
+| Pushes: peak \|u\| | 6.0 (AMAX) | 5.2 | 5.4 |
+| Steps: t90 (forward) | 3.3 s | 2.7 s | 3.4 s |
+| Steps: final error, forward / reverse | +16 / −228 mm | −82 / −380 mm | −4 / −215 mm |
+| Steps: pitch offset after settling, fwd / rev | 0.0° / −1.9° | +0.5° / −1.9° | +0.1° / −1.7° |
+| Moving (> 100 mm/s): 4–5 Hz / 20 Hz bands | 2.1 / 0.9 °/s | **0.9 / 0.5** | 2.1 / 2.4 |
+| Moving: u sd | 0.32 | **0.13** | 0.37 |
+
+**Readings:**
+- **Standing and disturbances, consistent with session 1:** LQR is clearly best, with half the pitch RMS and recovery 3–4 times faster. Pole placement is gentlest. The everyday set is in between and still saturates (AMAX) on the pushes.
+- **Moving:** pole placement is the smoothest. LQR's 20 Hz band is already rising at 100 mm/s (no notch).
+- **Forward and reverse steps behave very differently, for all three controllers:**
+  - **Forward:** each ends within 0–8 cm of its target, at its original pitch.
+  - **Reverse:** each ends 21–38 cm short and settles about 1.7–1.9° *back*, the back edge of the contact-patch band.
+  - **The cause is the robot, not the controller.** Candidates: a fore–aft asymmetry (trim slightly off, the drive lean, the asymmetric wheel mounting), or the order of the steps (reverse comes second).
+  - **Next check:** run the steps reverse-first (`--reverse-first`, to add).
