@@ -68,12 +68,13 @@ struct Params
   float kd = 4.19F;          // m/s^2 per rad/s
   float kv = 4.81F;          // m/s^2 per m/s
   float kx = 2.94F;          // m/s^2 per m
-  float trimDeg = -3.9F;     // IMU pitch at the balance point
+  float trimDeg = 1.9F;      // IMU pitch at the balance point (IMU wedged
+                             // under the top plate, 23 Nov; was -3.9)
   float aMax = 6.0F;         // m/s^2
   float vMax = 0.55F;        // m/s
   float softStartS = 0.3F;
-  float tiltFwdDeg = 5.0F;   // absolute IMU pitch limits
-  float tiltBackDeg = -20.6F;
+  float tiltFwdDeg = 10.7F;  // absolute IMU pitch limits, 2 deg inside the
+  float tiltBackDeg = -14.7F; // training-wheel stops (+12.72 / -16.68)
   float armWindowDeg = 2.0F;
   float armRateDps = 20.0F;
   float armTimeoutS = 20.0F;

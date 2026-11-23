@@ -458,9 +458,11 @@ StepOutput step(uint32_t tUs, float pitchDeg, float rollDeg, float qDps,
   xRef += vRef * dt;
 
   // Automatic trim: walk trim_est until the robot rests at x_ref. Only while
-  // calm (near the speed set point and nearly upright), so pushes and
-  // manoeuvres don't drag it.
-  const bool calm = fabsf(v - vRef) < 0.05F && fabsf(lastError) < 1.0F;
+  // calm (near the speed set point and not rotating), so pushes and
+  // manoeuvres don't drag it. (The old gate also needed |e| < 1 deg, which
+  // stopped it ever correcting a trim more than 1 deg out: run 115606 sat
+  // 0.9 m from home with e = 4 deg.)
+  const bool calm = fabsf(v - vRef) < 0.05F && fabsf(lastRate) < 5.0F;
   if (state == State::Running && calm && p.kx > 0.0F && p.trimRate > 0.0F) {
     trimEst -= p.trimRate * (x - xRef) * dt;
     const float lo = fmaxf(p.trimDeg - p.trimRangeDeg, p.tiltBackDeg + 2.0F);

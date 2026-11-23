@@ -135,7 +135,7 @@ The robot can't stay connected to the phone or the Mac while it runs, so the rob
 On core 1 with the balance loop, independent of the Pi:
 
 - **States:** DISARMED → ARMING → BALANCING → TRIPPED. Arming is only allowed when |θ − θ_trim| < 3° and the robot is still. In practice you lift it upright by hand, then press Arm on the phone or a button.
-- **Tilt cut-out:** separate forward and back limits, 2° inside each training-wheel stop in the IMU frame (currently +5.0° / −20.6° IMU pitch). Motors stop, then disable after 0.5 s, and the black box freezes.
+- **Tilt cut-out:** separate forward and back limits, 2° inside each training-wheel stop in the IMU frame (since the IMU was wedged under the top plate on 23 Nov: +10.7° / −14.7° IMU pitch, trim +1.9°; before that +5.0° / −20.6°, trim −3.9°). Motors stop, then disable after 0.5 s, and the black box freezes.
 - **Saturation trip:** commanded speed at v_max for more than 0.3 s → TRIPPED (the robot is running away).
 - **IMU health:** a missed sample or stall → TRIPPED.
 - **Link watchdog:** no Pi heartbeat for 0.5 s → set the speed and turn targets to 0 and keep balancing. Don't drop the robot because Wi-Fi went away.

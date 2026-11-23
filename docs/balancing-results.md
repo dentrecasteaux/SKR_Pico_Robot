@@ -289,6 +289,14 @@ Run `103528`: it balanced calmly for 28 s, then **balancing ended while upright*
 - **Kick test for l_eff:** `BAL_KICK U= MS=` adds a short acceleration pulse to the controller output (telemetry flag 0x80 while balancing). `balance_run.py --kicks N` fires alternating ±2 m/s², 40 ms kicks when calm and computes l = ∫(g(θ − θ₀) − u)dt / Δq per kick. Checked on simulated closed-loop data at 250 Hz: l = 0.20 m recovered as 0.207 m (4 ms actuation delay) and 0.35 m as 0.355 m, spread ±4%.
 - The user has wedged the IMU between the top platform and the battery. The trim and both tilt limits need re-measuring before the next balance run.
 
+### IMU wedged: new trim and limits; 94 Hz filter result (run `115606`)
+
+- **Stops re-measured:** front +12.72°, back −16.68° (span 29.4°, was 29.6°). The IMU has turned +5.8° relative to the old mounting. **New defaults: TRIM +1.9°** (same offsets from the stops as before: 12.72 − 10.88 = 1.84; −16.68 + 18.69 = 2.01), **TILT_FWD +10.7°, TILT_BACK −14.7°**; balance_run's back-stop reference −16.7°.
+- **The wedged IMU holds still:** the balance pitch moved only 0.13 → 0.17° over 100 s (it drifted up to 5° per run on tape).
+- **Run `115606` (old trim −3.9°):** it balanced for 119 s but sat 0.89 m behind home with e ≈ +4°: KP·e = −KX·x exactly. The automatic trim never corrected it, because its calm gate also required |e| < 1°. **Fix:** the gate is now |v − v_ref| < 0.05 m/s and |θ̇| < 5 °/s, so a large trim error does get corrected.
+- **No kicks fired** for the same reason: balance_run waited for |err| < 1.5°. Its gate is now |θ̇| < 10 °/s and |v| < 0.1 m/s.
+- **94 Hz filter (5.6): quieter.** Over ten quiet 10 s windows: pitch sd **0.07–0.12°** (0.15–0.21° at 44 Hz), wheel-speed sd 2.7–5.8 mm/s (4–5), oscillation peak 2.5–3.8 Hz (2.6–2.9). The new mount probably helps too. **5.6 closed: CONFIG 0x02 (94 Hz) kept.**
+
 ## Actions arising
 
 - Fit a LiPo voltage alarm on the balance lead (the SKR doesn't measure the battery).

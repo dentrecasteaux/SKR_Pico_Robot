@@ -158,7 +158,7 @@ def run(args, base, saved, temp) -> int:
                 now = time.monotonic()
                 if next_kick is None:
                     next_kick = engaged_at + 8.0
-                calm = abs(float(s["ERR"])) < 1.5 and abs(float(s["V"])) < 0.1
+                calm = abs(float(s["RATE"])) < 10 and abs(float(s["V"])) < 0.1
                 if now >= next_kick and calm:
                     sign = 1 if kicks_done % 2 == 0 else -1
                     call("bal_kick", u=sign * args.kick_u, ms=args.kick_ms)
