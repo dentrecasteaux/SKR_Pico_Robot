@@ -329,6 +329,7 @@ void RobotLink::sendBalanceStatus(uint32_t sequence)
   f("MAX_U", s.maxAbsU, 2);
   f("MAX_ERR", s.maxAbsErrorDeg, 2);
   n("STEP_HZ", s.stepRateSps);
+  f("GYRO_QR", Imu::yawPitchCoupling(), 4);
   f("KP", p.kp, 3);
   f("KD", p.kd, 3);
   f("KV", p.kv, 3);

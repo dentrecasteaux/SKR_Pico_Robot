@@ -345,6 +345,8 @@ the balance status ACK:
 R2W/1 ACK 60 OK BAL=RUNNING REASON=NONE DRY=0 THETA=-3.71 ERR=0.19 RATE=1.2 U=0.142 V=0.031 X=0.004 SCALE=1.00 RUN_MS=5320 ENGAGES=3 TRIPS=2 MAX_U=1.95 MAX_ERR=1.40 STEP_HZ=506 KP=39.000 KD=2.900 KV=0.000 KX=0.000 TRIM=-3.90 AMAX=6.00 VMAX=0.550 SOFT=0.30 TILT_FWD=5.00 TILT_BACK=-20.60 ARM_WINDOW=2.00 ARM_RATE=20.0 ARM_TIMEOUT=20.0 RUNAWAY=0.30 ACCEL_COMP=0
 ```
 
+`GYRO_QR` in the status is the learned yaw-to-pitch gyro coupling (mean q/r while turning faster than 30 °/s, time constant 3 s; default −0.0177). The attitude filter and the controller use θ̇ = q − GYRO_QR·r, so turning doesn't bias the pitch estimate.
+
 | Command | Effect |
 |---|---|
 | `BAL_SET KEY=value ...` | Set parameters (allowed while balancing, for tuning). Keys: `KP` `KD` `KV` `KX` `TRIM` `AMAX` `VMAX` `SOFT` `TILT_FWD` `TILT_BACK` `ARM_WINDOW` `ARM_RATE` `ARM_TIMEOUT` `RUNAWAY` `ACCEL_COMP`. `OUT_OF_RANGE` if the result is invalid. Lost at reboot. |

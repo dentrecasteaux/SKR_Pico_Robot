@@ -191,6 +191,17 @@ bool attitudeValid = false;
 float roll = 0.0F, pitch = 0.0F, yaw = 0.0F;
 float bias[3] = {};
 float tau = Config::IMU_FILTER_TAU_S;
+// Yaw-to-pitch gyro coupling: the gyro's pitch axis isn't exactly
+// horizontal (tape mount, accelerometer offsets make the estimated roll a
+// poor guide), so turning leaks yaw rate into q. Measured q = -0.0177 r in
+// run 2026-11-23_110119 (both directions), which biased the pitch estimate
+// by ~1 deg in every turn and made the robot pivot on one wheel. Learned
+// continuously while turning: over a few seconds the body's real pitch rate
+// averages zero, so mean(q/r) is the coupling.
+constexpr float YAW_PITCH_COUPLING_DEFAULT = -0.0177F;
+constexpr float COUPLING_LEARN_MIN_DPS = 30.0F;
+constexpr float COUPLING_LEARN_TAU_S = 3.0F;
+volatile float gyroQr = YAW_PITCH_COUPLING_DEFAULT;
 uint32_t accRejects = 0;
 uint32_t autoUpdates = 0;
 RunStat autoStat[3];
@@ -383,8 +394,16 @@ void attitudeStep(float dt, float p, float q, float r, float ax, float ay,
   if (fabsf(cp) < 0.05F) cp = copysignf(0.05F, cp);
   const float tp = sinf(pitch * D2R) / cp;
 
+  if (fabsf(r) > COUPLING_LEARN_MIN_DPS) {
+    float c = gyroQr;
+    c += dt / (COUPLING_LEARN_TAU_S + dt) * (q / r - c);
+    if (c > 0.1F) c = 0.1F;
+    if (c < -0.1F) c = -0.1F;
+    gyroQr = c;
+  }
+
   roll = wrap180(roll + (p + sr * tp * q + cr * tp * r) * dt);
-  pitch += (cr * q - sr * r) * dt;
+  pitch += (q - gyroQr * r) * dt;
   yaw = wrap180(yaw + ((sr * q + cr * r) / cp) * dt);
 
   const float magnitude = sqrtf(ax * ax + ay * ay + az * az);
@@ -659,7 +678,8 @@ void processSample(const uint8_t* b, uint32_t readUs, uint32_t isrUs,
 
   // Balance control update, straight after the attitude for this sample.
   const Balance::StepOutput control =
-      Balance::step(sample.tUs, pitch, roll, rates[1], rates[2],
+      Balance::step(sample.tUs, pitch, asinf(gyroQr) * R2D,
+                    rates[1], rates[2],
                     attitudeValid, isLate || fromStall);
   sample.uMmS2 = control.uMmS2;
   sample.vSps = control.vLeftSps;
@@ -886,6 +906,8 @@ bool Imu::popSample(Sample& out)
 
 uint32_t Imu::sampleQueueDrops() { return queueDrops; }
 
+float Imu::yawPitchCoupling() { return gyroQr; }
+
 #else  // R2W_IMU == 0: stubs so the rest of the firmware builds unchanged.
 
 bool Imu::enabled() { return false; }
@@ -903,6 +925,7 @@ void Imu::setAutoBias(bool) {}
 void Imu::setMotorsStopped(bool) {}
 bool Imu::popSample(Sample&) { return false; }
 uint32_t Imu::sampleQueueDrops() { return 0; }
+float Imu::yawPitchCoupling() { return 0.0F; }
 void Imu::beginCore1() {}
 void Imu::updateCore1() {}
 

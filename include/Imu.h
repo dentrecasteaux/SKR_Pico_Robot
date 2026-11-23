@@ -150,6 +150,7 @@ void setAutoBias(bool on);
 void setMotorsStopped(bool stopped);       // call every loop pass
 bool popSample(Sample& out);               // false if the queue is empty
 uint32_t sampleQueueDrops();               // samples lost to a full queue
+float yawPitchCoupling();                  // learned q/r gyro coupling
 
 const char* stateName(State state);
 const char* calName(CalState cal);

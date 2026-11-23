@@ -263,6 +263,13 @@ Run `103528`: it balanced calmly for 28 s, then **balancing ended while upright*
 - **Slow oscillation built up:** from about 150 s, a steady ~1 Hz oscillation in the black box: wheel speed ±20 mm/s, pitch ±0.35°, u ±0.5 m/s². Early in the run the wheel-speed sd was 3 mm/s; by the end it was 13 mm/s. The pitch it balanced at moved in steps (−3.8° → −2.0° → −0.5° → −2.4°), which is the IMU shifting on its tape again. To watch in the next runs (IMU mount, battery level).
 - **Logging:** at 500 Hz the Pico drops about 40 % of telemetry lines (`STREAM_DROPS`; all balance runs so far, the USB/Pi side can't keep up). The balance itself is unaffected. `balance_run.py` now logs at 250 Hz by default (`--div`).
 
+### Web drive test 3 (run `110119`, 250 Hz, no lost lines)
+
+- **Drove on command:** forward and back reach the 250 mm/s web limit, leaning about 3° to accelerate, and come back to rest. Turns at 60 °/s: the gyro yaw rate matched the commanded rate within 1–2 % in every turn, so **no motor stalled** (a stalled wheel would halve the yaw rate). Balanced 268 s; ended by Ctrl-C.
+- **"A motor stopped" during turns was the controller, not a connection:** in every turn the robot's forward speed drifted to about ±115 mm/s, i.e. half the turn's wheel-speed difference, so the inner wheel was commanded to almost zero and the robot pivoted on it. Left turns drifted forward, right turns back. Cause: while turning, the gyro's pitch axis picks up 1.77 % of the yaw rate (q = −0.0177·r, both directions; the gyro axis is about 1° off horizontal). The attitude filter corrected for this with the *estimated* roll, but that estimate swings ±2° during turns (accelerometer offsets and the centripetal pull on the off-centre IMU), so it added up to 3.8 °/s of false pitch rate. The pitch estimate then went about 1° wrong in every turn and the controller drove to "correct" it. **Fix:** the filter and the controller use θ̇ = q − c·r, with c learned while turning (mean q/r, default −0.0177, reported as `GYRO_QR`).
+- **Slow to get going:** the speed ramps over 2.5–4 s although v_ref reaches 250 mm/s in 0.5 s. That's the slow outer (speed and position) loop: its poles were placed at 1.2 rad/s, i.e. a time constant of about 1 s. Faster options: outer poles at 1.6 rad/s (KP 39.4, KD 4.70, KV 6.60, KX 5.22; settable live with `BAL_SET`), at the cost of damping if l_eff is really above 0.3 m; or an acceleration feed-forward in the drive set point.
+- **Small oscillation at rest:** pitch sd 0.15–0.21°, wheel speed sd 4–5 mm/s, peak at 2.6–2.9 Hz. Acceptable.
+
 ## Actions arising
 
 - Fit a LiPo voltage alarm on the balance lead (the SKR doesn't measure the battery).
