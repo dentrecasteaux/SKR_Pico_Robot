@@ -284,3 +284,14 @@ The narrower notch is only a little better than Q 2. **Decision (24 Nov): stop c
   - One failed renewal is retried.
   - A status reply without a balance state no longer ends the drive or disables the buttons.
   - Any drive that ends other than by releasing the button shows why (request failed, touch cancelled, capture lost, page hidden or lost focus, balancing stopped).
+
+### 24 Nov: final check, everyday defaults, 20 kicks then driving and turning (run 072831, 218 s)
+
+- **Kicks:** ensemble 2.53 Hz, ζ 0.27 (0.43 in run 070917 an hour earlier; the joint damping varies, as on 23 Nov).
+- **Turns** (29 episodes, 60 °/s commanded, 55–60 °/s measured). The wheels do turn; the "one wheel not participating" is the robot's *forward speed* during the turn. A spin is the two wheels at v ± 117 mm/s, so with v ≈ 80–120 mm/s the inner wheel nearly stops.
+  1. **Turns started while still driving** (7 of 10 long turns began at 170–280 mm/s): the forward speed carries into the turn and takes 1.5–2 s to die away (the speed loop is slow, about 1 s time constant). In the first 1.5 s it averaged 70–134 mm/s.
+  2. **Turns from standstill** also creep forward 120–250 mm over the turn (40 mm/s in the first 1.5 s, up to 80 mm/s later). In a spin the robot's balance point moves forward: near-stationary pitch = 1.42° + 0.38°·r² (r in rad/s; about +0.4° at 60 °/s). The accelerometer agrees with the estimate to within about 0.1°, so the lean is real, not an estimator error. The controller only finds the new lean by rolling forward.
+- **GYRO_QR is no longer the problem:** least-squares q/r over this run's spins is −0.018, the same as the default.
+- **Proposed fixes:**
+  1. **Turn feed-forward:** θ_ref += 0.38°·(w_ref in rad/s)², applied as the turn ramps up, so the robot leans into the spin instead of rolling.
+  2. **Optional, on the web pad:** while a turn button is held after a forward drive, ramp the forward speed to zero first, or simply release forward and wait about 1 s before turning.
