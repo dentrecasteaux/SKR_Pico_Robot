@@ -330,3 +330,11 @@ The narrower notch is only a little better than Q 2. **Decision (24 Nov): stop c
   - **Slow response:** with every controller the robot leaned 3–3.5° within 0.5 s but took 2–3 s to reach 100 mm/s, or didn't reach it at all.
   - **Balance point moved:** after each stop it balanced about 1.5° *forward* of its previous pitch (after a forward step) or *back* (after a reverse step) for the full 4 s pause. Possibly the floor surface (rolling resistance or carpet pile) or a load path.
   - **Next:** check the surface, and lengthen the steps to about 5 s before using these metrics.
+
+**Follow-up on the shifted balance point** (timber laminate, the same for all three runs):
+- **The tilt is real at the IMU:** during the 4 s pauses the estimate equals the raw accelerometer pitch within 0.1°, with no accelerometer rejects (everyday: 2.25° before, 3.40° after the forward step, 1.79° after the reverse step).
+- **The robot stays still meanwhile:** v ≈ 0 and u ≈ 0.
+- **Consistent with the control law:** the offset matches KP·Δθ = −KX·(x − x_ref) with the position shortfall left by the slow step. Everyday: about 0.18 m short gives 1.3°, observed 1.15°. LQR moved further, so less shortfall and less offset.
+- **Likely cause:** a pitch offset can only be held still if the *IMU reading* moved while the chassis stayed at its true balance. The likeliest way is the wedged IMU (and the battery it is wedged under) shifting under acceleration and staying there: the joint friction already seen in the 2.4 Hz mode, here as hysteresis. The controller then parks short of x_ref to cancel the false angle.
+- **Check:** with the robot resting, push the battery gently fore and aft and watch `IMU_PITCH`. If the reading changes and stays changed, the mount slips.
+- **Fix:** a rigid IMU bracket on the chassis, and the battery strapped down.
