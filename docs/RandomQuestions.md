@@ -277,3 +277,59 @@ Easier in some ways, harder in others. The problems would be different, not fewe
 - **Cost and complexity:** often more expensive and more complex to wire.
 
 **Verdict for this project:** the steppers are working well. The remaining issue, the lightly damped ring, looks fixable within the stepper setup, through battery state, driver settings or a better model. BLDC would be worth it if you wanted much higher speed or quieter running, or the textbook torque-control setup for the controller comparison. It would mostly mean starting the motor side again rather than being "easier".
+
+---
+
+# More questions (23 Nov, late afternoon)
+
+Context: the robot has a lightly damped wobble at about 2.2–2.4 Hz. A kick makes it ring, and the damping of that ring changes between and within runs (about 0.3 at best, 0.06 at worst). Turning the wheels by hand after a power cycle restored good damping (run `171913`). Driving about 0.7 m forward and back partway through a run did not (run `172551`).
+
+## 12. Does the resonance change with microstepping?
+
+Probably not its frequency, but microstepping could affect what keeps the wobble going. **Not yet tested.**
+
+**Why the frequency shouldn't move:**
+- **The timescales are far apart.** The 2.2 Hz wobble is a slow motion of the whole robot: the balance loop, the pendulum and some springy element together. At 1/16 microstepping one microstep is 0.061 mm of travel, and while balancing the step rate is tens to thousands of steps per second.
+- **What microstepping changes:** the size of each step and the torque ripple. Neither is a spring or a damper at 2.2 Hz.
+
+**Where it could matter:**
+- **Near standstill the wheel moves in visible jerks.** At 10 mm/s the steps come only every 6 ms, and the step generator only changes rate at the end of the current step. The current waveform is also coarser at low step rates.
+- **Those jerks are small, repeated disturbances.** They could keep feeding a lightly damped mode, which would raise the quiet wobble without changing the frequency.
+- **What 1/32 would do:** halve the jerks. The speed limit is fine at 1/32: 0.55 m/s is about 18,000 steps/s, under the 20,000 limit.
+
+**How to test:** `configure 1000 32 150 STEALTHCHOP`, then a kick run. The firmware reads the microstep setting when it arms, so no reflash is needed. Compare the quiet wobble and the ensemble damping with the 1/16 runs.
+
+## 13. Did my "drive lean" and "drive accel" changes affect the resonance?
+
+No.
+- **They only act while driving.** DRIVE_LEAN and DRIVE_ACCEL only do anything while there is a drive command: the target lean is a_ref/g + DRIVE_LEAN·tanh(v_ref / 0.05), and both terms are zero when v_ref and a_ref are zero.
+- **The kick tests ran with the robot standing still,** with no drive command, so both settings were inactive throughout.
+- **The wobble predates them.** It was already visible this morning (2.6–2.9 Hz at rest, before the feed-forward existed), and the damping changes happened with these settings unchanged.
+
+## 14. The tyres are rubber with some squish. Would that affect things?
+
+Yes, tyres can matter. Today's tests make a flat spot an unlikely explanation for the changing damping, though.
+
+**How tyres enter the dynamics:**
+- **A springy contact.** A squishy tyre is a spring, plus some rubber damping, between the wheel rim and the floor. It can flex sideways (tangentially), which gives a little "wind-up" between where the motor puts the rim and where the robot actually is. It can also flex vertically and roll the contact patch.
+- **The fall tests hinted at this.** The robot appeared to balance at two different angles (about ±2°) depending on which way it fell, as if pivoting on the front or back edge of a flat contact patch about 4 mm long.
+- **A compliant link like this adds a mode,** and can set the frequency and damping of a wobble like the 2.2 Hz one.
+
+**What today's tests say:**
+- **A set or flat spot where the robot rests seemed likely,** because turning the wheels by hand restored the damping.
+- **But driving about 0.7 m out and back** (about 3.7 wheel turns under power, run `172551`) did *not* bring the damping back up. It carried on falling: 0.23 before the drive, 0.23 just after, 0.17 at the end.
+- **So the tyre's resting position isn't the main factor.** The tyres can still be part of the mode itself, as a constant spring.
+
+**The difference between the two tests:**
+- **Hand-turning:** the motors were off and the robot was lifted off the floor and handled.
+- **Driving:** done under power, without handling.
+
+So the next suspects are things that lifting and handling the robot could reset. For example: the battery or IMU settling on its mount as the robot rocks, a cable, or the stepper rotor's position relative to its poles when it's unpowered.
+
+## 15. Is the ringing an artifact of standing still?
+
+Mostly no. It's a genuine mode of the robot, though standing still is where it's most visible and where its strength varies.
+
+- **It's a closed-loop motion,** made up of the controller, the pendulum and a compliant element (motor magnetic spring, tyre or mount). Kicks excite it while standing, but it doesn't need the robot to be stationary.
+- **It's there while moving too.** In run `172551` the 1.2–4 Hz wobble during the drive was about 3.3 °/s RMS, against about 1.9 °/s while standing (excluding the seconds after kicks). That's not smaller.
+- **Standing still is special for the steppers, though.** Near zero speed the step generator is at its most jerky, and the motor sits in its magnetic detents. Those effects could be what slowly changes the damping during a standing run, which is why it shows up there.

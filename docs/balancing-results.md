@@ -413,6 +413,9 @@ Method (12 kick runs): (a) **quiet wobble** = RMS of the 1.2–4 Hz band-passed 
 
 - **Test 1 result (run `171913`): mechanical.** After a power cycle (drivers untuned: OFS_AUTO 36, GRAD_AUTO 14 at the start, the same as `161333`), with both wheels turned several revolutions by hand with the motors off: **ensemble damping 0.29 → 0.20 (all 0.23), ring 2.16 Hz**, quiet wobble 0.84 → 1.03 °/s, l_eff 72 mm. That's the "good" level, against 0.08 for `161333` with the same driver state but no wheel turning. **So the state that sets the damping is mechanical: wheels, tyres or bearings, not the drivers.** Test 2 (driving partway through a run) will show whether it depends on where the tyres rest.
 
+- **Test 2 result (run `172551`): not where the tyres rest.** The run started well damped. At 50–66 s it drove 0.73 m out and back (up to 290 mm/s, about 3.7 wheel turns under power). Ensemble damping: 0.30 (kicks 1–5) → 0.23 (kicks 6–9, before the drive) → **0.23 just after the drive** → 0.17 (last four). The drive didn't restore anything, so a flat spot or set at the resting position is unlikely. The difference from test 1: there the robot was lifted and handled and the motors were unpowered while the wheels turned. **Next suspects:** something that lifting/handling resets and the robot's rocking slowly changes. For example: the battery or IMU settling on its mount, a cable, or the rotors' rest position against the magnetic detents when unpowered.
+- The 1.2–4 Hz wobble during the drive (3.3 °/s RMS) was not smaller than while standing (1.9 °/s), so the mode isn't only a standing-still effect.
+
 ## Actions arising
 
 - Fit a LiPo voltage alarm on the balance lead (the SKR doesn't measure the battery).
