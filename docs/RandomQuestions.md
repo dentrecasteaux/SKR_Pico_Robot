@@ -562,3 +562,130 @@ From his `Software/src/main.cpp` (ESP32, MPU6050, two DRV8825-type step-stick dr
 1. **The speed-mode idea while driving:** reduce or freeze KX when v_ref ≠ 0 and restore it at standstill, with x_ref re-anchored to avoid a jump. That would probably let the stiffer standing gains (LQR) coexist with smooth driving.
 2. **A small integral term on speed** while driving.
 3. **A noise-injection option** for frequency-response identification.
+
+---
+
+## 30. Is the best position for the IMU in line with the axles?
+
+**For the accelerometer, yes: on the axle line, and on the centreline between the wheels.** For the gyro it doesn't matter. Every point of a rigid body turns at the same rate, so the gyro reads the same anywhere (apart from vibration).
+
+The accelerometer measures specific force at its own position. Along the robot's forward axis, at height h above the axle:
+
+  f_x ≈ a − g·θ + h·θ̈        (a = wheel acceleration; small angles)
+
+- **The −g·θ term** is the tilt we want.
+- **a** is the base acceleration. It's there at every height, and ACCEL_COMP corrects it from u.
+- **h·θ̈** is the tangential acceleration from the pitch swinging, plus a smaller h·θ̇² term. ACCEL_COMP=2 corrects it with IMU_H·dq/dt, the noisiest part of the estimate, since it differentiates the gyro.
+
+On the axle (h = 0) the last term vanishes and only the base acceleration is left, which we know well from u.
+
+**Our 98 mm is about the worst height in principle.** It's almost exactly l_eff (94 mm), the centre of percussion (Q32). There, the dynamics give h·θ̈ ≈ g·θ − a, so f_x ≈ 0 whenever the robot is moving: the accelerometer x axis sees almost nothing during motion. That's why comp 1, which subtracts only a, was wrong at 2–5 Hz and produced the 4–6 Hz estimator mode. Comp 2 works because it puts the h·θ̈ term back.
+
+**Sideways:** on the centreline the IMU sees no centripetal acceleration in spins. Off it, a spin adds r²·d along the offset.
+
+**Practical:** on the axle line is often hard (the motors and wheels are there, with more vibration). A low mount as near the axle as practical, centred, rigid, and with IMU_H measured, is the goal. With comp 2, our height works, at the cost of a noisier rate term.
+
+---
+
+## 31. What has caused ringing?
+
+| Ringing | Frequency | Cause | Fix |
+|---|---|---|---|
+| The lightly damped standing mode | 2.2–2.9 Hz | The balance loop plus joint compliance: battery strap, motor mounts, the wedged IMU. Damping started at about 0.3 after arming and fell to 0.05–0.1 within a minute; SpreadCycle was worse. | Higher KD and KV (everyday set); accepted for the prototype; tighten the mechanics |
+| The estimator-loop mode | 4–6 Hz | ACCEL_COMP=1 subtracted u/g but not the IMU-height term (Q30), so the estimate fed back into the loop at 2–5 Hz | First masked by τ 2.0; fixed by ACCEL_COMP=2 at τ 0.5 |
+| The drive shake | about 20 Hz | A drive-train resonance (motor, mount, tyre), excited at speed. τ 2.0 made it worse, because it trusts the gyro more and lets more of the shake into the loop. | 20.5 Hz notch on the feedback part of u |
+| The slow fore–aft swing in turns | about 0.15–0.2 Hz (about 1 rad/s) | The position loop's slow mode, lightly damped with KV 6.89 / KX 6.48. The rolling drags cancel in a spin, so nothing physical damps it, and the tyre contact band releases a stored offset when the turn starts. | KV 10 / KX 11.8 (today) |
+| Unstable from the start | — | A redesign on the wrong model (l 0.20 m instead of 0.094) | Fitted model, gains checked on it |
+
+A pattern: **the controller law was rarely the cause.** The estimator, the delay and the mechanics were.
+
+---
+
+## 32. Is l_eff an effective pendulum length?
+
+**Yes.** It's the length of the simple point-mass pendulum that has the same small-angle dynamics as the real robot on its wheels:
+
+  θ̈ = (g·θ − a)/l_eff
+
+For a real body with mass m, centre of mass at height l_c and moment of inertia J about the axle (wheel inertia adds small corrections):
+
+  l_eff = J/(m·l_c) = l_c + k²/l_c
+
+Here k is the radius of gyration about the centre of mass.
+- **So l_eff is always longer than the centre-of-mass height.** Our l_eff of 94 mm means the CoM itself is lower.
+- **It's also the centre of percussion:** the point that doesn't accelerate sideways when the base accelerates. That's why an accelerometer near 94 mm sees so little (Q30).
+- **What it sets:** the falling speed. The unstable rate is √(g/l_eff) ≈ 10.2 rad/s, a time constant of 98 ms. Shorter is faster to fall and needs a faster controller.
+
+We measured it from the kicks (9.4b): the response to a known acceleration pulse. The earlier design figure of 0.20 m was a guess at the CoM height, and the redesign on it was unstable.
+
+---
+
+## 33. What does τ 0.5 s or 2.0 s actually mean?
+
+τ is the **crossover time constant of the complementary filter.**
+- **The gyro path:** the gyro is integrated to track pitch.
+- **The accelerometer path:** each sample, the estimate is pulled towards the accelerometer's pitch by dt/(τ + dt). In effect, the accelerometer is low-passed with time constant τ, and the gyro high-passed with the same τ.
+
+| | τ 0.5 s | τ 2.0 s |
+|---|---|---|
+| Crossover frequency 1/(2πτ) | 0.32 Hz | 0.08 Hz |
+| Faster than this: trust | the gyro | the gyro, down to slower |
+| A constant accelerometer error (an uncorrected acceleration, a lean in a spin) shows fully in pitch after about 3τ | 1.5 s | 6 s |
+| A gyro error (bias b, or a turn coupling c·r) leaves a steady pitch error of b·τ | 0.1 °/s → 0.05° | 0.1 °/s → 0.2° |
+| Accelerometer noise and vibration let through | more | less |
+
+**The trade:**
+- **A larger τ** ignores more accelerometer disturbance. That's why τ 2.0 hid the 4–6 Hz mode caused by the wrong comp 1.
+- **But it corrects gyro errors more slowly,** and it leaves a slower estimator dynamic in the loop. That interacted with the drive shake.
+
+Once comp 2 made the accelerometer path correct, τ 0.5 became the better choice.
+
+---
+
+## 34. Is the notch filter still in use? Is it still needed?
+
+**Still in use:** the firmware default is NOTCH_HZ 20.5, Q 2.0, on the feedback part of u (not on the feed-forward). The everyday-stiff comparison ran with it.
+
+**Still needed, as far as we know:**
+- The 20 Hz shake comes from the drive train, which hasn't changed.
+- Runs without the notch at the same speed show it: the LQR comparison runs had a 20 Hz band of 2.4 °/s at 100 mm/s, against 0.7–0.9 with the notch.
+- It's cheap: about 4° of phase at 3 Hz.
+
+It hasn't been re-tested without the notch on the new defaults. The test would be one drive at 200–300 mm/s with `NOTCH_HZ=0`, comparing the 20 Hz band. If the mechanics are stiffened (motor mounts, harder tyres), the resonance may move; the notch would then need retuning, or might become unnecessary.
+
+---
+
+## 35. Do the stiffer settings for clean turns change any of the earlier assumptions?
+
+Several, yes. The set is the everyday KP 51.4 / KD 4.37 with LQR's KV 10 / KX 11.8.
+
+1. **Why LQR failed while driving.** We put LQR's driving trouble down to its whole gain set. KV 10 and KX 11.8 with the notch drove cleanly, and turned better. So the problem was more likely LQR's higher KP (73.5), or its τ 2.0 with no notch, than its outer gains.
+2. **"Stopping accuracy needs integral action."** Not for now. The stiffer KX pulls through the tyre band: the final error was −7 mm against −106. KI added nothing in the turn tests, and is off.
+3. **"The one-wheel turns are turn creep from the spin lean."** Revised. They are the slow position mode, released by the turn from the offset the robot was parked with. A turn-lean feed-forward may no longer be needed.
+4. **"The everyday set is the best all-round."** The stiffer set is better on kicks, pushes, stopping, moving smoothness and turns. It is slightly worse standing (pitch RMS 0.138° against 0.116°), with more stop overshoot.
+5. **Margins.** The everyday set was chosen as two-fifths of the way to LQR and checked on the fitted model. This mixed set wasn't designed on the model. Its stability margins should be checked there (phase11_model.py) before it becomes the default, alongside the 300 mm/s drive test.
+6. **Unchanged:** the plant (l_eff, delay), the estimator (comp 2, τ 0.5), the notch, and the AMAX saturation on hard pushes.
+
+---
+
+## 36. Is it time for a Kalman filter?
+
+**Not yet, in my view.** The problems left aren't estimator problems:
+- the tyre contact band,
+- the drive-train resonance,
+- the joint compliance,
+- dead reckoning without encoders.
+
+The complementary filter with comp 2 already does what a Kalman filter would do with the same sensors: it uses the known wheel acceleration (u) as an input, and blends the gyro and accelerometer at a sensible crossover.
+
+**What a Kalman filter would add:**
+- **Gyro bias:** tracked continuously as a state, instead of by the auto-bias while still.
+- **Adaptive trust:** it would trust the accelerometer less during accelerations and spins, instead of using the hard 0.15 g gate.
+- **A principled noise trade-off,** instead of choosing τ by hand.
+- **A clean path to LQG,** with the controller and estimator designed together on the fitted model. That's the "controller comparison" item.
+
+**When it becomes worth it:**
+- **When wheel encoders are fitted:** a Kalman filter is the natural way to fuse the true wheel motion (slip, missed steps) with the IMU and the commanded steps.
+- **When you want the LQG comparison for its own sake.**
+
+Before that, a rigid, low, centred IMU mount (Q30) and the mechanical tightening would gain more.
