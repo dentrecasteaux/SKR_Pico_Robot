@@ -231,7 +231,10 @@ void RobotLink::processBalanceCommand(const Protocol::Command& command)
         else if (std::strcmp(k, "ARM_RATE") == 0) p.armRateDps = v;
         else if (std::strcmp(k, "ARM_TIMEOUT") == 0) p.armTimeoutS = v;
         else if (std::strcmp(k, "RUNAWAY") == 0) p.runawayS = v;
-        else if (std::strcmp(k, "ACCEL_COMP") == 0) p.accelComp = v != 0.0F;
+        else if (std::strcmp(k, "ACCEL_COMP") == 0)
+          p.accelComp = (v == 0.0F || v == 1.0F || v == 2.0F) ? static_cast<uint8_t>(v) : 99;
+        else if (std::strcmp(k, "IMU_H") == 0) p.imuHeightM = v;
+        else if (std::strcmp(k, "COMP_DELAY_MS") == 0) p.compDelayS = v * 0.001F;
         else if (std::strcmp(k, "TRIM_RATE") == 0) p.trimRate = v;
         else if (std::strcmp(k, "TRIM_RANGE") == 0) p.trimRangeDeg = v;
         else if (std::strcmp(k, "DRIVE_ACCEL") == 0) p.driveAccel = v;
@@ -436,7 +439,9 @@ void RobotLink::sendBalanceStatus(uint32_t sequence)
   f("ARM_RATE", p.armRateDps, 1);
   f("ARM_TIMEOUT", p.armTimeoutS, 1);
   f("RUNAWAY", p.runawayS, 2);
-  n("ACCEL_COMP", p.accelComp ? 1 : 0);
+  n("ACCEL_COMP", p.accelComp);
+  f("IMU_H", p.imuHeightM, 3);
+  f("COMP_DELAY_MS", p.compDelayS * 1000.0F, 1);
   f("TRIM_RATE", p.trimRate, 2);
   f("TRIM_RANGE", p.trimRangeDeg, 1);
   f("DRIVE_ACCEL", p.driveAccel, 2);

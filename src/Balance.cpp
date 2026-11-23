@@ -63,6 +63,14 @@ float v = 0.0F;
 float x = 0.0F;
 float u = 0.0F;
 float scale = 0.0F;
+// ACCEL_COMP=2: recent u (one per step, 2 ms) and a filtered dq/dt.
+constexpr int U_HIST = 16;
+float uHist[U_HIST] = {};
+int uHead = 0;
+float qdotRad = 0.0F;          // filtered pitch angular acceleration, rad/s^2
+float prevRateRad = 0.0F;
+bool havePrevRate = false;
+constexpr float QDOT_CUTOFF_HZ = 30.0F;
 uint32_t pinnedSinceUs = 0;
 bool pinned = false;
 uint32_t engages = 0;
@@ -224,6 +232,8 @@ void takeParams()
 
 void resetMotion()
 {
+  for (float& h : uHist) h = 0.0F;
+  qdotRad = 0.0F;
   v = 0.0F;
   x = 0.0F;
   u = 0.0F;
@@ -322,7 +332,10 @@ bool setParams(const Params& n)
       n.trimRangeDeg >= 0.0F && n.trimRangeDeg <= 10.0F &&
       n.driveAccel > 0.0F && n.driveAccel <= 3.0F &&
       n.driveFf >= 0.0F && n.driveFf <= 2.0F &&
-      n.driveLeanDeg >= 0.0F && n.driveLeanDeg <= 5.0F;
+      n.driveLeanDeg >= 0.0F && n.driveLeanDeg <= 5.0F &&
+      n.accelComp <= 2 &&
+      std::isfinite(n.imuHeightM) && n.imuHeightM >= 0.0F && n.imuHeightM <= 0.5F &&
+      std::isfinite(n.compDelayS) && n.compDelayS >= 0.0F && n.compDelayS <= 0.03F;
   if (!ok) return false;
   mutex_enter_blocking(&balanceMutex);
   pendingParams = n;
@@ -375,6 +388,16 @@ StepOutput step(uint32_t tUs, float pitchDeg, float rollDeg, float qDps,
   lastTheta = pitchDeg;
   lastError = pitchDeg - trimEst;
   lastRate = rateDps;
+  {
+    const float rateRad = rateDps * D2R;
+    if (havePrevRate) {
+      const float raw = (rateRad - prevRateRad) / dt;
+      const float a = dt / (dt + 1.0F / (6.2831853F * QDOT_CUTOFF_HZ));
+      qdotRad += a * (raw - qdotRad);
+    }
+    prevRateRad = rateRad;
+    havePrevRate = true;
+  }
 
   if (stopRequest) {
     stopRequest = false;
@@ -494,6 +517,8 @@ StepOutput step(uint32_t tUs, float pitchDeg, float rollDeg, float qDps,
   if (cmd > p.aMax) cmd = p.aMax;
   if (cmd < -p.aMax) cmd = -p.aMax;
   u = cmd;
+  uHead = (uHead + 1) % U_HIST;
+  uHist[uHead] = u;
   v += u * dt;
   if (v > p.vMax) v = p.vMax;
   if (v < -p.vMax) v = -p.vMax;
@@ -551,7 +576,18 @@ void poll(uint32_t nowUs)
 
 float accelCompensationG()
 {
-  return (p.accelComp && state == State::Running) ? u / G : 0.0F;
+  if (state != State::Running) return 0.0F;
+  if (p.accelComp == 1) return u / G;
+  if (p.accelComp == 2) {
+    // What the IMU itself feels: the wheel acceleration (commanded u, about
+    // compDelayS late) plus the body's angular acceleration times the IMU
+    // height. At h ~ l_eff the two nearly cancel, so u/g alone is wrong.
+    int n = static_cast<int>(p.compDelayS / 0.002F + 0.5F);
+    if (n > U_HIST - 1) n = U_HIST - 1;
+    const float uDelayed = uHist[(uHead - n + U_HIST) % U_HIST];
+    return (uDelayed + p.imuHeightM * qdotRad) / G;
+  }
+  return 0.0F;
 }
 
 const char* stateName(State s)
