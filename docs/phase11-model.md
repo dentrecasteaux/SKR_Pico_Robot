@@ -415,3 +415,16 @@ Standing and pushes repeat session 2 closely: LQR pitch RMS 0.058°, push recove
   - **Profiled moves:** `MOVE` / `TURN` while balancing, with the firmware braking onto the target itself. The distance is taken on x_ref; the angle on the integrated IMU yaw rate.
   - **Position integral:** `KI`, default 0 (off). The demo uses 2, equivalent to a trim walk at about 2.2 °/(m·s), but active during turns and reset at each drive.
 - **`demo_run.py`** now uses both.
+
+**Demo run 094839** (firmware moves, KI 2):
+- **Turns:** exact, at 360.1° and −360.1° by the IMU.
+- **Turn creep:** still +144 mm and −300 mm. The KI term hit its 1 m/s² limit, so a spin pushes with about 1.9 m/s². That's KP times about 2°, the tyre contact-band width.
+  - The asymmetric look of the wheels is this creep added to the turn: −86 / +148 mm/s instead of ±117.
+  - Probable cause: tyre scrub in the spin moves the centre of pressure across the contact patch, and it is signed with the turn direction.
+- **Bug:** after a 13 mm overshoot, the braking feed-forward held v_ref at zero against the approach law, so the first move stalled until its time-out.
+  - Fixed: the feed-forward now applies only when heading for the target, scaled by v_ref over the profile speed. The braking also starts a jerk-lag early.
+  - In simulation, moves from 10 mm to 1 m end within 1 mm.
+- **Roll drifts in spins:** the yaw rate leaks into the roll gyro at about 9 % (p/r = −0.095), so the roll estimate drifts 2–3° during each spin.
+  - The controller's pitch rate used cos(roll)·q − sin(roll)·r, so every turn added a fake pitch rate of 2–3 °/s.
+  - Changed to q − GYRO_QR·r, the same rate the attitude filter integrates.
+- **KI limit:** now the setting `KI_MAX` (default 2.5). The demo uses KI 3.

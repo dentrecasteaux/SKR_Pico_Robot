@@ -16,7 +16,7 @@ the distance on x_ref and the angle on the integrated IMU yaw rate. So the
 Pi's round-trip delays no longer decide where it stops. The script only
 waits for MOVING=0 between moves.
 
-A position integral (KI, default 2 here; firmware default 0 = off) pulls the
+A position integral (KI, default 3 here, limited to KI_MAX 2.5 m/s²; firmware default 0 = off) pulls the
 robot back to its reference after a stop or a turn, instead of leaving it
 parked in the tyre contact band. MOVE_V, TURN_W and KI are set for this run
 only and put back at the end.
@@ -115,7 +115,7 @@ def main() -> int:
     ap.add_argument("--turn", type=float, default=360.0,
                     help="each turn, degrees: 360 (return leg in reverse) or 180 (about-face)")
     ap.add_argument("--turn-rate", type=float, default=60.0, help="turn rate, °/s (<= 90)")
-    ap.add_argument("--ki", type=float, default=2.0,
+    ap.add_argument("--ki", type=float, default=3.0,
                     help="position integral for this run (0 = off; firmware default 0)")
     ap.add_argument("--pause", type=float, default=0.5, help="pause after each move, s")
     ap.add_argument("--start-hold", type=float, default=0.0, help="still before moving, s")

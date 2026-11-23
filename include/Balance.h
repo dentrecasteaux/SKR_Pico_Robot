@@ -106,9 +106,10 @@ struct Params
   float turnRateDps = 60.0F; // deg/s (TURN_W)
   // Position integral (KI, 24 Nov; 0 = off): u += KI * integral(x - x_ref) dt,
   // only while not driving forwards or backwards (standing, turning), reset
-  // when a drive starts, |KI * integral| <= KI_LIMIT. Pulls the robot out of
+  // when a drive starts, |KI * integral| <= KI_MAX. Pulls the robot out of
   // the tyre contact band back to x_ref. Same sign convention as KX.
   float ki = 0.0F;           // m/s^2 per (m*s)
+  float kiMax = 2.5F;        // m/s^2; spins push with about 1.9 (run 094839)
 };
 
 struct Status

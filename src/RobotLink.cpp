@@ -257,6 +257,7 @@ void RobotLink::processBalanceCommand(const Protocol::Command& command)
         else if (std::strcmp(k, "MOVE_V") == 0) p.moveSpeed = v;
         else if (std::strcmp(k, "TURN_W") == 0) p.turnRateDps = v;
         else if (std::strcmp(k, "KI") == 0) p.ki = v;
+        else if (std::strcmp(k, "KI_MAX") == 0) p.kiMax = v;
         else {
           sendError(sequence, "UNKNOWN_FIELD");
           return;
@@ -469,6 +470,7 @@ void RobotLink::sendBalanceStatus(uint32_t sequence)
   f("MOVE_V", p.moveSpeed, 3);
   f("TURN_W", p.turnRateDps, 1);
   f("KI", p.ki, 2);
+  f("KI_MAX", p.kiMax, 2);
   n("MOVING", s.moving);
   f("HEADING", s.headingDeg, 1);
   f("XINT", s.xInt, 3);

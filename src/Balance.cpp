@@ -3,6 +3,7 @@
 #include <cmath>
 
 #include "Config.h"
+#include "Imu.h"
 #include "Stepper.h"
 #include "pico/mutex.h"
 
@@ -25,7 +26,6 @@ constexpr float DRIVE_JERK = 4.0F;      // m/s^3
 constexpr float DRIVE_APPROACH = 4.0F;  // 1/s
 constexpr float MOVE_DECEL = 0.4F;      // m/s^2, braking profile for MOVE
 constexpr float TURN_DECEL_DPS2 = 144.0F;  // braking profile for TURN (< TURN_ACCEL)
-constexpr float KI_LIMIT = 1.0F;        // m/s^2, anti-windup on KI * integral
 
 Stepper* leftStepper = nullptr;
 Stepper* rightStepper = nullptr;
@@ -416,6 +416,7 @@ bool setParams(const Params& n)
       std::isfinite(n.moveSpeed) && n.moveSpeed >= 0.02F && n.moveSpeed <= MAX_DRIVE_MPS &&
       std::isfinite(n.turnRateDps) && n.turnRateDps >= 5.0F && n.turnRateDps <= MAX_DRIVE_DPS &&
       std::isfinite(n.ki) && n.ki >= 0.0F && n.ki <= 20.0F &&
+      std::isfinite(n.kiMax) && n.kiMax >= 0.1F && n.kiMax <= 5.0F &&
       n.accelComp <= 2 &&
       std::isfinite(n.imuHeightM) && n.imuHeightM >= 0.0F && n.imuHeightM <= 0.5F &&
       std::isfinite(n.compDelayS) && n.compDelayS >= 0.0F && n.compDelayS <= 0.03F &&
@@ -466,9 +467,13 @@ StepOutput step(uint32_t tUs, float pitchDeg, float rollDeg, float qDps,
   lastStepUs = tUs;
   haveLastStep = true;
 
-  // Pitch rate exactly as the attitude filter propagates pitch.
-  const float rr = rollDeg * D2R;
-  const float rateDps = cosf(rr) * qDps - sinf(rr) * rDps;
+  // Pitch rate exactly as the attitude filter propagates pitch: q less the
+  // learned yaw coupling. (Until 24 Nov this was cos(roll) q - sin(roll) r,
+  // but the roll estimate drifts 2-3 deg in spins, since r leaks into the
+  // roll gyro at about 9 %, and sin(roll) r then made a fake pitch rate of
+  // 2-3 deg/s in every turn.)
+  (void)rollDeg;
+  const float rateDps = qDps - Imu::yawPitchCoupling() * rDps;
   if (state == State::Off || state == State::Arming) trimEst = p.trimDeg;
   lastTheta = pitchDeg;
   lastError = pitchDeg - trimEst;
@@ -580,13 +585,25 @@ StepOutput step(uint32_t tUs, float pitchDeg, float rollDeg, float qDps,
   float aFf = 0.0F;             // profile deceleration, fed forward
   if (moveActive) {
     const float rem = moveTarget - xRef;
-    const float vBrake = sqrtf(2.0F * MOVE_DECEL * fabsf(rem));
+    // Start braking a little early: the jerk limit delays the deceleration
+    // by about DECEL/JERK, during which v_ref travels |v_ref| * DECEL/(2 JERK).
+    const float remEff =
+        fmaxf(0.0F, fabsf(rem) - fabsf(vRef) * MOVE_DECEL / (2.0F * DRIVE_JERK));
+    const float vBrake = sqrtf(2.0F * MOVE_DECEL * remEff);
     const float vAbs = fminf(p.moveSpeed, vBrake);
     vTarget = rem >= 0.0F ? vAbs : -vAbs;
-    // On the braking branch the target falls at MOVE_DECEL: feed that
-    // forward so v_ref doesn't lag it (the approach law alone overshoots).
-    if (vBrake < p.moveSpeed) aFf = rem >= 0.0F ? -MOVE_DECEL : MOVE_DECEL;
-    if ((fabsf(rem) < 0.002F && fabsf(vRef) < 0.005F) ||
+    // On the braking branch, heading for the target, the target speed falls
+    // at MOVE_DECEL: feed that forward so v_ref doesn't lag it. Only when
+    // moving towards the target (after an overshoot it would hold v_ref at
+    // zero against the approach law: run 094839 stalled 13 mm past).
+    const bool towards = (rem > 0.0F && vRef > 0.0F) || (rem < 0.0F && vRef < 0.0F);
+    // Scaled by how close v_ref is to the profile, so it fades out instead of
+    // stalling v_ref short of a nearby target (checked in simulation: 10 mm to
+    // 1 m moves end within 1 mm and finish).
+    if (vBrake < p.moveSpeed && towards)
+      aFf = (rem >= 0.0F ? -MOVE_DECEL : MOVE_DECEL) *
+            fminf(1.0F, fabsf(vRef) / fmaxf(vAbs, 0.001F));
+    if ((fabsf(rem) < 0.003F && fabsf(vRef) < 0.01F) ||
         static_cast<int32_t>(tUs - moveDeadlineUs) >= 0) {
       moveActive = false;
       vTarget = 0.0F;
@@ -647,7 +664,7 @@ StepOutput step(uint32_t tUs, float pitchDeg, float rollDeg, float qDps,
   const bool driving = fabsf(vRef) > 0.005F || fabsf(vTarget) > 0.0F;
   if (p.ki > 0.0F && state == State::Running && !driving) {
     xInt += (x - xRef) * dt;
-    const float lim = KI_LIMIT / p.ki;
+    const float lim = p.kiMax / p.ki;
     if (xInt > lim) xInt = lim;
     if (xInt < -lim) xInt = -lim;
   } else if (driving || p.ki <= 0.0F) {
