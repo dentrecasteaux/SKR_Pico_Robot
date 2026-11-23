@@ -14,7 +14,9 @@ Metrics (all from the log; v and x are the commanded wheel speed and position):
           0.3 deg for 0.5 s, peak |u|
   steps   per speed step: time to 90 % of the commanded speed, overshoot,
           initial wrong-way speed, peak pitch change, settling time after the
-          stop (|v| < 20 mm/s), position overshoot at the stop
+          stop (|v| < 20 mm/s), position overshoot at the stop, final position
+          error at the end of the pause (distance travelled − V·T_on) and the
+          pitch offset left at the end of the pause (contact-patch band)
   moving  pitch-rate RMS in the 3.8-5.2 Hz and 16-25 Hz bands while |v| > 100 mm/s
 """
 from __future__ import annotations
@@ -158,6 +160,14 @@ def step_metrics(d, meta):
                     settle = round(float(ta[j] - t_stop), 2)
                     break
         i_stop = np.flatnonzero(t >= t_stop)[0] if (t >= t_stop).any() else len(t) - 1
+        pre = (t >= t0 - 2.0) & (t < t0)
+        tail = (t >= t_end - 2.0) & (t < t_end)
+        final_err = final_dpitch = None
+        if after.any() and pre.any():
+            moved = x[after][-1] - x[pre][-1]
+            final_err = round(float((moved - V * (t_stop - t0)) * sv), 0)
+        if tail.any() and pre.any():
+            final_dpitch = round(float(th[tail].mean() - th[pre].mean()), 2)
         out.append({
             "v_mm_s": V,
             "t90_s": round(float(t[on][reach[0]] - t0), 2) if len(reach) else None,
@@ -166,6 +176,8 @@ def step_metrics(d, meta):
             "peak_dpitch_deg": round(float(np.max(np.abs(th[on] - th[max(0, i0 - 125):i0].mean()))), 2),
             "stop_settle_s": settle,
             "stop_overshoot_mm": round(float(np.max((x[after] - x[i_stop]) * sv)) if after.any() else 0.0, 0),
+            "final_error_mm": final_err,
+            "final_dpitch_deg": final_dpitch,
         })
     return out
 
@@ -213,11 +225,14 @@ def metrics(run: str) -> dict:
             }
     sm = step_metrics(d, meta)
     if sm:
+        signed = ("overshoot_pct", "final_error_mm")   # already per direction
+
         def avg(key):
-            vals = [abs(s[key]) for s in sm if s[key] is not None]
+            vals = [(s[key] if key in signed else abs(s[key])) for s in sm if s[key] is not None]
             return round(float(np.mean(vals)), 2) if vals else None
         res["steps"] = {k: avg(k) for k in ("t90_s", "overshoot_pct", "wrong_way_mm_s",
-                                           "peak_dpitch_deg", "stop_settle_s", "stop_overshoot_mm")}
+                                           "peak_dpitch_deg", "stop_settle_s", "stop_overshoot_mm",
+                                           "final_error_mm", "final_dpitch_deg")}
         res["steps"]["each"] = sm
     mv = (d.v.abs() > 100).to_numpy() & ((d["flags"] & 0x20) > 0).to_numpy()
     if mv.sum() > 100:
@@ -248,6 +263,8 @@ ROWS = [
     ("Steps: peak pitch (°)", lambda r: r.get("steps", {}).get("peak_dpitch_deg")),
     ("Steps: stop settle (s)", lambda r: r.get("steps", {}).get("stop_settle_s")),
     ("Steps: stop overshoot (mm)", lambda r: r.get("steps", {}).get("stop_overshoot_mm")),
+    ("Steps: final position error (mm)", lambda r: r.get("steps", {}).get("final_error_mm")),
+    ("Steps: pitch offset after settling (°)", lambda r: r.get("steps", {}).get("final_dpitch_deg")),
     ("Moving: 4–5 Hz / 20 Hz (°/s)", lambda r: f"{r['moving']['band_4_5hz_dps']} / {r['moving']['band_20hz_dps']}" if r.get("moving") else None),
     ("Moving: u sd (m/s²)", lambda r: r.get("moving", {}).get("u_sd")),
 ]

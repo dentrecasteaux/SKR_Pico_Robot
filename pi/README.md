@@ -116,7 +116,7 @@ controller set, always the same sequence:
 - 10 s settle and 60 s quiet standing;
 - 10 standard kicks (±2 m/s², 40 ms);
 - 4 pushes (±3 m/s², 60 ms);
-- speed steps +V, 0, −V, 0 (default 150 mm/s, so leave 1 m clear in front and behind).
+- speed steps: +V for 5 s, stop for 10 s, −V for 5 s, stop for 10 s (default 150 mm/s; 100 is a good common value, about 0.5 m out and back, so leave 1 m clear in front and behind).
 
 It writes `compare.json` into the run: every setting (BAL_STATUS, IMU, STATUS, TMC PWM, saved tuning) and the time of each segment. `--set KEY=value …` and `--tau` change settings for that run only, and they are put back afterwards. Metrics come from `analysis/compare.py RUN …` on the Mac (numpy, scipy, pandas).
 

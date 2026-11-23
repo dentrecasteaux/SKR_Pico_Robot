@@ -610,13 +610,13 @@ The baseline is the configuration that passed every gate.
 2. 60 s standing;
 3. 10 standard kicks (±2 m/s², 40 ms);
 4. 4 pushes (±3 m/s², 60 ms);
-5. speed steps +V / 0 / −V / 0 (2.5 s on, 4 s off; V default 150 mm/s).
+5. speed steps +V / 0 / −V / 0 (5 s on, 10 s to settle; V default 150 mm/s).
 
 `analysis/compare.py RUN …` prints a side-by-side table:
 - **Stand:** pitch, rate and u RMS, drift.
 - **Kicks:** ensemble ring.
 - **Pushes:** peak pitch, distance, recovery, peak u.
-- **Steps:** t90, overshoot, wrong-way speed, peak pitch, stop settle and overshoot.
+- **Steps:** t90, overshoot, wrong-way speed, peak pitch, stop settle and overshoot, and the final position error and pitch offset after settling. Both of those show the tyre contact-patch band of about ±2°.
 - **Moving:** band RMS and u sd while |v| > 100 mm/s.
 
 Compare runs from one session, after the same handling, at the same battery state.
