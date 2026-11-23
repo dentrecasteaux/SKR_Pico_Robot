@@ -232,3 +232,18 @@ The new compensation removes the 4–5 Hz mode at τ 0.5 and keeps the slow ring
 The notch removes the 20 Hz shake entirely: 13 s above 260 mm/s, *u* sd ≤ 0.28 m/s², no accelerometer rejects, and the 4–5 Hz band below 1.6 °/s. Smoothest drive so far.
 
 **New firmware defaults:** ACCEL_COMP 2 (IMU_H 0.098, COMP_DELAY_MS 10), NOTCH_HZ 20.5, NOTCH_Q 2, IMU filter τ 0.5. The Pi's `balance_tools.DEFAULTS` and `check_config.py` are updated to match. Next: the LQR gains, standing with kicks and then driving, on these defaults.
+
+### 24 Nov: the LQR gains on the new defaults (comp 2, τ 0.5, notch 20.5 Hz, Q 2)
+
+| LQR gains | Kick ring | 5.2–8 Hz band | Pitch std | Wheel speed std | *u* std |
+|---|---|---|---|---|---|
+| Comp 1, τ 2.0, no notch (220023, 23 Nov) | 3.5 Hz, ζ 0.43 | 2.1 °/s | 0.16° | 8.4 mm/s | 0.42 |
+| Comp 2, τ 0.5, notch Q 2 (065011) | **5.4–6.0 Hz, ζ ≈ 0 on every kick** | 5.4 | 0.28 | 14.5 | 0.57 |
+| Comp 2, τ 0.5, notch off (065538) | 3.2 Hz, ζ 0.43; 3 of 20 kicks at 3.8–5.3 Hz, ζ 0 | 2.7 | 0.20 | 10.5 | 0.52 |
+
+At the LQR gains there is a marginal mode at about 5–6 Hz. With comp 2 alone it shows on some kicks. The notch's phase lag (about 8° at 5.6 Hz for Q 2) tips it onto every kick. Comp 1 at τ 2.0 was a little more robust at these gains (but drifts while driving). Options:
+1. **A narrower notch, Q 4:** about 4° at 5.6 Hz and still −14 dB over 20–21 Hz.
+2. **Tune comp 2** (IMU_H, COMP_DELAY_MS), whose mismatch may be what feeds the 5 Hz mode at KP 73.5.
+3. **Accept slightly softer gains,** between step 3 and LQR.
+
+Step 2 gains (saved) remain the practical everyday setting.
