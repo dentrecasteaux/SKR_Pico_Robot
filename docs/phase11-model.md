@@ -163,3 +163,8 @@ With the estimator fixed, the LQR gains from the rigid model are the best contro
 - **Earlier hint:** a ~19–20 Hz, undamped "compliant drive" resonance also came out of the 11.3 pole fit (drive+base). Something in the drive train (rotor and wheel/tyre against the body) seems to resonate near 20 Hz. The stepper's own damping falls with speed, and the LQR gains give more loop gain at 20 Hz than the old ones.
 - **Likely fix:** a low-pass filter (about 8–10 Hz) on the gyro rate used by the KD term, and on *u*. That's standard practice. It removes the loop gain at 20 Hz while barely changing the 2–5 Hz behaviour.
 - **Until then:** drive only at the step 2 gains, and keep the speed under about 0.15 m/s with the LQR gains.
+
+### Drive test 3, step 2 gains at τ 2.0 (run 222024, stood 102 s, TILT_FWD)
+
+- **The 20 Hz shake appears with these gains too.** RMS pitch rate in the 16–25 Hz band: 2.9 / 11.7 / 19.1 / 27.4 °/s at 0–100 / 100–200 / 200–260 / >260 mm/s, almost the same as with the LQR gains. So it is not the LQR gains. Of today's changes, the τ 2.0 firmware is the main suspect: this morning's drives at τ 0.5 showed none (0.6 °/s at 200–260 mm/s). The mechanism is still unclear. A direct check: the same drive at step 2 gains with τ set back to 0.5.
+- **The fall:** after the speed was raised to 300, the next command was backward. For 4 s before it, the robot stood still at a steady 4.4° pitch, 2.5° past the 1.9° trim. At 109.46 s *u* went to −1.2 m/s² and the wheels backed out from under the forward lean. Pitch went 4.4 → 10.7° in 0.25 s, and the controller's forward correction came too late.
