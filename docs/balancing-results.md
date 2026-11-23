@@ -297,6 +297,19 @@ Run `103528`: it balanced calmly for 28 s, then **balancing ended while upright*
 - **No kicks fired** for the same reason: balance_run waited for |err| < 1.5°. Its gate is now |θ̇| < 10 °/s and |v| < 0.1 m/s.
 - **94 Hz filter (5.6): quieter.** Over ten quiet 10 s windows: pitch sd **0.07–0.12°** (0.15–0.21° at 44 Hz), wheel-speed sd 2.7–5.8 mm/s (4–5), oscillation peak 2.5–3.8 Hz (2.6–2.9). The new mount probably helps too. **5.6 closed: CONFIG 0x02 (94 Hz) kept.**
 
+### 9.4b Kick test: l_eff measured (run `124753`)
+
+New trim and limits: it held its place (42 s, ended by Ctrl-C after the kicks). Ten alternating ±2 m/s², 40 ms kicks (mean u during each kick 1.5–1.8 m/s², because the controller pushes back):
+
+| | Forward kicks | Backward kicks | All |
+|---|---|---|---|
+| Δq | −33 to −45 °/s | +44 to +54 °/s | |
+| l_eff | 74–80 mm | 57–77 mm | **median 74.5 mm (57–80, within ±20 %: pass)** |
+
+- **l_eff ≈ 75 mm** (ω₀ = √(g/l) ≈ 11.4 rad/s), a little below the swing-test value (95 mm) and far below the 200 mm the gains were designed for. The θ̈ regression in the same run gave 1.6 m (r = 0.2), confirming that the regression is useless and the kick is the method to use.
+- **What that means for the current gains** (KP 36.7, KD 4.19, KV 4.81, KX 2.94; designed for l = 0.20 m): at l = 75 mm the fast poles are real (−5.6 and −43 rad/s): heavily damped, but with a large KD, so the loop is noisy and sensitive to delay. With 8–12 ms of loop delay a 9–15 Hz mode appears with damping down to 0.34 (if l is really 60 mm). The slow (speed/position) poles sit at 1.1 rad/s.
+- **Redesign for l = 75 mm** (fast pair 14 rad/s ζ 0.7, slow pair 2.0 rad/s ζ 0.9): **KP 30.55, KD 2.19, KV 5.99, KX 5.99.** Checked in discrete time (500 Hz) with 8 and 12 ms of delay for l = 60–90 mm: all stable, minimum damping 0.48–0.89, no high-frequency mode. The slow poles are 1.6× faster, so drive and position response should also be quicker.
+
 ## Actions arising
 
 - Fit a LiPo voltage alarm on the balance lead (the SKR doesn't measure the battery).
