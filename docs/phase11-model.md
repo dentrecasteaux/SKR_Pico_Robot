@@ -123,3 +123,5 @@ A model with the filter in it (rigid l 94 mm, which matches the 95 mm measured i
 | Wheel speed std | 16.7 mm/s | 11.4 | **9.5** |
 
 A longer filter time constant removes the fast mode and keeps the slow ring damped. `Config::IMU_FILTER_TAU_S` is now 2.0 s, which needs a build and flash. Until then, set it after each power cycle with `call("imu_set", tau=2.0)`. Next: steps 4 and 5 with τ 2.0, then a fresh model fit at τ 2.0, where the estimator loop matters much less and the plant should be close to the rigid model.
+
+**Run 215717: step 4 gains, τ 2.0 (new firmware build).** Kick ring 2.81 Hz, ζ 0.51 (0.40–0.53, very consistent). 3.8–5.2 Hz band 1.8 °/s; pitch std 0.17°; *u* std 0.46; wheel speed std 9.2 mm/s. At τ 0.5 the same gains gave a 4.8 Hz ring at ζ 0.02, a 7.1 °/s band, pitch std 0.44° and 18.8 mm/s.
