@@ -11,7 +11,6 @@ Next candidates:
 - one-wheel look in turns (accepted for now): options if revisited are the stiffer outer gains while turning only, a turn feed-forward, or harder, narrower tyres (docs/phase11-model.md);
 - stopping accuracy: the robot can park up to about 0.3 m short in the tyre contact band; `KI` didn't help in the turn tests, and the stiffer KX did but looked jittery at rest;
 - a physical push test (pendulum hammer) and the sensitivity tests, to finish the comparison protocol;
-- first use of `tools/flash-skr.sh` (flash the SKR from the Pi over Wi-Fi);
 - permanent rigid IMU mount, as low and central as practical (RandomQuestions Q30); tighten the battery strap and motor mounts;
 - battery voltage alarm, then sensing;
 - a physical emergency stop;

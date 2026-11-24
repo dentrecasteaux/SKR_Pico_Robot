@@ -446,7 +446,7 @@ Three sessions with the fixed protocol (section 11.4), on timber laminate. Full 
 | Battery monitoring | None | LiPo alarm on the balance lead; ADC divider later |
 | Physical e-stop | None | Independent motor-power cut-off |
 | Encoders | None | Needed for true odometry and slip detection |
-| Flashing from the Pi | `tools/flash-skr.sh` (24 Nov): 1200-baud touch, then picotool or a copy onto RPI-RP2 | First use: check that it works on this Pi (picotool or passwordless sudo) |
+| Flashing from the Pi | `tools/flash-skr.sh` (24 Nov): 1200-baud touch, then picotool or a copy onto RPI-RP2 | Working (first flash 24 Nov, by copying onto RPI-RP2 with passwordless sudo) |
 | Permanent IMU mount | Wedged, not fixed | Screwed bracket at a known height |
 
 ---
