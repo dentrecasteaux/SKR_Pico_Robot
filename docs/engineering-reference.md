@@ -233,7 +233,7 @@ u_mm_s2,v_left_sps,v_right_sps,v_left_mm_s,v_right_mm_s,mode,flags
 
 ## 5. Raspberry Pi software
 
-Details: [pi-controller.md](pi-controller.md), [../pi/README.md](../pi/README.md). Deploy with `bash tools/deploy-pi.sh` from the Mac.
+Details: [pi-controller.md](pi-controller.md), [../pi/README.md](../pi/README.md). Deploy with `bash tools/deploy-pi.sh` from the Mac. Flash the SKR over Wi-Fi with `bash tools/flash-skr.sh` after `pio run`: it refuses a stale build or a balancing robot, does the 1200-baud touch, loads the image with picotool or by copying it onto the RPI-RP2 drive, then restarts robotd and checks the new firmware answers.
 
 | Program | Role |
 |---|---|
@@ -446,7 +446,7 @@ Three sessions with the fixed protocol (section 11.4), on timber laminate. Full 
 | Battery monitoring | None | LiPo alarm on the balance lead; ADC divider later |
 | Physical e-stop | None | Independent motor-power cut-off |
 | Encoders | None | Needed for true odometry and slip detection |
-| Flashing from the Pi | Not implemented | 1200-baud touch + `picotool load` script (RandomQuestions Q25) |
+| Flashing from the Pi | `tools/flash-skr.sh` (24 Nov): 1200-baud touch, then picotool or a copy onto RPI-RP2 | First use: check that it works on this Pi (picotool or passwordless sudo) |
 | Permanent IMU mount | Wedged, not fixed | Screwed bracket at a known height |
 
 ---
