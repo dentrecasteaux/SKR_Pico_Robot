@@ -153,7 +153,8 @@ class RunRecorder(_CsvRun):
 
     def __init__(self, name: str, divisor: int, notes: str,
                  duration_s: Optional[float], status: dict[str, str],
-                 imu: dict[str, str], steps_per_mm: Optional[float]) -> None:
+                 imu: dict[str, str], steps_per_mm: Optional[float],
+                 settings: Optional[dict[str, Any]] = None) -> None:
         self.divisor = divisor
         self.deadline = (time.monotonic() + duration_s) if duration_s else None
         meta = {
@@ -166,6 +167,7 @@ class RunRecorder(_CsvRun):
             "duration_requested_s": duration_s,
             "status_at_start": status,
             "imu_at_start": imu,
+            "settings_at_start": settings or {},
             "units": "angles deg, rates deg/s, accel g, u mm/s2, wheel speeds "
                      "steps/s and mm/s (forward positive)",
             "modes": MODE_NAMES,

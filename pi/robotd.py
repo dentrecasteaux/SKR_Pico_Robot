@@ -241,10 +241,11 @@ class RobotController:
                 ):
                     raise ValueError("duration_s must be a positive number")
                 self._record_status(client.command("STATUS"))
+                settings = self._settings_snapshot(client)
                 self._recorder = RunRecorder(
                     name, divisor, notes, duration,
                     dict(self._latest_status), dict(self._latest_imu),
-                    self._steps_per_mm(),
+                    self._steps_per_mm(), settings,
                 )
                 try:
                     reply = client.command("LOG_START", f"DIV={divisor}")
@@ -389,10 +390,41 @@ class RobotController:
         import math
         return FULL_STEPS_PER_REV * microsteps / (math.pi * WHEEL_DIAMETER_MM)
 
+    def _settings_snapshot(self, client: Any) -> dict[str, Any]:
+        """Every setting that shapes a run, for meta.json (24 Nov).
+
+        BAL_STATUS (gains, estimator, filters, drive and move settings), IMU
+        (filter tau, bias, coupling), TMC_PWM (StealthChop state) and the
+        saved web tuning. A failed read is recorded as an error, never fatal.
+        """
+        out: dict[str, Any] = {}
+        for key, command in (("balance", "BAL_STATUS"), ("imu", "IMU"),
+                             ("tmc_pwm", "TMC_PWM")):
+            try:
+                reply = client.command(command)
+                out[key] = reply_fields(reply)
+                if command == "IMU":
+                    self._record_imu(reply)
+            except (RobotLinkError, serial.SerialException) as error:
+                out[key] = {"error": str(error)}
+        try:
+            out["saved_tuning"] = tuning.load_tuning()
+        except Exception as error:  # noqa: BLE001
+            out["saved_tuning"] = {"error": str(error)}
+        out["tuning_applied_at_boot"] = dict(self._tuning_applied)
+        return out
+
     def _finish_recorder(self, firmware: dict[str, str]) -> dict[str, Any]:
         if self._recorder is None:
             return {}
-        meta = self._recorder.close({"firmware_at_stop": firmware})
+        extra: dict[str, Any] = {"firmware_at_stop": firmware}
+        if self._client is not None and "error" not in firmware:
+            try:
+                extra["balance_at_stop"] = reply_fields(
+                    self._client.command("BAL_STATUS"))
+            except (RobotLinkError, serial.SerialException):
+                pass
+        meta = self._recorder.close(extra)
         self._last_run = {"run": self._recorder.path.name,
                           **meta.get("summary", {})}
         self._recorder = None

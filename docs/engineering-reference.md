@@ -440,7 +440,7 @@ Three sessions with the fixed protocol (section 11.4), on timber laminate. Full 
 | GYRO_QR learnt while carried | Fixed (24 Nov) | Check learned values in turn runs |
 | Joint damping varies | Accepted for the prototype | Tighten the battery strap, IMU mount and motor mounts |
 | Stopping accuracy (tyre contact band) | Measured (8.1): parks 0–0.5 m short after a move; a faster trim walk doesn't fix it | A direct position integral on u (anti-windup, active only when stopped), or a small dither; harder or narrower tyres |
-| Settings not logged | `compare_run.py` writes them to `compare.json`; other runs still don't | Write the full `BAL_STATUS` and `IMU` settings into `meta.json` at the start of every run |
+| Settings logged | Done (24 Nov): every logged run's `meta.json` has `settings_at_start` (BAL_STATUS, IMU, TMC_PWM, saved tuning) and `balance_at_stop` | — |
 | LQR / stiffer gains | Shelved | Possible routes: reduce KX while driving (Klop-style speed mode), better model, Kalman filter |
 | Turn-induced estimator effects | Small with the current fixes | — |
 | Battery monitoring | None | LiPo alarm on the balance lead; ADC divider later |

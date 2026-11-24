@@ -48,6 +48,10 @@ the client remains connected until it receives the matching `DONE` event.
 `data.csv` (engineering units, plus wheel speeds in mm/s) and `meta.json`
 (name, notes, rate, the robot status at the start, firmware counters at the
 end, and a summary with rows, missing records and the largest time gap).
+Since 24 Nov it also has `settings_at_start`: the full `BAL_STATUS` (gains,
+estimator, notch, drive and move settings), `IMU` (filter, bias, coupling),
+`TMC_PWM` and the saved web tuning, plus `balance_at_stop` (trips, maximum
+error and u), so every run records exactly what it ran with.
 
 ```text
 python3 robotdctl.py log-start --name my-test --div 2 --notes "what I did"

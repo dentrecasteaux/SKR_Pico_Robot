@@ -8,7 +8,6 @@ Next candidates:
 
 - confirm the SKR runs the final 24 Nov build (`bal-status` shows `SPIN_WAIT=0`, `KV=6.890`, `KX=6.480`);
 - confirm the iPhone drive fix (1.5 s hold, end reasons);
-- log every controller, estimator and filter setting in each run's `meta.json`;
 - one-wheel look in turns (accepted for now): options if revisited are the stiffer outer gains while turning only, a turn feed-forward, or harder, narrower tyres (docs/phase11-model.md);
 - stopping accuracy: the robot can park up to about 0.3 m short in the tyre contact band; `KI` didn't help in the turn tests, and the stiffer KX did but looked jittery at rest;
 - a physical push test (pendulum hammer) and the sensitivity tests, to finish the comparison protocol;
