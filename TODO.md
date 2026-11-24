@@ -2,11 +2,11 @@
 
 The balancing robot is commissioned and runs the everyday configuration (see [docs/engineering-reference.md](docs/engineering-reference.md), sections 8–9). The longer-term plan is in [docs/roadmap.md](docs/roadmap.md).
 
-Built on 24 Nov but not yet flashed or tested on the robot: profiled `MOVE` / `TURN` while balancing, the pitch rate without the roll term, the position integral (`KI`, off by default), and `SPIN_WAIT` (off by default).
+Added on 24 Nov and used on the robot: profiled `MOVE` / `TURN` while balancing, the pitch rate without the roll term, the position integral (`KI`, off by default) and `SPIN_WAIT` (off by default).
 
 Next candidates:
 
-- flash and check the 24 Nov firmware: a stand, a few drives and turns, and `demo_run.py`;
+- confirm the SKR runs the final 24 Nov build (`bal-status` shows `SPIN_WAIT=0`, `KV=6.890`, `KX=6.480`);
 - confirm the iPhone drive fix (1.5 s hold, end reasons);
 - log every controller, estimator and filter setting in each run's `meta.json`;
 - one-wheel look in turns (accepted for now): options if revisited are the stiffer outer gains while turning only, a turn feed-forward, or harder, narrower tyres (docs/phase11-model.md);
