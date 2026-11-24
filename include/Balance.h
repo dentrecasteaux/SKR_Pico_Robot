@@ -116,8 +116,9 @@ struct Params
   // requested while the robot is still moving waits until it has stopped
   // (|v_ref| <= 5 mm/s and |v| <= SPIN_START_V), at most SPIN_WAIT_MAX_S.
   // Turning straight out of a drive left it coasting at ~75 mm/s through
-  // the spin, so one wheel nearly stood still (run 105717). 0 = off.
-  uint8_t spinWait = 1;
+  // the spin, so one wheel nearly stood still (run 105717). 0 = off
+  // (default: turning straight out of a drive is more fun; 1 to try it).
+  uint8_t spinWait = 0;
 };
 
 struct Status

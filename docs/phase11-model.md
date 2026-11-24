@@ -506,4 +506,4 @@ Standing and pushes repeat session 2 closely: LQR pitch RMS 0.058°, push recove
 - **Most turns started straight out of a forward drive.** Example at 10.4 s: driving at about 300 mm/s, forward released, left pressed. The robot coasted at about +75 mm/s through the whole spin (left −43, right +191 mm/s), then stopped within 0.2 s of the turn ending.
 - **Changes:**
   - **New firmware defaults KV 10 / KX 11.8:** tried, then withdrawn the same morning. They looked jittery at rest, so the everyday set stays the default and the one-wheel look in turns is accepted.
-  - **`SPIN_WAIT` (default 1):** a turn on the spot asked for while moving waits until the robot has stopped (≤ 30 mm/s, at most 1.5 s), so every spin starts from rest.
+  - **`SPIN_WAIT`:** a turn on the spot asked for while moving waits until the robot has stopped (≤ 30 mm/s, at most 1.5 s), so every spin starts from rest. Default 0 (off): turning straight out of a drive is more fun; `BAL_SET SPIN_WAIT=1` to try it.

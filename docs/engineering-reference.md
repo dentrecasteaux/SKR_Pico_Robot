@@ -300,7 +300,7 @@ All `BAL_SET` keys are live (also while balancing) and are lost at reboot unless
 | `MOVE_V` | 0.2 | m/s | 0.02–0.3 | Cruise speed of a profiled `MOVE` while balancing |
 | `TURN_W` | 60 | °/s | 5–90 | Turn rate of a profiled `TURN` while balancing (stops on the IMU heading) |
 | `KI` | 0 (off) | m/s² per m·s | 0–20 | Position integral while not driving (standing, turning); experimental, 3 used for the film demo |
-| `SPIN_WAIT` | 1 | 0/1 | 0–1 | Stop before spinning: a turn on the spot asked for while moving waits until the robot has stopped (≤ 30 mm/s, at most 1.5 s) |
+| `SPIN_WAIT` | 0 (off) | 0/1 | 0–1 | Stop before spinning: a turn on the spot asked for while moving waits until the robot has stopped (≤ 30 mm/s, at most 1.5 s) |
 | `KI_MAX` | 2.5 | m/s² | 0.1–5 | Limit on the KI term (spins push with about 1.9 m/s²) |
 | `ACCEL_COMP` | 2 | – | 0, 1, 2 | Accelerometer compensation mode |
 | `IMU_H` | 0.098 | m | 0–0.5 | IMU height above the axle (mode 2) |
