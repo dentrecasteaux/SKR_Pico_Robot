@@ -46,7 +46,7 @@ StealthChop when the Pico reboots.
 The main web page (`http://r2w-pi.local:8080/`) is the balance page.
 
 1. Power up. The firmware defaults are the everyday configuration: KP 51.4,
-   KD 4.37, KV 10, KX 11.8, `ACCEL_COMP` 2, filter τ 0.5 s, notch 20.5 Hz,
+   KD 4.37, KV 6.89, KX 6.48, `ACCEL_COMP` 2, filter τ 0.5 s, notch 20.5 Hz,
    1.0 A. Any tuning saved from the page is re-applied automatically. Check
    with `python3 check_config.py` on the Pi.
 2. Optionally enter notes and a kick count, then press **Start (arm)**. Lift

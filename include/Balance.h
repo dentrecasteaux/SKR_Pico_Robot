@@ -69,11 +69,10 @@ struct Params
   // 0.38 m/s. Before 24 Nov: 36.7 / 4.19 / 4.81 / 2.94 (pole placement).
   float kp = 51.4F;          // m/s^2 per rad
   float kd = 4.37F;          // m/s^2 per rad/s
-  // 24 Nov (later): KV 10 / KX 11.8 (LQR's outer gains with the everyday KP
-  // and KD): kick zeta 0.33, stops within ~7 mm, symmetric turns (run 101657,
-  // demo 101242). Before: KV 6.89 / KX 6.48.
-  float kv = 10.0F;          // m/s^2 per m/s
-  float kx = 11.8F;          // m/s^2 per m
+  // KV 10 / KX 11.8 (LQR's outer gains) gave symmetric turns and accurate
+  // stops (runs 101657, 101242) but looked jittery at rest: not adopted.
+  float kv = 6.89F;          // m/s^2 per m/s
+  float kx = 6.48F;          // m/s^2 per m
   float trimDeg = 1.9F;      // IMU pitch at the balance point (IMU wedged
                              // under the top plate, 23 Nov; was -3.9)
   float aMax = 6.0F;         // m/s^2

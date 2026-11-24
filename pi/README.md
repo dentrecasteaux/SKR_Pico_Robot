@@ -104,7 +104,7 @@ ssh -t robot@r2w-pi.local 'cd r2w && python3 fall_test.py'
 
 ```text
 python3 robotdctl.py bal-status
-python3 robotdctl.py bal-set KP=51.4 KD=4.37 KV=10 KX=11.8 TRIM=1.9     # the defaults
+python3 robotdctl.py bal-set KP=51.4 KD=4.37 KV=6.89 KX=6.48 TRIM=1.9   # the defaults
 python3 robotdctl.py bal-arm [--dry]
 python3 robotdctl.py bal-stop          # ends balancing (as does ESTOP); STOP only stops it moving
 ```

@@ -67,7 +67,7 @@ R2W is a two-wheel inverted-pendulum robot.
 | Training-wheel stops (IMU pitch) | +12.7° forward, −16.7° back | measured; tilt trips are 2° inside: +10.7° / −14.7° |
 | Control rate | 500 Hz | IMU data-ready interrupt |
 | Telemetry | 500 Hz into rings; 250 Hz streamed to the Pi | |
-| Everyday-stiff gains | KP 51.4, KD 4.37, KV 10, KX 11.8 | firmware default since 24 Nov (the everyday set had KV 6.89, KX 6.48) |
+| Everyday gains | KP 51.4, KD 4.37, KV 6.89, KX 6.48 | firmware default since 24 Nov |
 | Kick wobble with everyday gains | about 2.3–2.5 Hz, ζ 0.27–0.43 | it varies with the state of the joints |
 | Clean drive speed | up to 0.38 m/s measured | firmware drive limit 0.3 m/s set point |
 
@@ -283,8 +283,8 @@ All `BAL_SET` keys are live (also while balancing) and are lost at reboot unless
 |---|---|---|---|---|
 | `KP` | 51.4 | m/s² per rad | 0–500 | Angle gain |
 | `KD` | 4.37 | m/s² per rad/s | 0–50 | Angle-rate gain |
-| `KV` | 10.0 | m/s² per m/s | ±100 | Speed gain (positive) |
-| `KX` | 11.8 | m/s² per m | ±100 | Position gain (positive; also enables trim walking) |
+| `KV` | 6.89 | m/s² per m/s | ±100 | Speed gain (positive) |
+| `KX` | 6.48 | m/s² per m | ±100 | Position gain (positive; also enables trim walking) |
 | `TRIM` | 1.9 | ° | between the tilt limits | Balance point (IMU pitch) |
 | `TRIM_RATE` | 0.25 | °/(m·s) | 0–10 | Automatic trim speed (0 = off) |
 | `TRIM_RANGE` | 4.0 | ° | 0–10 | Trim walking limit around `TRIM` |
@@ -397,8 +397,8 @@ For a mode that only appears at speed, also compute the RMS of the pitch rate in
 | Phase 9 PD | 39 / 2.9 / 0 / 0 | From the model | First balance; drifted (no outer loop) |
 | Pole placement (to 24 Nov) | 36.7 / 4.19 / 4.81 / 2.94 | Poles at 10 rad/s (ζ 0.7) and 1.2 rad/s (ζ 0.9), designed for l 0.20 m | Stood for minutes, drove and turned; wobble ζ 0.05–0.25; little margin in the fitted model |
 | Redesign (23 Nov) | 30.55 / 2.19 / … | Wrong model | Unstable in 2 s (the fitted model later predicted ζ −0.21) |
-| Everyday (step 2) | 51.4 / 4.37 / 6.89 / 6.48 | 2/5 of the way to LQR, checked on the model | Default until 24 Nov. With comp 2, τ 0.5 and the notch: kick ζ 0.2–0.43, clean drives to 0.38 m/s, but one-wheel turns and stops up to 0.37 m short |
-| **Everyday-stiff (24 Nov)** | **51.4 / 4.37 / 10 / 11.8** | Everyday KP/KD with LQR's KV/KX | **The default.** Kick ζ 0.33, push recovery 0.66 s, stops within ~7 mm, symmetric turns from standstill; slightly more standing wobble (0.138°) and stop overshoot (132 mm). Margins not yet checked on the model |
+| **Everyday (step 2)** | **51.4 / 4.37 / 6.89 / 6.48** | 2/5 of the way to LQR, checked on the model | **The default.** With comp 2, τ 0.5 and the notch: kick ζ 0.2–0.43, clean drives to 0.38 m/s; one-wheel look in turns, stops up to 0.37 m short |
+| Everyday-stiff (24 Nov) | 51.4 / 4.37 / 10 / 11.8 | Everyday KP/KD with LQR's KV/KX | **Not adopted: jittery at rest.** Kick ζ 0.33, push recovery 0.66 s, stops within ~7 mm, symmetric turns from standstill; slightly more standing wobble (0.138°) and stop overshoot (132 mm). Margins not yet checked on the model |
 | LQR | 73.5 / 4.63 / 10.0 / 11.8 | Rigid model, Q = diag(10, 1, 300, 0.3) on [x, v, θ, θ̇], R = 0.1 | Standing best with comp 1, τ 2.0, no notch (ζ 0.43, pitch std 0.13–0.16°). Shakes at 20 Hz from about 200 mm/s and fell in every drive test. On the comp 2 defaults it has a marginal 5–6 Hz mode. **Shelved.** |
 
 **What was learnt:**
@@ -696,7 +696,7 @@ Before any comparison run, `python3 check_config.py` must print ALL OK, or show 
 | ACCEL_COMP | How the IMU's own acceleration is removed from the accelerometer before correction |
 | GYRO_QR | Learned fraction of the yaw rate appearing on the pitch gyro |
 | Notch | A filter removing a narrow frequency band (20.5 Hz) from the controller output |
-| Everyday-stiff set | KP 51.4, KD 4.37, KV 10, KX 11.8 with comp 2, τ 0.5 and the notch (the default; the earlier everyday set had KV 6.89, KX 6.48) |
+| Everyday set | KP 51.4, KD 4.37, KV 6.89, KX 6.48 with comp 2, τ 0.5 and the notch (the default) |
 | Drive lockout | Refusal of motion after balancing ends, until cleared |
 | Lease / hold | Pico-side and robotd-side expiry times for drive commands |
 
