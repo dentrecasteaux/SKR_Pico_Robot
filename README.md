@@ -46,7 +46,7 @@ The most useful operational pages are:
 ```text
 include/, src/   SKR Pico firmware (C++, PlatformIO, arduino-pico core)
 pi/              Pi service (robotd), web server and pages, CLI, test scripts
-analysis/        Offline analysis (Phase 11 model fitting, scratch scripts)
+analysis/        Offline analysis: Phase 11 model fitting, compare.py (comparison runs), turns.py (turn symmetry)
 tools/           deploy-pi.sh (Pi software), flash-skr.sh (SKR firmware over Wi-Fi, via the Pi)
 docs/            Reference manual, commissioning plan and results
 platformio.ini   Build configuration

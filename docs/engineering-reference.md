@@ -179,13 +179,13 @@ Source: `src/`, `include/`. Build with PlatformIO (arduino-pico core). The archi
 
 ```text
 e        = θ − trim_est − θ_ref                         (rad)
-feedback = KP·e + KD·θ̇ + KV·(v − v_ref) + KX·(x − x_ref)
+feedback = KP·e + KD·θ̇ + KV·(v − v_ref) + KX·(x − x_ref) [+ KI·∫(x − x_ref)dt]
 u        = notch(feedback) + DRIVE_FF·a_ref [+ kick]     then soft-start scale, clamp ±AMAX
 v       += u·dt  (clamp ±VMAX);   x += v·dt
 wheel speeds: v_left = v − w_ref·track/2,  v_right = v + w_ref·track/2   → PIO step rates
 ```
 
-- **θ̇** is the corrected gyro pitch rate. v and x are the *commanded* wheel speed and position (open loop).
+- **θ̇** is the gyro pitch rate less the learned yaw coupling, q − `GYRO_QR`·r, the same rate the attitude filter integrates. Until 24 Nov it was cos(roll)·q − sin(roll)·r, which turned the roll drift in spins into a fake pitch rate. v and x are the *commanded* wheel speed and position (open loop).
 - **Drive references** (from `SET_VELOCITY` in BALANCE mode):
   - **Limits:** V is clamped to ±0.3 m/s and W to ±90 °/s.
   - **Lease:** 100–2000 ms.
@@ -195,6 +195,9 @@ wheel speeds: v_left = v − w_ref·track/2,  v_right = v + w_ref·track/2   →
 - **Drive feed-forward:** θ_ref = `DRIVE_FF`·a_ref/g + `DRIVE_LEAN`·tanh(v_ref/0.05 m/s). That's a lean for acceleration plus a 2° lean against rolling drag.
 - **Automatic trim:** while calm (|v − v_ref| < 0.05 m/s and |θ̇| < 5 °/s), trim_est −= `TRIM_RATE`·(x − x_ref)·dt. It stays within ±`TRIM_RANGE` of `TRIM` and 2° inside the tilt limits.
 - **Notch:** a biquad at 500 Hz, `NOTCH_HZ` 20.5, `NOTCH_Q` 2, on the feedback part only. It costs about 4° of phase at 3 Hz.
+- **Profiled moves** (`MOVE DIST=` / `TURN ANGLE=` while balancing): the firmware ramps up to `MOVE_V` / `TURN_W` and brakes onto the target itself. The distance is taken on x_ref, braking at 0.4 m/s² with feed-forward; the angle on the integrated IMU yaw rate (`HEADING`), braking at 144 °/s². Done when `MOVING=0`. Any drive command or `STOP` cancels a move.
+- **Position integral** `KI` (default 0, off): integrates only while not driving forwards or backwards, resets when a drive starts, limited to ±`KI_MAX`.
+- **Stop before spinning** `SPIN_WAIT` (default 0, off): when on, a turn on the spot asked for while moving waits until the robot has stopped.
 - **Kicks:** `BAL_KICK U= MS=` adds U (|U| ≤ 4 m/s², 10–200 ms) to u. The telemetry flag is 0x80 (with 0x20).
 
 ### 4.3 Motion chain (core 0)
@@ -242,6 +245,7 @@ Details: [pi-controller.md](pi-controller.md), [../pi/README.md](../pi/README.md
 | `robotdctl.py` | CLI for robotd: `status`, `bal-status`, `bal-set K=V…`, `bal-arm`, `bal-stop`, `bal-kick`, `tmc-pwm`, `velocity`, `configure`, `log-start/stop`, `bb-*`, `tuning`, `tuning-clear`, `runs`. |
 | `robotctl.py` | Direct serial client, only with robotd stopped. |
 | `balance_run.py` | Command-line balance attempt with logging and kicks (`--kicks N`, `--div`). Prints the stood time, end reason and l_eff. |
+| `demo_run.py` | Film sequence: out 400 mm, 360° turn, back to the start, 360° the other way, hold. Uses the profiled moves. `--ki`, `--set`, `--turn 180`, `--countdown`. Writes `demo.json`. |
 | `compare_run.py` | Phase 11 comparison protocol: settle, 60 s stand, 10 kicks, 4 pushes, speed steps; writes `compare.json` (all settings and segment times). `--set`/`--tau` apply for that run only. |
 | `check_config.py` | Read-only OK/DIFF check of live settings against the defaults (gains, comp, notch, drivers, PWM, saved tuning). |
 | `dryrun_check.py`, `fall_test.py`, `limits_test.py`, `log_test.py`, `vibe_test.py` | Commissioning tests (phases 5–9) |
@@ -368,13 +372,25 @@ The accelerometer feels the acceleration of the IMU's own location: a(t − τ_d
 
 Above about 150–250 mm/s a 20.5 Hz oscillation can build up. It is fed by the controller output, gets worse with stiffer gains and with estimator drift, and it shows as accelerometer rejects of up to 75 %. The notch at 20.5 Hz, Q 2, removes it: the 16–25 Hz band drops from 17–31 °/s to under 1.4 °/s at speed.
 
-### 7.6 Turning
+### 7.6 Turning (the "lazy wheel")
 
-The wheels follow the turn command. The measured yaw rate matched the 60 °/s set point. Two things make a turn look like "one wheel isn't working":
-1. **Forward speed carried into the turn:** the speed loop's time constant is about 1 s.
-2. **The balance point moves forward in a spin:** about 0.38°·(r in rad/s)², so +0.4° at 60 °/s. The robot creeps 12–25 cm forward until it reaches the new lean.
+The wheels follow the turn command, and the measured yaw rate matches it. A turn adds ±w_ref·track/2 (±114 mm/s at 60 °/s) to the controller's forward speed v. Whenever v is large, one wheel nearly stops. `analysis/turns.py` reports the ratio |v|/|turn speed| per turn: 0 is a clean spin, 1 is one wheel stationary.
 
-A turn-lean feed-forward is the planned fix (section 9).
+**Why v is large in turns:**
+1. **Nothing physical damps fore–aft motion in a spin.** The two wheels' rolling drags are equal and opposite, so they cancel, and only KV and KX hold the robot.
+2. **Speed carried into the turn:** after driving, the robot coasts through the whole spin. It is about +75 mm/s after a stop from 300 mm/s (run 105717).
+3. **A stored offset is released:** standing, the tyre contact band holds the robot off x_ref, at a lean. A spin scrubs the tyres and frees it, and the slow position mode (about 1 rad/s, lightly damped) swings ±100 mm/s. The first swing always heads towards x_ref.
+
+**What was tried (24 Nov):**
+
+| Tried | Result |
+|---|---|
+| Correct pitch rate (no roll term) | Small effect |
+| Position integral `KI` 2–3 | No help |
+| KV 10 / KX 11.8 | Turn ratio 0.05–0.18 against 0.2–0.5; stops within about 7 mm. Jittery at rest, so not adopted |
+| Stop before spinning (`SPIN_WAIT`) | Built, off by default (turning out of a drive is more fun) |
+
+The look is accepted for now. Other options: stiffer KV/KX only while turning, a turn feed-forward, or harder, narrower tyres.
 
 ### 7.7 Identification method (the kick test)
 
@@ -427,6 +443,7 @@ Three sessions with the fixed protocol (section 11.4), on timber laminate. Full 
   - **Direction effect:** the reverse step always falls short.
   - **Order effect:** the second step falls short whichever direction it is.
   - **Ranking:** the stiffer the position loop (KX), the smaller the shortfall.
+- **Everyday-stiff** (KV 10 / KX 11.8, run 101657): kick ζ 0.33, push recovery 0.66 s, final stop error −7 mm, smoothest moving, symmetric turns. But standing pitch RMS 0.138° and stop overshoot 132 mm, and it looked jittery at rest, so it was not adopted.
 - **A faster trim walk doesn't fix it.** `TRIM_RATE` 1.0 instead of 0.25 cut the reverse shortfall only from 228 to 167 mm and raised the stop overshoot from 87 to 142 mm. The trim walks the lean at about 0.15 °/s, but the robot doesn't move until the lean reaches the band's edge, about 15–25 s. `TRIM_RATE` stays at 0.25.
 
 ---
@@ -435,13 +452,13 @@ Three sessions with the fixed protocol (section 11.4), on timber laminate. Full 
 
 | Item | Status | Next action |
 |---|---|---|
-| Turn creep and the "one wheel" look | Understood (7.6) | Turn-lean feed-forward θ_ref += 0.38°·(w_ref in rad/s)², with an on/off setting; test turns from standstill |
+| "Lazy wheel" in turns | Understood (7.6); accepted | If revisited: stiffer KV/KX while turning only, a turn feed-forward, or harder tyres |
 | iPhone drive dropouts | robotd hold raised from 600 to 1500 ms, retry, end reasons shown (24 Nov) | Confirm on the phone; read the reason if it recurs |
 | GYRO_QR learnt while carried | Fixed (24 Nov) | Check learned values in turn runs |
 | Joint damping varies | Accepted for the prototype | Tighten the battery strap, IMU mount and motor mounts |
-| Stopping accuracy (tyre contact band) | Measured (8.1): parks 0–0.5 m short after a move; a faster trim walk doesn't fix it | A direct position integral on u (anti-windup, active only when stopped), or a small dither; harder or narrower tyres |
+| Stopping accuracy (tyre contact band) | Measured (8.1): parks 0–0.5 m short after a move. A faster trim walk doesn't fix it; `KI` (added) didn't help in turn tests. KX 11.8 fixes it but is jittery at rest | Harder or narrower tyres; or try `KI` on the speed steps |
 | Settings logged | Done (24 Nov): every logged run's `meta.json` has `settings_at_start` (BAL_STATUS, IMU, TMC_PWM, saved tuning) and `balance_at_stop` | — |
-| LQR / stiffer gains | Shelved | Possible routes: reduce KX while driving (Klop-style speed mode), better model, Kalman filter |
+| LQR / stiffer gains | Shelved; KV 10 / KX 11.8 with the everyday KP/KD tested (8.1) and not adopted | Possible routes: stiffer gains while turning only, Klop-style speed mode, better model |
 | Turn-induced estimator effects | Small with the current fixes | — |
 | Battery monitoring | None | LiPo alarm on the balance lead; ADC divider later |
 | Physical e-stop | None | Independent motor-power cut-off |
@@ -636,6 +653,7 @@ The baseline is the configuration that passed every gate.
 - **Procedure:** spins on the spot at 30, 45 and 60 °/s from standstill, each 3–5 s. Then turns while moving slowly.
 - **Analysis:** per turn episode, the mean and maximum forward speed, the inner and outer wheel speeds, the measured yaw rate against the command, and the late pitch against the pre-turn pitch.
 - **Pass:** yaw rate within 10 % of the command; forward speed < 20 mm/s in spins on the spot.
+- **Tool:** `R2W_RUNS=../runs python3 analysis/turns.py RUN …` prints the turn rate, the forward speed by quarter of the turn, and the one-wheel ratio.
 
 ### 11.4 Comparison protocol (Phase 11)
 
@@ -671,7 +689,7 @@ Before any comparison run, `python3 check_config.py` must print ALL OK, or show 
 | Almost undamped 4–6 Hz wobble at high gains | Estimator loop (wrong acceleration compensation), or notch phase at marginal gains | Use `ACCEL_COMP=2` with the correct `IMU_H`; try `NOTCH_HZ=0` to test |
 | 20 Hz shake above about 200 mm/s; accelerometer rejects | Drive-train resonance fed by the controller | Notch 20.5 Hz, Q 2; avoid τ 2.0 (estimate drift) |
 | Leans more and more while driving; estimate differs from the accelerometer | τ too long, or wrong compensation | τ 0.5 with comp 2 |
-| "One wheel not working" in turns | Forward speed in the turn (carried over, or creep from the spin lean) | Wait about 1 s after driving before turning; turn-lean feed-forward |
+| "One wheel not working" in turns | Forward speed in the turn: carried over from driving, or a stored offset released (7.6) | Wait about 1 s after driving before turning (or `SPIN_WAIT=1`); stiffer KV/KX |
 | Turn makes it lurch forward in one direction and back in the other | Wrong GYRO_QR | Check `GYRO_QR` in `BAL_STATUS`; it resets each arm |
 | Drive stops after a few seconds (phone) | Request gaps > hold time | Hold 1500 ms; read the reason message |
 | `BALANCE_TRIPPED` on drive | Drive lockout after a fall | **Clear** on the page, or `clear-estop` |
@@ -709,7 +727,8 @@ Before any comparison run, `python3 check_config.py` must print ALL OK, or show 
 | 23 Nov (morning) | Phases 8–10: safety layer, first balance, outer loops, driving and turning, drive feed-forward, GYRO_QR, drive lockout |
 | 23 Nov (day) | 9.4 kick tests and the 94 Hz DLPF; 11.0 wobble investigation (joint friction); web balance page; saved tuning |
 | 23 Nov (evening) | 11.1 model; 11.2 steps to LQR; 11.3 the 4–5 Hz estimator mode → τ 2.0; drive falls with a 20 Hz shake |
-| 24 Nov | Shake traced to τ 2.0 drift and the drive resonance; ACCEL_COMP=2 (IMU at 98 mm); 20.5 Hz notch; everyday set made the default; LQR shelved; GYRO_QR and iPhone fixes; turn analysis |
+| 24 Nov (early) | Shake traced to τ 2.0 drift and the drive resonance; ACCEL_COMP=2 (IMU at 98 mm); 20.5 Hz notch; everyday set made the default; LQR shelved; GYRO_QR and iPhone fixes; turn analysis |
+| 24 Nov (later) | Controller comparison (three sessions); TRIM_RATE test; film demo; profiled MOVE/TURN, KI, SPIN_WAIT, pitch rate without roll; lazy-wheel analysis; KV 10 / KX 11.8 tested and not adopted; settings in `meta.json`; flashing over Wi-Fi (`flash-skr.sh`) |
 
 ## 15. Document map
 

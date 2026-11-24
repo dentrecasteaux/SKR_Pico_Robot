@@ -24,7 +24,7 @@ This manual describes how the robot works now and how it is intended to evolve. 
 
 - [Balancing commissioning plan](balancing-commissioning-plan.md): the phased bring-up used for the two-wheel chassis.
 - [Balancing results](balancing-results.md): dated measurements and test results for phases 1–10 and 11.0.
-- [Phase 11 log](phase11-model.md): the model, the steps to LQR, the estimator and notch fixes, and the drive and turn tests, and the controller comparison sessions (23–24 Nov).
+- [Phase 11 log](phase11-model.md): the model, the steps to LQR, the estimator and notch fixes, and the drive and turn tests, the controller comparison sessions, the film demo and the lazy-wheel investigation (23–24 Nov).
 - [Random questions](RandomQuestions.md): background questions and answers asked during commissioning.
 
 ## Reference and history
