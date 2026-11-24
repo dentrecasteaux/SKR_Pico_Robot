@@ -2,16 +2,18 @@
 
 The balancing robot is commissioned and runs the everyday configuration (see [docs/engineering-reference.md](docs/engineering-reference.md), sections 8–9). The longer-term plan is in [docs/roadmap.md](docs/roadmap.md).
 
+Built on 24 Nov but not yet flashed or tested on the robot: profiled `MOVE` / `TURN` while balancing, the pitch rate without the roll term, the position integral (`KI`, off by default), and `SPIN_WAIT` (off by default).
+
 Next candidates:
 
-- turn-lean feed-forward for spins (θ_ref += 0.38°·(w_ref in rad/s)²), with an on/off setting;
+- flash and check the 24 Nov firmware: a stand, a few drives and turns, and `demo_run.py`;
 - confirm the iPhone drive fix (1.5 s hold, end reasons);
 - log every controller, estimator and filter setting in each run's `meta.json`;
-- a position integral for accurate stopping (anti-windup, active only when stopped), the same for every controller; the comparison (done 24 Nov) showed the robot parks up to 0.5 m short in the tyre contact band, and a faster trim walk doesn't fix it;
+- one-wheel look in turns (accepted for now): options if revisited are the stiffer outer gains while turning only, a turn feed-forward, or harder, narrower tyres (docs/phase11-model.md);
+- stopping accuracy: the robot can park up to about 0.3 m short in the tyre contact band; `KI` didn't help in the turn tests, and the stiffer KX did but looked jittery at rest;
 - a physical push test (pendulum hammer) and the sensitivity tests, to finish the comparison protocol;
 - flash the SKR from the Pi (1200-baud touch + `picotool`);
-- permanent rigid IMU mount at a known height; tighten the battery strap and motor mounts;
+- permanent rigid IMU mount, as low and central as practical (RandomQuestions Q30); tighten the battery strap and motor mounts;
 - battery voltage alarm, then sensing;
 - a physical emergency stop;
-- wheel encoders;
-- a Kalman or LQG estimator for the controller comparison.
+- wheel encoders, then a Kalman or LQG estimator (RandomQuestions Q36).
