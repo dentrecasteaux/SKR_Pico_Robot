@@ -453,7 +453,7 @@ Three sessions with the fixed protocol (section 11.4), on timber laminate. Full 
 | Item | Status | Next action |
 |---|---|---|
 | "Lazy wheel" in turns | Understood (7.6); accepted | If revisited: stiffer KV/KX while turning only, a turn feed-forward, or harder tyres |
-| iPhone drive dropouts | robotd hold raised from 600 to 1500 ms, retry, end reasons shown (24 Nov) | Confirm on the phone; read the reason if it recurs |
+| iPhone drive dropouts | Fixed and confirmed (24 Nov): robotd hold 600 → 1500 ms, retry, end reasons shown | — |
 | GYRO_QR learnt while carried | Fixed (24 Nov) | Check learned values in turn runs |
 | Joint damping varies | Accepted for the prototype | Tighten the battery strap, IMU mount and motor mounts |
 | Stopping accuracy (tyre contact band) | Measured (8.1): parks 0–0.5 m short after a move. A faster trim walk doesn't fix it; `KI` (added) didn't help in turn tests. KX 11.8 fixes it but is jittery at rest | Harder or narrower tyres; or try `KI` on the speed steps |

@@ -4,9 +4,10 @@ The balancing robot is commissioned and runs the everyday configuration (see [do
 
 Added on 24 Nov and used on the robot: profiled `MOVE` / `TURN` while balancing, the pitch rate without the roll term, the position integral (`KI`, off by default) and `SPIN_WAIT` (off by default).
 
-Next candidates:
+**Status, 24 Nov:** paused at the limits of the prototype build (tape and Blu Tack: battery strap, IMU wedge, wiring). Software work is complete for this build; the next real gains need a rebuild. iPhone driving confirmed working.
 
-- confirm the iPhone drive fix (1.5 s hold, end reasons);
+Next candidates (mostly for the rebuild):
+
 - one-wheel look in turns (accepted for now): options if revisited are the stiffer outer gains while turning only, a turn feed-forward, or harder, narrower tyres (docs/phase11-model.md);
 - stopping accuracy: the robot can park up to about 0.3 m short in the tyre contact band; `KI` didn't help in the turn tests, and the stiffer KX did but looked jittery at rest;
 - a physical push test (pendulum hammer) and the sensitivity tests, to finish the comparison protocol;
