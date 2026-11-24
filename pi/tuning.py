@@ -15,7 +15,7 @@ TUNING_PATH = Path.home() / ".config" / "r2w" / "balance_tuning.json"
 # Firmware defaults (Balance::Params, 23 Nov 2026) for the keys the web page
 # can tune and save. Safety limits are deliberately not here.
 TUNING_DEFAULTS: dict[str, float] = {
-    "KP": 51.4, "KD": 4.37, "KV": 6.89, "KX": 6.48, "TRIM": 1.9,
+    "KP": 51.4, "KD": 4.37, "KV": 10.0, "KX": 11.8, "TRIM": 1.9,
     "DRIVE_LEAN": 2.0, "DRIVE_ACCEL": 0.8, "DRIVE_FF": 1.0, "TRIM_RATE": 0.25,
 }
 TUNING_KEYS = tuple(TUNING_DEFAULTS)

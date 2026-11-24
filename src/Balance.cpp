@@ -26,6 +26,8 @@ constexpr float DRIVE_JERK = 4.0F;      // m/s^3
 constexpr float DRIVE_APPROACH = 4.0F;  // 1/s
 constexpr float MOVE_DECEL = 0.4F;      // m/s^2, braking profile for MOVE
 constexpr float TURN_DECEL_DPS2 = 144.0F;  // braking profile for TURN (< TURN_ACCEL)
+constexpr float SPIN_START_V = 0.03F;   // m/s: below this a held spin may start
+constexpr uint32_t SPIN_WAIT_MAX_US = 1500000;
 
 Stepper* leftStepper = nullptr;
 Stepper* rightStepper = nullptr;
@@ -142,6 +144,8 @@ float turnTarget = 0.0F;       // heading target, deg
 uint32_t turnDeadlineUs = 0;
 float headingDeg = 0.0F;       // integrated IMU yaw rate
 float xInt = 0.0F;             // integral of (x - x_ref), m*s
+bool spinWaiting = false;
+uint32_t spinWaitStartUs = 0;
 
 // One step generator per wheel.
 struct Generator
@@ -300,6 +304,7 @@ void resetMotion()
   turnActive = false;
   headingDeg = 0.0F;
   xInt = 0.0F;
+  spinWaiting = false;
   trimEst = p.trimDeg;
 }
 
@@ -417,6 +422,7 @@ bool setParams(const Params& n)
       std::isfinite(n.turnRateDps) && n.turnRateDps >= 5.0F && n.turnRateDps <= MAX_DRIVE_DPS &&
       std::isfinite(n.ki) && n.ki >= 0.0F && n.ki <= 20.0F &&
       std::isfinite(n.kiMax) && n.kiMax >= 0.1F && n.kiMax <= 5.0F &&
+      n.spinWait <= 1 &&
       n.accelComp <= 2 &&
       std::isfinite(n.imuHeightM) && n.imuHeightM >= 0.0F && n.imuHeightM <= 0.5F &&
       std::isfinite(n.compDelayS) && n.compDelayS >= 0.0F && n.compDelayS <= 0.03F &&
@@ -620,6 +626,23 @@ StepOutput step(uint32_t tUs, float pitchDeg, float rollDeg, float qDps,
       turnActive = false;
       wTarget = 0.0F;
     }
+  }
+  // Stop before spinning: hold a turn on the spot until the robot has
+  // stopped moving (once the turn has started it carries on).
+  const bool spinOnly = fabsf(vTarget) < 1e-4F && wTarget != 0.0F;
+  if (p.spinWait && spinOnly && fabsf(wRef) < 1.0F) {
+    const bool moving = fabsf(vRef) > 0.005F || fabsf(v) > SPIN_START_V;
+    if (moving) {
+      if (!spinWaiting) {
+        spinWaiting = true;
+        spinWaitStartUs = tUs;
+      }
+      if (tUs - spinWaitStartUs < SPIN_WAIT_MAX_US) wTarget = 0.0F;
+    } else {
+      spinWaiting = false;
+    }
+  } else {
+    spinWaiting = false;
   }
   // S-curve: a_ref heads for the acceleration that closes the speed gap
   // (at most DRIVE_ACCEL), changing at most DRIVE_JERK per second.

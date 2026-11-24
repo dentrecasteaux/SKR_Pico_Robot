@@ -6,7 +6,7 @@ Started 22 Nov 2026. The SKR Pico robot electronics (14.8 V 4S LiPo, buck conver
 
 **Status (24 Nov 2026):** Phases 1–10 are complete, and Phase 11 is under way.
 - **Phase 11 so far:** model, a stepped LQR trial, then estimator and filter fixes ([phase11-model.md](phase11-model.md)).
-- **Current configuration (firmware defaults):** the everyday gains KP 51.4, KD 4.37, KV 6.89, KX 6.48; ACCEL_COMP 2 (IMU 98 mm above the axle, 10 ms delay); IMU filter τ 0.5 s; a 20.5 Hz Q 2 notch on the controller output; StealthChop at 1.0 A, 1/16.
+- **Current configuration (firmware defaults):** the everyday-stiff gains KP 51.4, KD 4.37, KV 10, KX 11.8 (from 24 Nov; before, KV 6.89, KX 6.48); ACCEL_COMP 2 (IMU 98 mm above the axle, 10 ms delay); IMU filter τ 0.5 s; a 20.5 Hz Q 2 notch on the controller output; StealthChop at 1.0 A, 1/16.
 - **Results:** kick ring 2.3–2.5 Hz, ζ 0.27–0.43, and clean drives to 0.38 m/s.
 - **LQR:** the LQR gains matched it standing but shook at speed, so they are shelved.
 - **Fixed on 24 Nov:** GYRO_QR is learned only while balancing; the web drive hold is 1.5 s (the iPhone dropouts).

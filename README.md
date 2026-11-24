@@ -23,7 +23,7 @@ The most useful operational pages are:
 
 ## Current capabilities
 
-- **Two-wheel balancing:** full-state controller (KP 51.4, KD 4.37, KV 6.89, KX 6.48 by default) on core 1, straight after each 500 Hz IMU sample.
+- **Two-wheel balancing:** full-state controller (KP 51.4, KD 4.37, KV 10, KX 11.8 by default) on core 1, straight after each 500 Hz IMU sample.
 - **Attitude estimate:** complementary filter, τ 0.5 s. The accelerometer is compensated for the IMU's own acceleration (`ACCEL_COMP=2`), and the turn coupling is learned.
 - **A 20.5 Hz notch** on the controller output, against the drive-train resonance.
 - **Driving and turning while balancing,** with an S-curve, drive feed-forward and automatic trim.

@@ -69,8 +69,11 @@ struct Params
   // 0.38 m/s. Before 24 Nov: 36.7 / 4.19 / 4.81 / 2.94 (pole placement).
   float kp = 51.4F;          // m/s^2 per rad
   float kd = 4.37F;          // m/s^2 per rad/s
-  float kv = 6.89F;          // m/s^2 per m/s
-  float kx = 6.48F;          // m/s^2 per m
+  // 24 Nov (later): KV 10 / KX 11.8 (LQR's outer gains with the everyday KP
+  // and KD): kick zeta 0.33, stops within ~7 mm, symmetric turns (run 101657,
+  // demo 101242). Before: KV 6.89 / KX 6.48.
+  float kv = 10.0F;          // m/s^2 per m/s
+  float kx = 11.8F;          // m/s^2 per m
   float trimDeg = 1.9F;      // IMU pitch at the balance point (IMU wedged
                              // under the top plate, 23 Nov; was -3.9)
   float aMax = 6.0F;         // m/s^2
@@ -110,6 +113,12 @@ struct Params
   // the tyre contact band back to x_ref. Same sign convention as KX.
   float ki = 0.0F;           // m/s^2 per (m*s)
   float kiMax = 2.5F;        // m/s^2; spins push with about 1.9 (run 094839)
+  // Stop before spinning (24 Nov): a turn on the spot (no linear target)
+  // requested while the robot is still moving waits until it has stopped
+  // (|v_ref| <= 5 mm/s and |v| <= SPIN_START_V), at most SPIN_WAIT_MAX_S.
+  // Turning straight out of a drive left it coasting at ~75 mm/s through
+  // the spin, so one wheel nearly stood still (run 105717). 0 = off.
+  uint8_t spinWait = 1;
 };
 
 struct Status

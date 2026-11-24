@@ -499,3 +499,11 @@ Standing and pushes repeat session 2 closely: LQR pitch RMS 0.058°, push recove
   - Stop overshoot and the peak pitch on steps are larger (132 mm, 4.5°).
   - It still reaches AMAX on the hard pushes.
 - **Not yet tested:** driving at 300 mm/s, and long drive-and-turn sessions from the web page.
+
+### 24 Nov: web drive (run 105717), then the new defaults and stop-before-spin
+
+- **The drive was on the old defaults:** KV 6.89 / KX 6.48, because `demo_run.py` restores the settings after its run. One-wheel ratios were 0.25–0.84.
+- **Most turns started straight out of a forward drive.** Example at 10.4 s: driving at about 300 mm/s, forward released, left pressed. The robot coasted at about +75 mm/s through the whole spin (left −43, right +191 mm/s), then stopped within 0.2 s of the turn ending.
+- **Changes:**
+  - **New firmware defaults:** KV 10, KX 11.8 (the everyday-stiff set), in the firmware and in the Pi's `DEFAULTS`.
+  - **`SPIN_WAIT` (default 1):** a turn on the spot asked for while moving waits until the robot has stopped (≤ 30 mm/s, at most 1.5 s), so every spin starts from rest.

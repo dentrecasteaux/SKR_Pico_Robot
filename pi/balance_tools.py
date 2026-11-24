@@ -18,7 +18,7 @@ FLAG_KICK = 0x80   # with FLAG_ACTIVE: an identification kick is applied
 SOCK = default_socket_path()
 
 # Firmware defaults (Balance::Params). Floor runs restore the safety values.
-DEFAULTS = {"KP": 51.4, "KD": 4.37, "KV": 6.89, "KX": 6.48, "TRIM": 1.9,
+DEFAULTS = {"KP": 51.4, "KD": 4.37, "KV": 10.0, "KX": 11.8, "TRIM": 1.9,
             "AMAX": 6.0, "VMAX": 0.55, "SOFT": 0.3, "TILT_FWD": 10.7,
             "TILT_BACK": -14.7, "ARM_WINDOW": 2.0, "ARM_RATE": 20.0,
             "ARM_TIMEOUT": 20.0, "RUNAWAY": 0.3, "ACCEL_COMP": 2}
